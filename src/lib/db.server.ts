@@ -88,6 +88,24 @@ export async function ensureDatabase(database: D1Database = db()) {
   await ensureColumn(database, "pack_options", "price_a", "INTEGER");
   await ensureColumn(database, "pack_options", "price_b", "INTEGER");
 
+  const demoSeeded = await database
+    .prepare("SELECT value FROM app_settings WHERE key = 'demo_customer_seeded'")
+    .first<{ value: string }>();
+  if (!demoSeeded) {
+    await database.batch([
+      database.prepare(`
+        INSERT OR IGNORE INTO customers
+          (id, code, name, phone, business_number, address, store_phone, region, price_group, auth_salt, auth_hash, active)
+        VALUES
+          ('C-DEMO-001', 'TEST-01', '테스트식당', '', '', '테스트용 거래처', '', '1단지', 'A', ?, ?, 1)
+      `).bind(
+        "b3e4136af443d765d26815d6c5979e3b",
+        "86675eeae56d8a50cc8b1de885b489b2eac516281c147880f2cb9e6490b4a458",
+      ),
+      database.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('demo_customer_seeded', '1')"),
+    ]);
+  }
+
   const temporary = await database
     .prepare("SELECT hash FROM admin_credentials WHERE id = 1")
     .first<{ hash: string }>();
