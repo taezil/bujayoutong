@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
@@ -773,7 +773,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
       </div>
 
       <div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>주문</th><th>지역</th><th>품목</th><th>금액</th><th>상태/처리</th></tr></thead><tbody>
-        {orders.slice(0, 80).map((o) => <tr key={o.id}>
+        {orders.slice(0, 80).map((o) => <tr key={o.id} data-order-id={o.id}>
           <td><b>{o.customerCode} · {o.customerName} {o.isAdditional && <em className="additional-badge">🚨 추가발주</em>}</b><span>배송 {o.deliveryDate || "미지정"} · <strong className="order-period-badge">{o.orderPeriod === "PM" ? "오후발주" : "오전발주"}</strong> · {o.createdAt} · {o.createdByStaffName || o.source}</span></td><td>{o.region || "미지정"}</td>
           <td><div className="order-item-lines">{o.items.map((i) => <div className="order-item-admin" key={i.id}><button type="button" title={o.status === "shipped" ? "출고완료 품목" : "단가수정"} onClick={() => { if (o.status === "shipped") return; const next = window.prompt(`${i.productName} 단가`, String(i.unitPrice)); if (next !== null && Number(next) >= 0) void action({ action: "update-price", id: o.id, itemId: i.id, unitPrice: Number(next) }); }}>{i.productName} {i.quantity}{i.optionLabel} · {new Intl.NumberFormat("ko-KR").format(i.unitPrice)}원</button>{o.status === "shipped" && <span className="shipment-adjust-buttons"><button type="button" onClick={() => { const q = window.prompt(`${i.productName} 반품 수량 (${i.optionLabel})`, "1"); if (q && Number(q) > 0) void action({ action: "adjust-shipment", id: o.id, itemId: i.id, quantity: Number(q), adjustmentType: "return" }); }}>반품</button><button type="button" onClick={() => { const q = window.prompt(`${i.productName} 미배송 수량 (${i.optionLabel})`, "1"); if (q && Number(q) > 0) void action({ action: "adjust-shipment", id: o.id, itemId: i.id, quantity: Number(q), adjustmentType: "missing" }); }}>미배송</button></span>}</div>)}</div>{o.adjustments?.length > 0 && <div className="adjustment-history">{o.adjustments.map((a) => <span key={a.id}>{a.type === "missing" ? "미배송" : "반품"} {a.quantity} · -{new Intl.NumberFormat("ko-KR").format(a.amount)}원</span>)}</div>}</td>
           <td>{new Intl.NumberFormat("ko-KR").format(o.total)}원</td>
@@ -869,27 +869,50 @@ function SupplierPanel({ onError }: { onError: (value: string) => void }) {
 
 function AuditPanel() {
   const [rows, setRows] = useState<AuditRow[]>([]);
-  async function load() { const r = await fetch("/api/admin/audit", { cache: "no-store" }); if (r.ok) setRows(((await r.json()) as { logs: AuditRow[] }).logs); }
-  useEffect(() => { void load(); const t = window.setInterval(() => void load(), 5000); return () => window.clearInterval(t); }, []);
+  const [unreadIds, setUnreadIds] = useState<number[]>([]);
+  const latestIdRef = useRef(0);
+  async function load() {
+    const r = await fetch("/api/admin/audit", { cache: "no-store" });
+    if (!r.ok) return;
+    const next = ((await r.json()) as { logs: AuditRow[] }).logs;
+    const maxId = next.reduce((max, row) => Math.max(max, row.id), 0);
+    if (latestIdRef.current > 0 && maxId > latestIdRef.current) {
+      const fresh = next.filter((row) => row.id > latestIdRef.current).map((row) => row.id);
+      setUnreadIds((current) => Array.from(new Set([...current, ...fresh])));
+    }
+    latestIdRef.current = Math.max(latestIdRef.current, maxId);
+    setRows(next);
+  }
+  useEffect(() => { void load(); const t = window.setInterval(() => void load(), 3000); return () => window.clearInterval(t); }, []);
   function meta(row: AuditRow) {
-    if (row.action === "field_order" || row.action === "admin_order") return { icon: "🚨", level: "urgent", label: "새 발주", target: "admin-orders" };
+    if (row.action === "field_order" || row.action === "admin_order" || row.action === "customer_order") return { icon: "🚨", level: "urgent", label: "새 발주", target: "admin-orders" };
     if (row.action === "return" || row.action === "missing") return { icon: "⚠️", level: "warning", label: row.action === "return" ? "반품" : "미배송", target: "admin-orders" };
     if (row.action === "ship") return { icon: "📦", level: "normal", label: "출고", target: "admin-orders" };
     if (row.action === "payment") return { icon: "💰", level: "normal", label: "입금", target: "admin-customers" };
+    if (row.action === "print_load_sheet") return { icon: "📋", level: "normal", label: "상차표", target: "admin-orders" };
     if (row.entity_type === "staff") return { icon: "👤", level: "normal", label: "계정", target: "accounts" };
     if (row.entity_type === "product") return { icon: "🛠️", level: "normal", label: "상품", target: "admin-products" };
     if (row.entity_type === "customer") return { icon: "🏪", level: "normal", label: "거래처", target: "admin-customers" };
     if (row.entity_type === "inventory") return { icon: "📦", level: "normal", label: "재고", target: "admin-inventory" };
     return { icon: "•", level: "normal", label: "작업", target: "" };
   }
+  function flash(element: Element | null) {
+    if (!element) return;
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    element.classList.add("audit-target-flash");
+    window.setTimeout(() => element.classList.remove("audit-target-flash"), 1800);
+  }
   function open(row: AuditRow) {
+    setUnreadIds((current) => current.filter((id) => id !== row.id));
     const info = meta(row);
     if (info.target === "accounts") { window.location.href = "/admin/accounts"; return; }
-    const element = info.target ? document.getElementById(info.target) : null;
-    element?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (element) { element.classList.add("audit-target-flash"); window.setTimeout(() => element.classList.remove("audit-target-flash"), 1800); }
+    if (row.entity_type === "order" && row.entity_id) {
+      const orderRow = document.querySelector(`[data-order-id="${CSS.escape(row.entity_id)}"]`);
+      if (orderRow) { flash(orderRow); return; }
+    }
+    flash(info.target ? document.getElementById(info.target) : null);
   }
-  return <div className="side-panel audit-panel"><div className="side-panel-head"><div><p>② 실시간 작업기록</p><h2>최근 이력</h2></div><button type="button" onClick={() => void load()}>↻</button></div><div className="audit-list">{rows.slice(0, 30).map((row) => { const info = meta(row); return <button type="button" className={`audit-item ${info.level}`} key={row.id} onClick={() => open(row)}><div className="audit-item-top"><span className="audit-icon">{info.icon}</span><span className="audit-label">{info.label}</span><time>{row.created_at.slice(5, 16)}</time></div><strong>{row.actor_name || "시스템"}</strong><p>{row.summary}</p><small>클릭해서 관련 업무로 이동</small></button>; })}{!rows.length && <p className="side-empty">아직 작업이력이 없습니다.</p>}</div></div>;
+  return <div className="side-panel audit-panel"><div className="side-panel-head"><div><p>② 실시간 알림</p><h2>최근 이력 {unreadIds.length > 0 && <em className="audit-unread-count">{unreadIds.length}</em>}</h2></div><button type="button" onClick={() => void load()}>↻</button></div><div className="audit-list">{rows.slice(0, 30).map((row) => { const info = meta(row); const unread = unreadIds.includes(row.id); return <button type="button" className={`audit-item ${info.level} ${unread ? "unread" : ""}`} key={row.id} onClick={() => open(row)}><div className="audit-item-top"><span className="audit-icon">{info.icon}</span><span className="audit-label">{info.label}</span>{unread && <span className="audit-new-dot">NEW</span>}<time>{row.created_at.slice(5, 16)}</time></div><strong>{row.actor_name || "시스템"}</strong><p>{row.summary}</p><small>{row.entity_type === "order" ? "클릭하면 해당 주문으로 이동" : "클릭해서 관련 업무로 이동"}</small></button>; })}{!rows.length && <p className="side-empty">아직 작업이력이 없습니다.</p>}</div></div>;
 }
 
 function StaffOpsPanel({ onError }: { onError: (value: string) => void }) {
