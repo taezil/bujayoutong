@@ -9,5 +9,12 @@
     "directory": "./dist/client",
     "binding": "ASSETS",
     "not_found_handling": "none"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bujafood-db",
+      "database_id": "062e1d43-f5cd-48ec-a359-8fb73bf95374"
+    }
+  ]
 }
