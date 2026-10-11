@@ -105,7 +105,10 @@ function AdminPage() {
   }
 
   async function logout() {
-    await jsonPost("/api/admin/logout", {});
+    await Promise.allSettled([
+      jsonPost("/api/admin/logout", {}),
+      fetch("/api/staff/logout", { method: "POST" }),
+    ]);
     setStore(null);
     setStatus({ setupRequired: false, authenticated: false, staff: null });
   }
@@ -538,7 +541,7 @@ type AdminOrderItem = {
 type AdminOrder = {
   id: string; customerId: string; customerCode: string; customerName: string; source: string; status: string;
   region: string; total: number; note: string; createdAt: string; printedAt: string | null; shippedAt: string | null;
-  deliveryDate: string; isAdditional: boolean; createdByStaffName: string;
+  deliveryDate: string; isAdditional: boolean; createdByStaffName: string; orderPeriod: "AM" | "PM"; loadPrintedAt: string | null;
   items: AdminOrderItem[];
   adjustments: Array<{ id: number; itemId: number; type: string; quantity: number; amount: number; actorName: string; note: string; createdAt: string }>;
 };
@@ -640,7 +643,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
   const [optionLabel, setOptionLabel] = useState(product?.packOptions[0]?.label ?? "");
   const [qty, setQty] = useState(1);
   const [manualItems, setManualItems] = useState<Array<{ productId: string; productName: string; optionLabel: string; quantity: number }>>([]);
-  const [source, setSource] = useState("phone");
+  const [orderPeriodValue, setOrderPeriodValue] = useState<"AM" | "PM">(() => orderPeriod(new Date().toISOString().replace("T"," ").replace("Z","")) === "오후발주" ? "PM" : "AM");
   const [productSearch, setProductSearch] = useState(product?.name ?? "");
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [deliveryDate, setDeliveryDate] = useState(kstDateLocal(0));
@@ -657,7 +660,11 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
       if (!customerId && list[0]) setCustomerId(list[0].id);
     }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(), 5000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     const next = store.products.find((p) => p.id === productId);
     if (next && !next.packOptions.some((o) => o.label === optionLabel)) setOptionLabel(next.packOptions[0]?.label ?? "");
@@ -676,7 +683,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
   async function createManualOrder(confirmAnomaly = false) {
     if (!customerId || !manualItems.length) return;
     onError("");
-    const response = await fetch("/api/admin/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create-order", customerId, source, deliveryDate, confirmAnomaly, items: manualItems.map((i) => ({ productId: i.productId, optionLabel: i.optionLabel, quantity: i.quantity })) }) });
+    const response = await fetch("/api/admin/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create-order", customerId, deliveryDate, orderPeriod: orderPeriodValue, confirmAnomaly, items: manualItems.map((i) => ({ productId: i.productId, optionLabel: i.optionLabel, quantity: i.quantity })) }) });
     const data = await response.json() as { error?: string; warning?: boolean; warnings?: Array<{ message: string }> };
     if (response.status === 409 && data.warning) {
       const details = (data.warnings ?? []).map((row) => `• ${row.message}`).join("\n");
@@ -709,20 +716,32 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
         {regions.map((region) => {
           const rows = active.filter((o) => (o.region || "미지정") === region);
           const unprinted = rows.filter((o) => !o.printedAt).length;
-          return <div className="region-card" key={region}><div><strong>{region}</strong><span>주문 {rows.length}건 · 신규 {unprinted}건</span></div><div>
-            <button type="button" disabled={!unprinted} onClick={() => window.open(`/api/admin/print-orders?region=${encodeURIComponent(region)}&deliveryDate=${encodeURIComponent(deliveryDate)}&unprinted=1`, "_blank")}>거래명세표 출력</button>
-            <button type="button" disabled={!unprinted} onClick={() => { if (window.confirm(`${region} 신규 주문을 출력완료로 표시할까요?`)) void action({ action: "mark-region-printed", region, deliveryDate }); }}>출력완료</button>
-          </div></div>;
+          const loadPending = rows.filter((o) => !o.loadPrintedAt);
+          const loadCustomers = new Set(loadPending.map((o) => o.customerId)).size;
+          const loadLines = loadPending.reduce((sum, o) => sum + o.items.length, 0);
+          const recommendLoadSheet = loadCustomers >= 10 || loadLines >= 30;
+          return <div className={`region-card ${recommendLoadSheet ? "load-recommended" : ""}`} key={region}>
+            <div><strong>{region}</strong><span>주문 {rows.length}건 · 명세표 신규 {unprinted}건</span><small>상차대기 {loadCustomers}곳 · 품목 {loadLines}줄 {recommendLoadSheet ? "· 상차준비표 출력 권장" : "· 필요 시 선택 출력"}</small></div>
+            <div className="region-card-actions">
+              <button type="button" disabled={!unprinted} onClick={() => window.open(`/api/admin/print-orders?region=${encodeURIComponent(region)}&deliveryDate=${encodeURIComponent(deliveryDate)}&unprinted=1`, "_blank")}>거래명세표</button>
+              <button type="button" disabled={!unprinted} onClick={() => { if (window.confirm(`${region} 거래명세표 신규분을 출력완료로 표시할까요?`)) void action({ action: "mark-region-printed", region, deliveryDate }); }}>명세표 완료</button>
+              <button type="button" className={recommendLoadSheet ? "recommended" : ""} disabled={!loadPending.length} onClick={() => window.open(`/api/admin/print-load-sheet?region=${encodeURIComponent(region)}&deliveryDate=${encodeURIComponent(deliveryDate)}&pending=1`, "_blank")}>{recommendLoadSheet ? "🚨 상차준비표" : "상차준비표"}</button>
+              <button type="button" disabled={!loadPending.length} onClick={() => { if (window.confirm(`${region} 현재 상차대기분을 출력완료로 표시할까요? 이후 들어오는 주문은 다음 추가분으로 자동 분리됩니다.`)) void action({ action: "mark-load-printed", region, deliveryDate }); }}>상차표 완료</button>
+            </div>
+          </div>;
         })}
         {!regions.length && <p className="ops-empty">현재 출고대기 주문이 없습니다.</p>}
       </div>
 
       <div className="manual-order-box">
-        <div className="manual-order-title"><div><h3>전화·문자 주문 대신 입력</h3><p>직원이 이 화면에서 입력하면 앱 주문과 동일하게 재고·미수·전표 흐름에 들어갑니다.</p></div><span className="order-period-chip">{orderPeriod(new Date().toISOString().replace("T"," ").replace("Z",""))}</span></div>
+        <div className="manual-order-title"><div><h3>주문발주 입력</h3><p>직원이 대신 입력한 주문도 앱 주문과 동일하게 재고·미수·전표 흐름에 반영됩니다.</p></div></div>
         <div className="manual-order-controls">
           <select className="manual-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>{customers.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
-          <select className="manual-source" value={source} onChange={(e) => setSource(e.target.value)}><option value="phone">전화발주</option><option value="sms">문자발주</option><option value="admin">직접입력</option></select>
           <label className="manual-date"><span>배송일</span><input type="date" value={deliveryDate} min={kstDateLocal(0)} onChange={(e) => setDeliveryDate(e.target.value)} /></label>
+          <div className="order-period-toggle" role="group" aria-label="발주 시간대">
+            <button type="button" className={orderPeriodValue === "AM" ? "selected" : ""} onClick={() => setOrderPeriodValue("AM")}>오전발주</button>
+            <button type="button" className={orderPeriodValue === "PM" ? "selected" : ""} onClick={() => setOrderPeriodValue("PM")}>오후발주</button>
+          </div>
           <div className="product-autocomplete">
             <input
               value={productSearch}
@@ -750,12 +769,12 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
           <button type="button" className="manual-add-item" onClick={addManualItem}>품목 추가</button>
         </div>
         {manualItems.length > 0 && <div className="manual-items">{manualItems.map((item, index) => <span key={`${item.productId}-${index}`}>{item.productName} {item.quantity}{item.optionLabel}<button type="button" onClick={() => setManualItems((x) => x.filter((_, i) => i !== index))}>×</button></span>)}</div>}
-        <button className="admin-primary" type="button" disabled={!customerId || !manualItems.length} onClick={() => void createManualOrder(false)}>이 주문 접수</button>
+        <div className="manual-submit-row"><button className="admin-primary" type="button" disabled={!customerId || !manualItems.length} onClick={() => void createManualOrder(false)}>이 주문 접수</button></div>
       </div>
 
       <div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>주문</th><th>지역</th><th>품목</th><th>금액</th><th>상태/처리</th></tr></thead><tbody>
         {orders.slice(0, 80).map((o) => <tr key={o.id}>
-          <td><b>{o.customerCode} · {o.customerName} {o.isAdditional && <em className="additional-badge">🚨 추가발주</em>}</b><span>배송 {o.deliveryDate || "미지정"} · <strong className="order-period-badge">{orderPeriod(o.createdAt)}</strong> · {o.createdAt} · {o.createdByStaffName || o.source}</span></td><td>{o.region || "미지정"}</td>
+          <td><b>{o.customerCode} · {o.customerName} {o.isAdditional && <em className="additional-badge">🚨 추가발주</em>}</b><span>배송 {o.deliveryDate || "미지정"} · <strong className="order-period-badge">{o.orderPeriod === "PM" ? "오후발주" : "오전발주"}</strong> · {o.createdAt} · {o.createdByStaffName || o.source}</span></td><td>{o.region || "미지정"}</td>
           <td><div className="order-item-lines">{o.items.map((i) => <div className="order-item-admin" key={i.id}><button type="button" title={o.status === "shipped" ? "출고완료 품목" : "단가수정"} onClick={() => { if (o.status === "shipped") return; const next = window.prompt(`${i.productName} 단가`, String(i.unitPrice)); if (next !== null && Number(next) >= 0) void action({ action: "update-price", id: o.id, itemId: i.id, unitPrice: Number(next) }); }}>{i.productName} {i.quantity}{i.optionLabel} · {new Intl.NumberFormat("ko-KR").format(i.unitPrice)}원</button>{o.status === "shipped" && <span className="shipment-adjust-buttons"><button type="button" onClick={() => { const q = window.prompt(`${i.productName} 반품 수량 (${i.optionLabel})`, "1"); if (q && Number(q) > 0) void action({ action: "adjust-shipment", id: o.id, itemId: i.id, quantity: Number(q), adjustmentType: "return" }); }}>반품</button><button type="button" onClick={() => { const q = window.prompt(`${i.productName} 미배송 수량 (${i.optionLabel})`, "1"); if (q && Number(q) > 0) void action({ action: "adjust-shipment", id: o.id, itemId: i.id, quantity: Number(q), adjustmentType: "missing" }); }}>미배송</button></span>}</div>)}</div>{o.adjustments?.length > 0 && <div className="adjustment-history">{o.adjustments.map((a) => <span key={a.id}>{a.type === "missing" ? "미배송" : "반품"} {a.quantity} · -{new Intl.NumberFormat("ko-KR").format(a.amount)}원</span>)}</div>}</td>
           <td>{new Intl.NumberFormat("ko-KR").format(o.total)}원</td>
           <td><div className="row-actions"><span>{o.status === "shipped" ? "출고완료" : o.status === "cancelled" ? "취소" : o.printedAt ? "출력완료" : "접수"}</span>{o.status !== "shipped" && o.status !== "cancelled" && <><button type="button" onClick={() => { if (window.confirm(`${o.customerName} 주문을 출고확정할까요? 재고와 미수금이 반영됩니다.`)) void action({ action: "ship", id: o.id }); }}>출고확정</button><button type="button" onClick={() => { if (window.confirm("이 주문을 취소할까요?")) void action({ action: "cancel", id: o.id }); }}>취소</button></>}</div></td>
