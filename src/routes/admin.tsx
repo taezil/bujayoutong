@@ -657,7 +657,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
     if (cr.ok) {
       const list = ((await cr.json()) as { customers: AdminCustomer[] }).customers;
       setCustomers(list);
-      if (!customerId && list[0]) setCustomerId(list[0].id);
+      setCustomerId((current) => current || list[0]?.id || "");
     }
   }
   useEffect(() => {
