@@ -41,17 +41,26 @@ export const Route = createFileRoute("/api/admin/customer-users")({
           const username = cleanText(body.username, 40).toLowerCase();
           const displayName = cleanText(body.displayName, 80);
           if (!displayName || !/^[a-z0-9._-]{2,40}$/.test(username)) throw new Error("이름과 직원 아이디를 확인해 주세요.");
-          await db().prepare("UPDATE customer_users SET username=?,display_name=?,updated_at=datetime('now') WHERE id=?").bind(username, displayName, id).run();
+          await db().batch([
+            db().prepare("UPDATE customer_users SET username=?,display_name=?,updated_at=datetime('now') WHERE id=?").bind(username, displayName, id),
+            db().prepare("DELETE FROM customer_sessions WHERE customer_user_id=?").bind(id),
+          ]);
           return Response.json({ ok: true });
         }
         if (action === "reset-pin") {
           const credential = await makeCustomerPinCredential(cleanText(body.pin, 6));
-          await db().prepare("UPDATE customer_users SET auth_salt=?,auth_hash=?,updated_at=datetime('now') WHERE id=?").bind(credential.salt, credential.hash, id).run();
+          await db().batch([
+            db().prepare("UPDATE customer_users SET auth_salt=?,auth_hash=?,updated_at=datetime('now') WHERE id=?").bind(credential.salt, credential.hash, id),
+            db().prepare("DELETE FROM customer_sessions WHERE customer_user_id=?").bind(id),
+          ]);
           return Response.json({ ok: true });
         }
         if (action === "toggle") {
           const active = body.active === true || body.active === 1;
-          await db().prepare("UPDATE customer_users SET active=?,updated_at=datetime('now') WHERE id=?").bind(active ? 1 : 0, id).run();
+          await db().batch([
+            db().prepare("UPDATE customer_users SET active=?,updated_at=datetime('now') WHERE id=?").bind(active ? 1 : 0, id),
+            ...(!active ? [db().prepare("DELETE FROM customer_sessions WHERE customer_user_id=?").bind(id)] : []),
+          ]);
           return Response.json({ ok: true });
         }
         throw new Error("지원하지 않는 작업입니다.");
