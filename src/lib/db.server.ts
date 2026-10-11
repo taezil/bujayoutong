@@ -1,5 +1,6 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { bindings } from "./bindings.server";
+import migrationSql from "../../migrations/0001_init.sql?raw";
 
 export type PackOption = {
   label: string;
@@ -34,8 +35,27 @@ export function db(): D1Database {
   return value;
 }
 
+async function ensureDatabase(database: D1Database) {
+  const ready = await database
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='products'")
+    .first();
+  if (!ready) {
+    await database.exec(migrationSql);
+    await database.batch([
+      database.prepare("DELETE FROM app_settings WHERE key = 'bootstrap_key'"),
+      database
+        .prepare("INSERT OR IGNORE INTO admin_credentials (id, salt, hash) VALUES (1, ?, ?)")
+        .bind(
+          "b5860ebdd463ecc2586a47d9f79bbb69",
+          "feec86898d5d72f592cfe375e965b00acbcf1ed49b3f8c102980df331833d462",
+        ),
+    ]);
+  }
+}
+
 export async function readStore(): Promise<StoreData> {
   const database = db();
+  await ensureDatabase(database);
   const [categoryRows, subRows, productRows, optionRows, settingsRows] = await Promise.all([
     database.prepare("SELECT name, sort_order, is_promo FROM categories ORDER BY sort_order, name").all(),
     database.prepare("SELECT category_name, name, sort_order FROM subcategories ORDER BY category_name, sort_order, name").all(),
