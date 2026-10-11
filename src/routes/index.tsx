@@ -239,6 +239,7 @@ function StorePage() {
           </a>
           <div className="session-actions customer-session-actions">
             <span><b>{auth.customer.loginName || auth.customer.name}</b><small>{auth.customer.code} · {auth.customer.loginName ? auth.customer.name : "거래처"}</small></span>
+            <a className="price-list-shortcut" href="/price-list">단가표</a>
             <button type="button" onClick={logoutCustomer}>로그아웃</button>
           </div>
         </div>
@@ -261,6 +262,7 @@ function StorePage() {
             <button type="button" className="event" onClick={() => chooseCategory(store.promoCategory)}>🚨 행사상품</button>
             <button type="button" className="weekday" disabled={!dashboard?.weekdayTemplates?.some((row) => row.items.length)} onClick={() => setWeekdayOpen(true)}>📅 요일별 지난 주문</button>
             <button type="button" onClick={() => { setCategory("전체"); setQuery(""); window.setTimeout(() => searchRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50); }}>🔎 전체상품</button>
+            <button type="button" onClick={() => { window.location.href = "/price-list"; }}>📋 부자유통 단가표</button>
           </div>
         </section>
 
@@ -472,6 +474,7 @@ function CustomerLogin({ onSuccess }: { onSuccess: () => Promise<void> }) {
           {error && <p className="form-error">{error}</p>}
           <button type="submit" disabled={busy || !code.trim() || pin.length !== 6}>{busy ? "확인 중..." : "로그인"}</button>
         </form>
+        <a className="login-price-list-link" href="/price-list">로그인 없이 부자유통 단가표 보기</a>
         <small>인증번호를 모르시면 부자유통으로 문의해 주세요.</small>
       </main>
     </div>
