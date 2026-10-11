@@ -50,6 +50,11 @@ function StorePage() {
     ...categoryNames.filter((name) => name !== store.promoCategory),
   ];
 
+  const promoProducts = useMemo(
+    () => store.products.filter((product) => product.category === store.promoCategory),
+    [store.products, store.promoCategory],
+  );
+
   const filtered = useMemo(() => {
     const needle = normalize(query);
     return store.products.filter((product) => {
@@ -118,6 +123,13 @@ function StorePage() {
           </div>
         </section>
 
+        {promoProducts.length > 0 && (
+          <PromoCarousel
+            products={promoProducts}
+            onOrder={(product) => setSelected(product)}
+          />
+        )}
+
         <section className="category-zone" aria-label="상품 분류">
           <div className="wrap">
             <nav className="category-rail">
@@ -180,43 +192,12 @@ function StorePage() {
           {filtered.length ? (
             <div className="product-grid">
               {filtered.map((product) => (
-                <article
-                  className={`product-card ${product.category === store.promoCategory ? "promo-card" : ""} ${product.soldout ? "soldout" : ""}`}
+                <ProductCard
                   key={product.id}
-                >
-                  <div className="product-image">
-                    {product.photo ? (
-                      <img src={product.photo} alt={product.name} loading="lazy" />
-                    ) : (
-                      <div className="image-placeholder">
-                        <img src="/assets/brand-icon.svg" alt="" />
-                      </div>
-                    )}
-                    {product.category === store.promoCategory && <span className="event-badge">🚨 긴급 행사 상품</span>}
-                    {product.soldout && <span className="soldout-badge">품절</span>}
-                  </div>
-                  <div className="product-info">
-                    <p className="product-meta">{product.category} · {product.sub}</p>
-                    <h3>{product.name}</h3>
-                    <p className="product-unit">{product.unit || "규격 문의"}</p>
-                    <div className="price-line">
-                      <strong>
-                        {product.packOptions.some((option) => option.price !== null)
-                          ? won(Math.min(...product.packOptions.filter((option) => option.price !== null).map((option) => option.price as number)))
-                          : "가격 문의"}
-                      </strong>
-                      {product.packOptions.some((option) => option.price !== null) && <span>원{product.packOptions.length > 1 ? "부터" : ""}</span>}
-                    </div>
-                  </div>
-                  <button
-                    className="order-strip"
-                    type="button"
-                    disabled={product.soldout}
-                    onClick={() => setSelected(product)}
-                  >
-                    {product.soldout ? "품절" : "문자 주문"} <span aria-hidden="true">→</span>
-                  </button>
-                </article>
+                  product={product}
+                  promoCategory={store.promoCategory}
+                  onOrder={() => setSelected(product)}
+                />
               ))}
             </div>
           ) : (
@@ -252,6 +233,169 @@ function StorePage() {
         />
       )}
     </div>
+  );
+}
+
+
+function PromoCarousel({
+  products,
+  onOrder,
+}: {
+  products: Product[];
+  onOrder: (product: Product) => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const resumeTimerRef = useRef<number | null>(null);
+  const [paused, setPaused] = useState(false);
+  const repeatedProducts = products.length > 1 ? [...products, ...products] : products;
+
+  function pauseTemporarily() {
+    setPaused(true);
+    if (resumeTimerRef.current !== null) window.clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = window.setTimeout(() => setPaused(false), 2600);
+  }
+
+  function scrollByViewport(direction: -1 | 1) {
+    const track = trackRef.current;
+    if (!track) return;
+    pauseTemporarily();
+    track.scrollBy({
+      left: direction * Math.max(260, track.clientWidth * 0.72),
+      behavior: "smooth",
+    });
+  }
+
+  useEffect(() => {
+    return () => {
+      if (resumeTimerRef.current !== null) window.clearTimeout(resumeTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track || products.length < 2) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let frame = 0;
+    let previous = 0;
+    const pixelsPerSecond = 18;
+
+    const animate = (time: number) => {
+      if (!previous) previous = time;
+      const elapsed = Math.min(time - previous, 60);
+      previous = time;
+
+      if (!paused) {
+        track.scrollLeft += (pixelsPerSecond * elapsed) / 1000;
+        const loopPoint = track.scrollWidth / 2;
+        if (loopPoint > 0 && track.scrollLeft >= loopPoint) {
+          track.scrollLeft -= loopPoint;
+        }
+      }
+
+      frame = window.requestAnimationFrame(animate);
+    };
+
+    frame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(frame);
+  }, [paused, products.length]);
+
+  return (
+    <section className="promo-showcase" aria-labelledby="promo-title">
+      <div className="wrap promo-showcase-inner">
+        <div className="promo-heading">
+          <div>
+            <p>오늘 먼저 확인하세요</p>
+            <h2 id="promo-title">🚨 행사품목</h2>
+            <span>가만히 두면 자동으로 이동하고, 직접 넘겨서 상품을 볼 수도 있습니다.</span>
+          </div>
+          <div className="promo-controls" aria-label="행사상품 슬라이드 이동">
+            <button type="button" onClick={() => scrollByViewport(-1)} aria-label="이전 행사상품">←</button>
+            <button type="button" onClick={() => scrollByViewport(1)} aria-label="다음 행사상품">→</button>
+          </div>
+        </div>
+
+        <div
+          ref={trackRef}
+          className="promo-track"
+          onPointerDown={pauseTemporarily}
+          onTouchStart={pauseTemporarily}
+          onWheel={pauseTemporarily}
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => {
+            if (resumeTimerRef.current !== null) window.clearTimeout(resumeTimerRef.current);
+            resumeTimerRef.current = window.setTimeout(() => setPaused(false), 900);
+          }}
+          onFocusCapture={() => setPaused(true)}
+          onBlurCapture={() => {
+            if (resumeTimerRef.current !== null) window.clearTimeout(resumeTimerRef.current);
+            resumeTimerRef.current = window.setTimeout(() => setPaused(false), 900);
+          }}
+        >
+          {repeatedProducts.map((product, index) => (
+            <ProductCard
+              key={`${product.id}-promo-${index}`}
+              product={product}
+              promoCategory={product.category}
+              onOrder={() => onOrder(product)}
+              extraClassName="promo-slide-card"
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProductCard({
+  product,
+  promoCategory,
+  onOrder,
+  extraClassName = "",
+}: {
+  product: Product;
+  promoCategory: string;
+  onOrder: () => void;
+  extraClassName?: string;
+}) {
+  const prices = product.packOptions
+    .filter((option) => option.price !== null)
+    .map((option) => option.price as number);
+  const hasPrice = prices.length > 0;
+
+  return (
+    <article
+      className={`product-card ${product.category === promoCategory ? "promo-card" : ""} ${product.soldout ? "soldout" : ""} ${extraClassName}`}
+    >
+      <div className="product-image">
+        {product.photo ? (
+          <img src={product.photo} alt={product.name} loading="lazy" />
+        ) : (
+          <div className="image-placeholder">
+            <img src="/assets/brand-icon.svg" alt="" />
+          </div>
+        )}
+        {product.category === promoCategory && <span className="event-badge">🚨 긴급 행사 상품</span>}
+        {product.soldout && <span className="soldout-badge">품절</span>}
+      </div>
+      <div className="product-info">
+        <p className="product-meta">{product.category} · {product.sub}</p>
+        <h3>{product.name}</h3>
+        <p className="product-unit">{product.unit || "규격 문의"}</p>
+        <div className="price-line">
+          <strong>{hasPrice ? won(Math.min(...prices)) : "가격 문의"}</strong>
+          {hasPrice && <span>원{product.packOptions.length > 1 ? "부터" : ""}</span>}
+        </div>
+      </div>
+      <button
+        className="order-strip"
+        type="button"
+        disabled={product.soldout}
+        onClick={onOrder}
+      >
+        {product.soldout ? "품절" : "문자 주문"} <span aria-hidden="true">→</span>
+      </button>
+    </article>
   );
 }
 
