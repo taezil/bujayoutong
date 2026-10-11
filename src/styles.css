@@ -1386,3 +1386,221 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   width: auto;
   margin: 0;
 }
+
+
+/* ===== 2026-10-12 final ERP alignment ===== */
+.admin-page .admin-titlebar .session-actions {
+  position: fixed;
+  top: 20px;
+  right: 22px;
+  z-index: 180;
+  padding: 7px 8px 7px 12px;
+  border: 1px solid #dfe6dc;
+  border-radius: 13px;
+  background: rgba(255,255,252,.98);
+  box-shadow: 0 7px 24px rgba(34,58,39,.09);
+}
+.session-actions > button {
+  min-height: 38px;
+  border: 1px solid #d6ded4;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  color: #475249;
+  font-size: 12px;
+  font-weight: 850;
+  box-shadow: none;
+}
+.session-actions > button:hover { background: #f3f7f1; border-color: #b9cbbb; }
+.driver-header .session-actions,
+.topbar .session-actions,
+.accounts-brandbar .session-actions { position: static; padding: 0; border: 0; background: transparent; box-shadow: none; }
+
+.manual-order-box { overflow: hidden; }
+.manual-order-controls {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 150px 210px;
+  grid-template-areas:
+    "customer date period"
+    "product unit qtyadd";
+  gap: 12px 10px;
+  align-items: end;
+  margin-top: 16px;
+}
+.manual-order-controls > * { min-width: 0; }
+.manual-customer { grid-area: customer; width: 100%; }
+.manual-date { grid-area: date; width: 150px; }
+.manual-date > span { display: block; margin-bottom: 4px; color: #667168; font-size: 10px; font-weight: 800; }
+.order-period-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  min-height: 42px;
+}
+.manual-order-controls .order-period-toggle { grid-area: period; }
+.order-period-toggle button {
+  border: 1px solid #cad7c9;
+  border-radius: 10px;
+  background: #fff;
+  color: #5e695f;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.order-period-toggle button.selected {
+  border-color: #0b6a39;
+  background: #0b6a39;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(11,106,57,.14);
+}
+.product-autocomplete { grid-area: product; width: 100%; }
+.manual-unit-select { grid-area: unit; width: 150px; }
+.manual-order-controls .manual-qty-unit {
+  grid-area: qtyadd;
+  width: 92px;
+  justify-self: start;
+}
+.manual-order-controls .manual-qty-unit input {
+  width: 50px;
+  flex: 0 0 50px;
+  padding: 0 5px !important;
+}
+.manual-order-controls .manual-qty-unit b {
+  min-width: 38px;
+  padding: 0 5px 0 2px;
+  text-align: center;
+}
+.manual-add-item {
+  grid-area: qtyadd;
+  width: 105px;
+  min-height: 42px;
+  justify-self: end;
+  transform: translateX(117px);
+}
+.manual-order-controls {
+  padding-right: 117px;
+}
+.manual-items { margin-top: 14px; }
+.manual-submit-row {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 150px 210px;
+  margin-top: 20px;
+  padding-right: 117px;
+}
+.manual-submit-row .admin-primary {
+  grid-column: 1;
+  justify-self: center;
+  min-width: 190px;
+  min-height: 44px;
+}
+
+.customer-create-grid {
+  display: grid;
+  grid-template-columns: 120px minmax(150px,1fr) 105px minmax(170px,1fr) 125px;
+  grid-template-areas:
+    "code name region phone add"
+    "business address address group pin";
+  gap: 9px;
+  align-items: center;
+}
+.customer-create-grid > * { min-width: 0; width: 100%; }
+.customer-add { min-width: 0; width: 125px; }
+
+.region-card { align-items: flex-start; overflow: hidden; }
+.region-card > div:first-child { min-width: 0; }
+.region-card small { display: block; margin-top: 5px; color: #6d766f; font-size: 10px; line-height: 1.45; }
+.region-card.load-recommended { border-color: #e5b574; background: #fffbf3; }
+.region-card-actions { display: grid !important; grid-template-columns: repeat(2,minmax(92px,1fr)); gap: 5px; min-width: 205px; }
+.region-card-actions button { min-width: 0; white-space: nowrap; }
+.region-card-actions button.recommended { border-color: #d97706; background: #fff1dc; color: #9a5600; }
+
+.driver-order-meta { display: flex; justify-content: flex-end; margin: 12px 0 4px; }
+.driver-order-meta .order-period-toggle { width: min(260px,100%); }
+.driver-product-line {
+  display: grid;
+  grid-template-columns: 120px 92px 105px minmax(0,1fr);
+  grid-template-areas:
+    "product product product product"
+    "unit qty add empty";
+  gap: 9px;
+  margin-top: 22px;
+  align-items: center;
+}
+.driver-product-line > * { min-width: 0; }
+.driver-product-line > .driver-search-block { grid-area: product; width: 100%; }
+.driver-product-line > select { grid-area: unit; width: 120px; }
+.driver-product-line > .driver-qty { grid-area: qty; width: 92px; }
+.driver-product-line > .driver-qty input { width: 52px; }
+.driver-product-line > button { grid-area: add; width: 105px; }
+
+.accounts-brandbar {
+  height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 max(18px, calc((100% - 1080px)/2));
+  border-bottom: 1px solid #e2e7df;
+  background: #fffefb;
+}
+.accounts-brandbar img { width: 168px; max-height: 68px; object-fit: contain; }
+.account-section { margin-top: 18px; padding: 20px; border: 1px solid #dfe6dc; border-radius: 17px; background: #fff; }
+.account-section-head { display: flex; justify-content: space-between; align-items: end; gap: 14px; margin-bottom: 14px; }
+.account-section-head p { margin: 0; color: #0b6a39; font-size: 9px; font-weight: 900; letter-spacing: .08em; }
+.account-section-head h2 { margin: 3px 0 0; font-size: 21px; }
+.account-section-head > span { color: #0b6a39; font-weight: 900; }
+.customer-user-create {
+  display: grid;
+  grid-template-columns: minmax(180px,1.3fr) 1fr 1fr 120px auto;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.customer-user-create > * { min-width: 0; min-height: 42px; border: 1px solid #d6ded3; border-radius: 9px; padding: 0 10px; background: #fff; }
+.customer-user-create button { border: 0; background: #0b6a39; color: #fff; font-weight: 900; cursor: pointer; }
+.role-customer { display: inline-flex; border-radius: 999px; padding: 3px 7px; background: #edf5ec; color: #0b6a39; font-size: 9px; font-weight: 900; }
+.accounts-empty { color: #7d877f; font-size: 12px; }
+
+@media (max-width: 1180px) {
+  .manual-order-controls {
+    grid-template-columns: minmax(0,1fr) 140px 190px;
+  }
+  .manual-unit-select { width: 140px; }
+  .manual-submit-row { grid-template-columns: minmax(0,1fr) 140px 190px; }
+  .customer-create-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-areas:
+      "code name region"
+      "phone phone add"
+      "business address address"
+      "group pin pin";
+  }
+  .customer-add { width: 100%; }
+}
+@media (max-width: 760px) {
+  .admin-page .admin-titlebar .session-actions {
+    position: static;
+    margin-top: 10px;
+  }
+  .manual-order-controls {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "customer customer"
+      "date period"
+      "product product"
+      "unit qtyadd";
+    padding-right: 0;
+  }
+  .manual-date,
+  .manual-unit-select { width: 100%; }
+  .manual-order-controls .manual-qty-unit { width: 92px; justify-self: start; }
+  .manual-add-item { width: calc(100% - 102px); transform: none; justify-self: end; }
+  .manual-submit-row { grid-template-columns: 1fr; padding-right: 0; }
+  .manual-submit-row .admin-primary { grid-column: 1; }
+  .customer-create-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: "code" "name" "region" "phone" "business" "address" "group" "pin" "add";
+  }
+  .customer-user-create { grid-template-columns: 1fr; }
+  .region-card { flex-direction: column; }
+  .region-card-actions { width: 100%; min-width: 0; }
+}
