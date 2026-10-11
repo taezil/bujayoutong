@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import appMetaJson from "../app-meta.json";
+import { BUJA_MARK_DATA } from "../brand-assets";
 
 type AppMeta = {
   og_title?: string | null;
@@ -29,7 +30,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: meta.og_title ?? "부자유통" },
       { name: "description", content: meta.og_description ?? "부자유통 식자재 주문" },
       { name: "author", content: "부자유통" },
-      { name: "theme-color", content: "#1677D2" },
+      { name: "theme-color", content: "#0B6A39" },
       { property: "og:title", content: meta.og_title ?? "부자유통" },
       { property: "og:description", content: meta.og_description ?? "부자유통 식자재 주문" },
       { property: "og:type", content: "website" },
@@ -44,8 +45,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "canonical", href: canonical },
-      { rel: "icon", href: meta.favicon_url ?? "/favicon.svg" },
-      { rel: "apple-touch-icon", href: "/assets/brand-icon.svg" },
+      { rel: "icon", href: BUJA_MARK_DATA },
+      { rel: "apple-touch-icon", href: BUJA_MARK_DATA },
       { rel: "manifest", href: "/site.webmanifest" }
     ],
   }),
@@ -79,7 +80,7 @@ function RootComponent() {
 function NotFound() {
   return (
     <main className="state-page">
-      <img src="/assets/brand-icon.svg" alt="" className="state-logo" />
+      <img src={BUJA_MARK_DATA} alt="" className="state-logo" />
       <h1>페이지를 찾을 수 없습니다</h1>
       <Link to="/">상품목록으로 돌아가기</Link>
     </main>
@@ -89,7 +90,7 @@ function NotFound() {
 function RootError() {
   return (
     <main className="state-page">
-      <img src="/assets/brand-icon.svg" alt="" className="state-logo" />
+      <img src={BUJA_MARK_DATA} alt="" className="state-logo" />
       <h1>페이지를 불러오지 못했습니다</h1>
       <p>잠시 후 다시 시도해 주세요.</p>
       <a href="/">새로고침</a>
