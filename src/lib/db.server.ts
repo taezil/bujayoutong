@@ -72,6 +72,41 @@ async function ensureColumn(database: D1Database, table: string, column: string,
 
 let schemaReady = false;
 
+async function ensureOperationsSchema(database: D1Database) {
+  await ensureColumn(database, "orders", "delivery_date", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "orders", "created_by_staff_id", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "orders", "created_by_staff_name", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "orders", "is_additional", "INTEGER NOT NULL DEFAULT 0");
+
+  await database.exec("CREATE TABLE IF NOT EXISTS staff_users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('ADMIN','DRIVER')), auth_salt TEXT NOT NULL, auth_hash TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))");
+  await database.exec("CREATE TABLE IF NOT EXISTS staff_sessions (token_hash TEXT PRIMARY KEY, staff_id TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), last_seen_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(staff_id) REFERENCES staff_users(id) ON DELETE CASCADE)");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_staff_sessions_staff ON staff_sessions(staff_id, expires_at)");
+
+  await database.exec("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL DEFAULT 'system', actor_id TEXT NOT NULL DEFAULT '', actor_name TEXT NOT NULL DEFAULT '', action TEXT NOT NULL, entity_type TEXT NOT NULL DEFAULT '', entity_id TEXT NOT NULL DEFAULT '', summary TEXT NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL DEFAULT (datetime('now')))");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC, id DESC)");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id, created_at DESC)");
+
+  await database.exec("CREATE TABLE IF NOT EXISTS suppliers (id TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', category_note TEXT NOT NULL DEFAULT '', order_cutoff TEXT NOT NULL DEFAULT '', memo TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_suppliers_sort ON suppliers(active, sort_order, name)");
+
+  await database.exec("CREATE TABLE IF NOT EXISTS order_adjustments (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT NOT NULL, order_item_id INTEGER NOT NULL, adjustment_type TEXT NOT NULL CHECK(adjustment_type IN ('return','missing')), quantity REAL NOT NULL, amount INTEGER NOT NULL, actor_type TEXT NOT NULL DEFAULT 'admin', actor_id TEXT NOT NULL DEFAULT '', actor_name TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(order_id) REFERENCES orders(id), FOREIGN KEY(order_item_id) REFERENCES order_items(id))");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_order_adjustments_order ON order_adjustments(order_id, created_at DESC)");
+
+  const seeded = await database.prepare("SELECT id FROM staff_users LIMIT 1").first();
+  if (!seeded) {
+    await database.batch([
+      database.prepare("INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash) VALUES(?,?,?,?,?,?)").bind("S-OWNER","owner","사장님","DRIVER","65214b472127bd9b43bec376b3d1be9e","bd51fe683bfd3d7bde2d96f251d6a1c0ea6a07936f7ed96113492432ef1f6019"),
+      database.prepare("INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash) VALUES(?,?,?,?,?,?)").bind("S-CHA","cha","채한옥 실장","DRIVER","6e917fbf0bf8897284ebea8bbab46cd9","584b1731cd674b1681dc63994fd0b1c3aa04308d6e38e9865715fc8356d9f1b4"),
+      database.prepare("INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash) VALUES(?,?,?,?,?,?)").bind("S-AN","an","안상진 부장","DRIVER","8bed94e715b2bb2ca5a35cd57dcf76cf","7b488aa7c04fee8fb7c7d5d7fded45f32e464618fa4fb801a057b454bc1d5dee"),
+      database.prepare("INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash) VALUES(?,?,?,?,?,?)").bind("S-MINSU","minsu","김민수 과장","DRIVER","8a76a1f879ea3b1ca326bb5d77a35072","9d1c97eb9239562708401117c2e82ec944d9899c8d3308040184ee6ec08bd1cd"),
+      database.prepare("INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash) VALUES(?,?,?,?,?,?)").bind("S-JANG","jang","장윤진 기사","DRIVER","6f24cf853d724572aa44148d3219015c","c7195ee07f241055376a77a2e54561f8fc2c2255456fcb18969015164f64279c"),
+      database.prepare("INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash) VALUES(?,?,?,?,?,?)").bind("S-LEE","lee","이혜선 대리님","ADMIN","099c14c103deafe56f3a4031aeb5681b","47444c75236720e86adcd3438fde0d6d2923e5fd98d9096c6b8b1140d0b2dca7"),
+      database.prepare("INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash) VALUES(?,?,?,?,?,?)").bind("S-JUNG","jung","정승영 주임님","ADMIN","b6206057321bb7ba5bc11c6fab1d35f3","8edf4d410de5530db8f75247740d470acc69b80cccde98757eff8674d3cbc4df"),
+      database.prepare("INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash) VALUES(?,?,?,?,?,?)").bind("S-MADAM","madam","사모님","ADMIN","a1451ba10afa85a316c7ea6cf9da2289","f0f84d536d0589eb67baca0dd7c5e2e9cadd81d4b41e1bbc379507ac9dcf5777")
+    ]);
+  }
+}
+
 export async function ensureDatabase(database: D1Database = db()) {
   if (schemaReady) return;
   const ready = await database
@@ -87,6 +122,7 @@ export async function ensureDatabase(database: D1Database = db()) {
   await ensureColumn(database, "products", "warehouse_zone", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn(database, "pack_options", "price_a", "INTEGER");
   await ensureColumn(database, "pack_options", "price_b", "INTEGER");
+  await ensureOperationsSchema(database);
 
   const demoSeeded = await database
     .prepare("SELECT value FROM app_settings WHERE key = 'demo_customer_seeded'")

@@ -12,7 +12,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type AdminStatus = { setupRequired: boolean; authenticated: boolean };
+type AdminStatus = { setupRequired: boolean; authenticated: boolean; staff?: { id: string; username: string; displayName: string; role: "ADMIN" | "DRIVER" } | null };
 
 async function jsonPost(path: string, body: unknown) {
   const response = await fetch(path, {
@@ -25,12 +25,19 @@ async function jsonPost(path: string, body: unknown) {
   return data;
 }
 
+function kstDateLocal(offsetDays = 0) {
+  const date = new Date(Date.now() + offsetDays * 86400000);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
 function AdminPage() {
   const [status, setStatus] = useState<AdminStatus | null>(null);
   const [store, setStore] = useState<StoreData | null>(null);
   const [error, setError] = useState("");
   const [setupKey, setSetupKey] = useState("");
   const [password, setPassword] = useState("");
+  const [staffUsername, setStaffUsername] = useState("");
+  const [staffPin, setStaffPin] = useState("");
   const [editing, setEditing] = useState<Product | "new" | null>(null);
 
   const loadStore = useCallback(async () => {
@@ -75,10 +82,23 @@ function AdminPage() {
     }
   }
 
+  async function staffLogin(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    try {
+      const response = await fetch("/api/staff/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: staffUsername, pin: staffPin }) });
+      const data = await response.json() as { error?: string; staff?: { role: string } };
+      if (!response.ok) throw new Error(data.error || "로그인에 실패했습니다.");
+      if (data.staff?.role !== "ADMIN") { await fetch("/api/staff/logout", { method: "POST" }); throw new Error("이 계정은 관리자 권한이 없습니다. 배송기사 앱을 이용해 주세요."); }
+      setStaffPin("");
+      await loadStatus();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "로그인에 실패했습니다."); }
+  }
+
   async function logout() {
     await jsonPost("/api/admin/logout", {});
     setStore(null);
-    setStatus({ setupRequired: false, authenticated: false });
+    setStatus({ setupRequired: false, authenticated: false, staff: null });
   }
 
   if (!status) return <AdminShell><p className="admin-loading">관리자 정보를 확인하는 중입니다.</p></AdminShell>;
@@ -103,14 +123,16 @@ function AdminPage() {
   if (!status.authenticated) {
     return (
       <AdminShell>
-        <div className="admin-auth-card">
+        <div className="admin-auth-card staff-admin-login">
           <h1>관리자 로그인</h1>
-          <p>상품, 가격, 품절, 사진과 카테고리를 관리합니다.</p>
-          <form onSubmit={login}>
-            <label>비밀번호<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label>
-            {error && <p className="form-error">{error}</p>}
-            <button type="submit">로그인</button>
+          <p>사무실 직원은 개인 아이디와 6자리 PIN으로 로그인합니다.</p>
+          <form onSubmit={staffLogin}>
+            <label>직원 아이디<input value={staffUsername} onChange={(e) => setStaffUsername(e.target.value)} autoComplete="username" placeholder="예: lee" /></label>
+            <label>6자리 PIN<input type="password" inputMode="numeric" value={staffPin} onChange={(e) => setStaffPin(e.target.value.replace(/\D/g, "").slice(0, 6))} autoComplete="current-password" /></label>
+            <button type="submit" disabled={!staffUsername.trim() || staffPin.length !== 6}>직원 로그인</button>
           </form>
+          <details className="legacy-admin-login"><summary>기존 관리자 비밀번호로 로그인</summary><form onSubmit={login}><label>관리자 비밀번호<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button type="submit">기존 관리자 로그인</button></form></details>
+          {error && <p className="form-error">{error}</p>}
         </div>
       </AdminShell>
     );
@@ -120,14 +142,17 @@ function AdminPage() {
 
   return (
     <AdminShell>
-      <div className="admin-dashboard">
+      <div className="admin-workspace">
+        <aside className="admin-side admin-side-left"><SupplierPanel onError={setError} /></aside>
+        <div className="admin-dashboard">
         <div className="admin-titlebar">
-          <div><p>부자유통</p><h1>통합 관리자</h1><span>상품 {store.products.length}개 · 주문/거래처/재고 통합관리 · 버전 {store.version}</span></div>
-          <div className="admin-top-actions"><a href="/" target="_blank" rel="noreferrer">고객 화면</a><button type="button" onClick={logout}>로그아웃</button></div>
+          <div><p>부자유통{status.staff ? ` · ${status.staff.displayName}` : ""}</p><h1>통합 관리자</h1><span>상품 {store.products.length}개 · 주문/거래처/재고 통합관리 · 버전 {store.version}</span></div>
+          <div className="admin-top-actions"><a href="/dashboard">대시보드</a><a href="/driver" target="_blank" rel="noreferrer">배송기사 화면</a><a href="/" target="_blank" rel="noreferrer">고객 화면</a><button type="button" onClick={logout}>로그아웃</button></div>
         </div>
         {error && <p className="admin-banner-error">{error}</p>}
         <OrderOpsPanel store={store} onError={setError} />
         <CustomerOpsPanel onError={setError} />
+        <StaffOpsPanel onError={setError} />
         <InventoryOpsPanel onError={setError} storeVersion={store.version} />
         <SettingsPanel store={store} onSaved={loadStore} onError={setError} />
         <CategoryPanel store={store} onSaved={loadStore} onError={setError} />
@@ -147,6 +172,8 @@ function AdminPage() {
             ))}
           </div>
         </section>
+        </div>
+        <aside className="admin-side admin-side-right"><AuditPanel /></aside>
       </div>
       {editing && (
         <ProductEditor
@@ -491,7 +518,9 @@ type AdminOrderItem = {
 type AdminOrder = {
   id: string; customerId: string; customerCode: string; customerName: string; source: string; status: string;
   region: string; total: number; note: string; createdAt: string; printedAt: string | null; shippedAt: string | null;
+  deliveryDate: string; isAdditional: boolean; createdByStaffName: string;
   items: AdminOrderItem[];
+  adjustments: Array<{ id: number; itemId: number; type: string; quantity: number; amount: number; actorName: string; note: string; createdAt: string }>;
 };
 
 type InventoryRow = { productId: string; productName: string; category: string; warehouseZone: string; optionLabel: string; quantity: number };
@@ -507,6 +536,7 @@ function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
   const [priceGroup, setPriceGroup] = useState("A");
   const [pin, setPin] = useState("");
   const [query, setQuery] = useState("");
+  const [filterGroup, setFilterGroup] = useState<"전체" | "A" | "B">("전체");
 
   async function load() {
     const response = await fetch("/api/admin/customers", { cache: "no-store" });
@@ -531,7 +561,10 @@ function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
   }
 
   const needle = query.trim().toLowerCase();
-  const visible = customers.filter((c) => !needle || `${c.code} ${c.name} ${c.region}`.toLowerCase().includes(needle));
+  const visible = customers.filter((c) => {
+    if (filterGroup !== "전체" && c.priceGroup !== filterGroup) return false;
+    return !needle || `${c.code} ${c.name} ${c.region}`.toLowerCase().includes(needle);
+  });
   const totalReceivable = customers.reduce((sum, c) => sum + c.receivable, 0);
 
   return (
@@ -551,6 +584,7 @@ function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
         <input placeholder="최초 인증번호 6자리" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} />
         <button className="admin-primary" type="button" onClick={() => void create()} disabled={!code.trim() || !name.trim() || pin.length !== 6}>+ 거래처 추가</button>
       </div>
+      <div className="customer-group-filter"><span>가격그룹 보기</span><button type="button" className={filterGroup === "전체" ? "selected" : ""} onClick={() => setFilterGroup("전체")}>전체 {customers.length}</button><button type="button" className={filterGroup === "A" ? "selected" : ""} onClick={() => setFilterGroup("A")}>A그룹 {customers.filter((c) => c.priceGroup === "A").length}</button><button type="button" className={filterGroup === "B" ? "selected" : ""} onClick={() => setFilterGroup("B")}>B그룹 {customers.filter((c) => c.priceGroup === "B").length}</button></div>
       <input className="ops-search" placeholder="거래처번호·상호·지역 검색" value={query} onChange={(e) => setQuery(e.target.value)} />
       <div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>거래처</th><th>지역</th><th>그룹</th><th>미수금</th><th>관리</th></tr></thead><tbody>
         {visible.map((c) => <tr key={c.id} className={!c.active ? "row-disabled" : ""}>
@@ -589,6 +623,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
   const [source, setSource] = useState("phone");
   const [productSearch, setProductSearch] = useState(product?.name ?? "");
   const [productPickerOpen, setProductPickerOpen] = useState(false);
+  const [deliveryDate, setDeliveryDate] = useState(kstDateLocal(0));
 
   async function load() {
     const [or, cr] = await Promise.all([
@@ -618,13 +653,21 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
     setManualItems((current) => [...current, { productId: product.id, productName: product.name, optionLabel, quantity: qty }]);
   }
 
-  async function createManualOrder() {
+  async function createManualOrder(confirmAnomaly = false) {
     if (!customerId || !manualItems.length) return;
-    await action({ action: "create-order", customerId, source, items: manualItems.map((i) => ({ productId: i.productId, optionLabel: i.optionLabel, quantity: i.quantity })) });
-    setManualItems([]);
+    onError("");
+    const response = await fetch("/api/admin/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create-order", customerId, source, deliveryDate, confirmAnomaly, items: manualItems.map((i) => ({ productId: i.productId, optionLabel: i.optionLabel, quantity: i.quantity })) }) });
+    const data = await response.json() as { error?: string; warning?: boolean; warnings?: Array<{ message: string }> };
+    if (response.status === 409 && data.warning) {
+      const details = (data.warnings ?? []).map((row) => `• ${row.message}`).join("\n");
+      if (window.confirm(`⚠ 평소 주문량보다 많은 품목이 있습니다.\n\n${details}\n\n그래도 접수할까요?`)) await createManualOrder(true);
+      return;
+    }
+    if (!response.ok) { onError(data.error || "주문 접수에 실패했습니다."); return; }
+    setManualItems([]); await load();
   }
 
-  const active = orders.filter((o) => o.status === "received" || o.status === "preparing");
+  const active = orders.filter((o) => (o.status === "received" || o.status === "preparing") && (!o.deliveryDate || o.deliveryDate === deliveryDate));
   const regions = Array.from(new Set(active.map((o) => o.region || "미지정"))).sort();
   const productNeedle = productSearch.trim().toLowerCase().replace(/\s+/g, "");
   const productSuggestions = productNeedle
@@ -647,8 +690,8 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
           const rows = active.filter((o) => (o.region || "미지정") === region);
           const unprinted = rows.filter((o) => !o.printedAt).length;
           return <div className="region-card" key={region}><div><strong>{region}</strong><span>주문 {rows.length}건 · 신규 {unprinted}건</span></div><div>
-            <button type="button" disabled={!unprinted} onClick={() => window.open(`/api/admin/print-orders?region=${encodeURIComponent(region)}&unprinted=1`, "_blank")}>신규분 출력</button>
-            <button type="button" disabled={!unprinted} onClick={() => { if (window.confirm(`${region} 신규 주문을 출력완료로 표시할까요?`)) void action({ action: "mark-region-printed", region }); }}>출력완료</button>
+            <button type="button" disabled={!unprinted} onClick={() => window.open(`/api/admin/print-orders?region=${encodeURIComponent(region)}&deliveryDate=${encodeURIComponent(deliveryDate)}&unprinted=1`, "_blank")}>신규분 출력</button>
+            <button type="button" disabled={!unprinted} onClick={() => { if (window.confirm(`${region} 신규 주문을 출력완료로 표시할까요?`)) void action({ action: "mark-region-printed", region, deliveryDate }); }}>출력완료</button>
           </div></div>;
         })}
         {!regions.length && <p className="ops-empty">현재 출고대기 주문이 없습니다.</p>}
@@ -659,6 +702,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
         <div className="manual-order-controls">
           <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>{customers.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
           <select value={source} onChange={(e) => setSource(e.target.value)}><option value="phone">전화발주</option><option value="sms">문자발주</option><option value="admin">직접입력</option></select>
+          <label className="manual-date"><span>배송일</span><input type="date" value={deliveryDate} min={kstDateLocal(0)} onChange={(e) => setDeliveryDate(e.target.value)} /></label>
           <div className="product-autocomplete">
             <input
               value={productSearch}
@@ -682,17 +726,17 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
             )}
           </div>
           <select value={optionLabel} onChange={(e) => setOptionLabel(e.target.value)}>{(product?.packOptions ?? []).map((o) => <option key={o.label}>{o.label}</option>)}</select>
-          <input type="number" min="0.001" step="0.001" value={qty} onChange={(e) => setQty(Number(e.target.value || 0))} />
+          <div className="manual-qty-unit"><input type="number" min="0.001" step="0.001" value={qty} onChange={(e) => setQty(Number(e.target.value || 0))} /><b>{optionLabel || "단위"}</b></div>
           <button type="button" onClick={addManualItem}>품목 추가</button>
         </div>
         {manualItems.length > 0 && <div className="manual-items">{manualItems.map((item, index) => <span key={`${item.productId}-${index}`}>{item.productName} {item.quantity}{item.optionLabel}<button type="button" onClick={() => setManualItems((x) => x.filter((_, i) => i !== index))}>×</button></span>)}</div>}
-        <button className="admin-primary" type="button" disabled={!customerId || !manualItems.length} onClick={() => void createManualOrder()}>이 주문 접수</button>
+        <button className="admin-primary" type="button" disabled={!customerId || !manualItems.length} onClick={() => void createManualOrder(false)}>이 주문 접수</button>
       </div>
 
       <div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>주문</th><th>지역</th><th>품목</th><th>금액</th><th>상태/처리</th></tr></thead><tbody>
         {orders.slice(0, 80).map((o) => <tr key={o.id}>
-          <td><b>{o.customerCode} · {o.customerName}</b><span>{o.createdAt} · {o.source}</span></td><td>{o.region || "미지정"}</td>
-          <td><div className="order-item-lines">{o.items.map((i) => <button type="button" key={i.id} title="단가수정" onClick={() => { const next = window.prompt(`${i.productName} 단가`, String(i.unitPrice)); if (next !== null && Number(next) >= 0) void action({ action: "update-price", id: o.id, itemId: i.id, unitPrice: Number(next) }); }}>{i.productName} {i.quantity}{i.optionLabel} · {new Intl.NumberFormat("ko-KR").format(i.unitPrice)}원</button>)}</div></td>
+          <td><b>{o.customerCode} · {o.customerName} {o.isAdditional && <em className="additional-badge">🚨 추가발주</em>}</b><span>배송 {o.deliveryDate || "미지정"} · {o.createdAt} · {o.createdByStaffName || o.source}</span></td><td>{o.region || "미지정"}</td>
+          <td><div className="order-item-lines">{o.items.map((i) => <div className="order-item-admin" key={i.id}><button type="button" title={o.status === "shipped" ? "출고완료 품목" : "단가수정"} onClick={() => { if (o.status === "shipped") return; const next = window.prompt(`${i.productName} 단가`, String(i.unitPrice)); if (next !== null && Number(next) >= 0) void action({ action: "update-price", id: o.id, itemId: i.id, unitPrice: Number(next) }); }}>{i.productName} {i.quantity}{i.optionLabel} · {new Intl.NumberFormat("ko-KR").format(i.unitPrice)}원</button>{o.status === "shipped" && <span className="shipment-adjust-buttons"><button type="button" onClick={() => { const q = window.prompt(`${i.productName} 반품 수량 (${i.optionLabel})`, "1"); if (q && Number(q) > 0) void action({ action: "adjust-shipment", id: o.id, itemId: i.id, quantity: Number(q), adjustmentType: "return" }); }}>반품</button><button type="button" onClick={() => { const q = window.prompt(`${i.productName} 미배송 수량 (${i.optionLabel})`, "1"); if (q && Number(q) > 0) void action({ action: "adjust-shipment", id: o.id, itemId: i.id, quantity: Number(q), adjustmentType: "missing" }); }}>미배송</button></span>}</div>)}</div>{o.adjustments?.length > 0 && <div className="adjustment-history">{o.adjustments.map((a) => <span key={a.id}>{a.type === "missing" ? "미배송" : "반품"} {a.quantity} · -{new Intl.NumberFormat("ko-KR").format(a.amount)}원</span>)}</div>}</td>
           <td>{new Intl.NumberFormat("ko-KR").format(o.total)}원</td>
           <td><div className="row-actions"><span>{o.status === "shipped" ? "출고완료" : o.status === "cancelled" ? "취소" : o.printedAt ? "출력완료" : "접수"}</span>{o.status !== "shipped" && o.status !== "cancelled" && <><button type="button" onClick={() => { if (window.confirm(`${o.customerName} 주문을 출고확정할까요? 재고와 미수금이 반영됩니다.`)) void action({ action: "ship", id: o.id }); }}>출고확정</button><button type="button" onClick={() => { if (window.confirm("이 주문을 취소할까요?")) void action({ action: "cancel", id: o.id }); }}>취소</button></>}</div></td>
         </tr>)}
@@ -748,4 +792,53 @@ function InventoryOpsPanel({ onError, storeVersion }: { onError: (value: string)
       </div>
     </section>
   );
+}
+
+type SupplierRow = { id: string; name: string; phone: string; category_note: string; order_cutoff: string; memo: string };
+type AuditRow = { id: number; actor_name: string; action: string; entity_type: string; entity_id: string; summary: string; created_at: string };
+type StaffRow = { id: string; username: string; display_name: string; role: "ADMIN" | "DRIVER"; active: number | boolean; updated_at: string };
+
+function SupplierPanel({ onError }: { onError: (value: string) => void }) {
+  const [rows, setRows] = useState<SupplierRow[]>([]);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [categoryNote, setCategoryNote] = useState("");
+  const [cutoff, setCutoff] = useState("");
+  async function load() {
+    const response = await fetch("/api/admin/suppliers", { cache: "no-store" });
+    if (!response.ok) return;
+    setRows(((await response.json()) as { suppliers: SupplierRow[] }).suppliers);
+  }
+  useEffect(() => { void load(); }, []);
+  async function create() {
+    try {
+      onError("");
+      await jsonPost("/api/admin/suppliers", { action: "create", name, phone, categoryNote, orderCutoff: cutoff });
+      setName(""); setPhone(""); setCategoryNote(""); setCutoff(""); await load();
+    } catch (reason) { onError(reason instanceof Error ? reason.message : "매입처 추가 실패"); }
+  }
+  async function edit(row: SupplierRow) {
+    const nextName = window.prompt("업체명", row.name); if (!nextName) return;
+    const nextPhone = window.prompt("전화번호", row.phone) ?? row.phone;
+    const nextCategory = window.prompt("주요 품목", row.category_note) ?? row.category_note;
+    const nextCutoff = window.prompt("발주마감/입고메모", row.order_cutoff) ?? row.order_cutoff;
+    try { await jsonPost("/api/admin/suppliers", { action: "update", id: row.id, name: nextName, phone: nextPhone, categoryNote: nextCategory, orderCutoff: nextCutoff, memo: row.memo }); await load(); }
+    catch (reason) { onError(reason instanceof Error ? reason.message : "매입처 수정 실패"); }
+  }
+  return <div className="side-panel supplier-panel"><div className="side-panel-head"><div><p>① 빠른업무</p><h2>매입처</h2></div><span>{rows.length}</span></div><div className="supplier-create"><input placeholder="업체명" value={name} onChange={(e) => setName(e.target.value)} /><input placeholder="전화번호" value={phone} onChange={(e) => setPhone(e.target.value)} /><input placeholder="주요 품목" value={categoryNote} onChange={(e) => setCategoryNote(e.target.value)} /><input placeholder="발주마감 예: 15:00" value={cutoff} onChange={(e) => setCutoff(e.target.value)} /><button type="button" disabled={!name.trim()} onClick={() => void create()}>+ 추가</button></div><div className="supplier-list">{rows.map((row) => <article key={row.id}><button type="button" className="supplier-main" onClick={() => void edit(row)}><strong>{row.name}</strong><span>{row.category_note || "품목 미지정"}</span>{row.order_cutoff && <small>{row.order_cutoff}</small>}</button>{row.phone ? <a href={`tel:${row.phone}`}>☎ {row.phone}</a> : <span className="no-phone">전화번호 없음</span>}</article>)}{!rows.length && <p className="side-empty">매입처를 추가하면 여기에 바로 표시됩니다.</p>}</div></div>;
+}
+
+function AuditPanel() {
+  const [rows, setRows] = useState<AuditRow[]>([]);
+  async function load() { const r = await fetch("/api/admin/audit", { cache: "no-store" }); if (r.ok) setRows(((await r.json()) as { logs: AuditRow[] }).logs); }
+  useEffect(() => { void load(); const t = window.setInterval(() => void load(), 30000); return () => window.clearInterval(t); }, []);
+  return <div className="side-panel audit-panel"><div className="side-panel-head"><div><p>② 작업기록</p><h2>최근 이력</h2></div><button type="button" onClick={() => void load()}>↻</button></div><div className="audit-list">{rows.slice(0, 30).map((row) => <article key={row.id}><time>{row.created_at.slice(5, 16)}</time><strong>{row.actor_name || "시스템"}</strong><p>{row.summary}</p></article>)}{!rows.length && <p className="side-empty">아직 작업이력이 없습니다.</p>}</div></div>;
+}
+
+function StaffOpsPanel({ onError }: { onError: (value: string) => void }) {
+  const [rows, setRows] = useState<StaffRow[]>([]);
+  async function load() { const r = await fetch("/api/admin/staff", { cache: "no-store" }); if (r.ok) setRows(((await r.json()) as { staff: StaffRow[] }).staff); }
+  useEffect(() => { void load(); }, []);
+  async function action(body: Record<string, unknown>) { try { onError(""); await jsonPost("/api/admin/staff", body); await load(); } catch (reason) { onError(reason instanceof Error ? reason.message : "직원 계정 작업 실패"); } }
+  return <section className="admin-section ops-section"><div className="admin-section-head"><div><h2>직원 계정 · 권한</h2><p>사무실은 전체 관리자, 배송기사는 배송기사 전용 앱을 사용합니다. 모든 계정은 개인별 작업이력이 남습니다.</p></div><div className="ops-metric"><b>{rows.filter((r) => r.role === "ADMIN").length}</b><span>관리자</span><b>{rows.filter((r) => r.role === "DRIVER").length}</b><span>배송기사</span></div></div><div className="staff-account-grid">{rows.map((row) => <article key={row.id} className={!Boolean(row.active) ? "disabled" : ""}><div><span className={`role-${row.role.toLowerCase()}`}>{row.role === "ADMIN" ? "관리자" : "배송기사"}</span><strong>{row.display_name}</strong><small>아이디 {row.username}</small></div><div><button type="button" onClick={() => { const pin = window.prompt(`${row.display_name} 새 6자리 PIN`); if (pin) void action({ action: "reset-pin", id: row.id, pin }); }}>PIN 변경</button><button type="button" onClick={() => void action({ action: "toggle", id: row.id, active: !Boolean(row.active) })}>{Boolean(row.active) ? "계정중지" : "사용"}</button></div></article>)}</div></section>;
 }
