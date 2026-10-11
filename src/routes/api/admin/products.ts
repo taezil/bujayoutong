@@ -41,6 +41,13 @@ export const Route = createFileRoute("/api/admin/products")({
       const soldout = input.soldout === true || input.soldout === 1;
       const taxType = input.taxType === "exempt" ? "exempt" : "taxable";
       const warehouseZone = cleanText(input.warehouseZone, 80);
+      const description = cleanText(input.description, 1200);
+      const servingsPerUnit = cleanText(input.servingsPerUnit, 120);
+      const boxContents = cleanText(input.boxContents, 120);
+      const servingsPerBox = cleanText(input.servingsPerBox, 120);
+      const storageMethod = cleanText(input.storageMethod, 80);
+      const priceListVisible = input.priceListVisible !== false && input.priceListVisible !== 0;
+      const priceDisplayMode = input.priceDisplayMode === "market" ? "market" : input.priceDisplayMode === "inquiry" ? "inquiry" : "fixed";
       const options = cleanOptions(input.packOptions);
       if (!name || !category) throw new Error("상품명과 카테고리는 필수입니다.");
       if (!options.length) throw new Error("판매 단위를 하나 이상 입력해 주세요.");
@@ -54,13 +61,13 @@ export const Route = createFileRoute("/api/admin/products")({
 
       if (body.action === "create") {
         const sortRow = await database.prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM products").first<{ n: number }>();
-        await database.prepare("INSERT INTO products (id,name,category,sub,unit,price,soldout,photo,sort_order,tax_type,warehouse_zone) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-          .bind(id, name, category, sub, unit, price, soldout ? 1 : 0, photo, Number(sortRow?.n ?? 0), taxType, warehouseZone).run();
+        await database.prepare("INSERT INTO products (id,name,category,sub,unit,price,soldout,photo,sort_order,tax_type,warehouse_zone,description,servings_per_unit,box_contents,servings_per_box,storage_method,price_list_visible,price_display_mode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+          .bind(id, name, category, sub, unit, price, soldout ? 1 : 0, photo, Number(sortRow?.n ?? 0), taxType, warehouseZone, description, servingsPerUnit, boxContents, servingsPerBox, storageMethod, priceListVisible ? 1 : 0, priceDisplayMode).run();
       } else if (body.action === "update") {
         const existing = await database.prepare("SELECT id FROM products WHERE id = ?").bind(id).first();
         if (!existing) throw new Error("수정할 상품을 찾을 수 없습니다.");
-        await database.prepare("UPDATE products SET name=?,category=?,sub=?,unit=?,price=?,soldout=?,photo=?,tax_type=?,warehouse_zone=?,updated_at=datetime('now') WHERE id=?")
-          .bind(name, category, sub, unit, price, soldout ? 1 : 0, photo, taxType, warehouseZone, id).run();
+        await database.prepare("UPDATE products SET name=?,category=?,sub=?,unit=?,price=?,soldout=?,photo=?,tax_type=?,warehouse_zone=?,description=?,servings_per_unit=?,box_contents=?,servings_per_box=?,storage_method=?,price_list_visible=?,price_display_mode=?,updated_at=datetime('now') WHERE id=?")
+          .bind(name, category, sub, unit, price, soldout ? 1 : 0, photo, taxType, warehouseZone, description, servingsPerUnit, boxContents, servingsPerBox, storageMethod, priceListVisible ? 1 : 0, priceDisplayMode, id).run();
       } else throw new Error("지원하지 않는 작업입니다.");
 
       await database.prepare("DELETE FROM pack_options WHERE product_id = ?").bind(id).run();
