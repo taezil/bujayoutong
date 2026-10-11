@@ -1108,3 +1108,119 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   font-weight: 700;
   line-height: 1.5;
 }
+
+
+/* ===== 2026-10-11 ERP input-layout refinement ===== */
+.customer-create-grid {
+  grid-template-columns: .9fr 1.15fr .8fr 1fr .95fr .95fr;
+  grid-template-areas:
+    "code name region phone phone add"
+    "business address address address group pin";
+  align-items: center;
+}
+.customer-code { grid-area: code; }
+.customer-name { grid-area: name; }
+.customer-region { grid-area: region; }
+.customer-phone { grid-area: phone; }
+.customer-business-number { grid-area: business; }
+.customer-address { grid-area: address; min-width: 0; }
+.customer-price-group { grid-area: group; }
+.customer-pin { grid-area: pin; }
+.customer-add { grid-area: add; min-height: 42px; }
+
+.manual-order-controls {
+  grid-template-columns: minmax(190px,1.15fr) 110px 150px minmax(250px,1.45fr) 110px 155px 96px;
+  grid-template-areas: "customer source date product unit qty add";
+  align-items: center;
+  gap: 8px;
+}
+.manual-customer { grid-area: customer; }
+.manual-source { grid-area: source; }
+.manual-date { grid-area: date; width: 150px; }
+.manual-date input { min-width: 0 !important; width: 100%; }
+.product-autocomplete { grid-area: product; }
+.manual-unit-select { grid-area: unit; }
+.manual-qty-unit { grid-area: qty; width: 155px; }
+.manual-qty-unit input { width: 92px; text-align: center; }
+.manual-qty-unit b { flex: 0 0 auto; padding-right: 10px; white-space: nowrap; }
+.manual-add-item {
+  grid-area: add;
+  min-height: 42px;
+  border: 1px solid #b9cfbd;
+  border-radius: 10px;
+  background: #eef6ef;
+  color: #0b6a39;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.order-period-badge {
+  display: inline !important;
+  color: #0b6a39;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.supplier-main strong { font-size: 15px; }
+.supplier-main span { font-size: 13px; line-height: 1.45; }
+.supplier-main small { font-size: 12px; }
+.supplier-list article > a, .no-phone { font-size: 12px; }
+.audit-list time { font-size: 11px; }
+.audit-list strong,
+.audit-list p {
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.driver-product-line {
+  margin-top: 20px;
+  grid-template-columns: minmax(280px,1fr) 115px 155px 96px;
+}
+.driver-date-buttons { flex-wrap: nowrap; }
+.driver-date-buttons input { width: 170px; }
+.driver-qty input { text-align: center; }
+
+@media (max-width: 1200px) {
+  .manual-order-controls {
+    grid-template-columns: minmax(220px,1fr) 110px 150px;
+    grid-template-areas:
+      "customer source date"
+      "product unit qty"
+      "product unit add";
+  }
+  .manual-add-item { width: 96px; justify-self: start; }
+  .customer-create-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-areas:
+      "code name region"
+      "phone phone add"
+      "business address address"
+      "group pin pin";
+  }
+}
+
+@media (max-width: 720px) {
+  .customer-create-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "code" "name" "region" "phone" "business" "address" "group" "pin" "add";
+  }
+  .manual-order-controls {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "customer customer"
+      "source date"
+      "product product"
+      "unit qty"
+      "add add";
+  }
+  .manual-date,
+  .manual-qty-unit,
+  .manual-add-item { width: 100%; }
+  .manual-add-item { justify-self: stretch; }
+  .driver-product-line {
+    margin-top: 18px;
+    grid-template-columns: 1fr 1fr;
+  }
+  .driver-date-buttons input { width: min(210px, 100%); }
+}
