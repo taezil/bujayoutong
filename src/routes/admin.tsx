@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
+import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -135,7 +136,7 @@ function AdminPage() {
           <div className="admin-product-list">
             {store.products.map((product) => (
               <div className="admin-product-row" key={product.id}>
-                <div className="admin-product-thumb">{product.photo ? <img src={product.photo} alt="" /> : <img src="/assets/brand-icon.svg" alt="" />}</div>
+                <div className="admin-product-thumb">{product.photo ? <img src={product.photo} alt="" /> : <img src={BUJA_MARK_DATA} alt="" />}</div>
                 <div className="admin-product-copy"><strong>{product.name}</strong><span>{product.category} · {product.sub} · {product.unit}</span></div>
                 <div className="admin-product-price">{product.soldout ? <b className="red">품절</b> : <b>{displayPrice(product)}</b>}</div>
                 <button type="button" onClick={() => setEditing(product)}>수정</button>
@@ -161,7 +162,7 @@ function AdminPage() {
 function AdminShell({ children }: { children: ReactNode }) {
   return (
     <div className="admin-page">
-      <header className="admin-brandbar"><a href="/"><img src="/assets/brand-icon.svg" alt="" /><strong>부자유통</strong></a></header>
+      <header className="admin-brandbar"><a href="/" aria-label="부자유통 홈"><img src={BUJA_LOGO_DATA} alt="부자유통" /></a></header>
       <main className="admin-wrap">{children}</main>
     </div>
   );
@@ -262,6 +263,38 @@ function CategoryPanel({ store, onSaved, onError }: { store: StoreData; onSaved:
   );
 }
 
+function sanitizeKgNumber(value: string) {
+  const normalized = value.replace(/,/g, ".").replace(/[^0-9.]/g, "");
+  const [whole = "", ...decimals] = normalized.split(".");
+  return decimals.length ? `${whole}.${decimals.join("")}` : whole;
+}
+
+function unitInputValue(unit: string) {
+  const value = unit.trim().toLowerCase();
+  const kg = value.match(/^([0-9]+(?:\.[0-9]+)?)\s*kg$/);
+  if (kg) return kg[1] ?? "";
+  const grams = value.match(/^([0-9]+(?:\.[0-9]+)?)\s*g$/);
+  if (grams) {
+    const converted = Number(grams[1]) / 1000;
+    return Number.isFinite(converted) ? String(converted) : "";
+  }
+  return sanitizeKgNumber(value);
+}
+
+function kgUnitFromInput(value: string) {
+  const cleaned = sanitizeKgNumber(value);
+  return cleaned ? `${cleaned}kg` : "";
+}
+
+function normalizeStoredUnit(unit: string) {
+  const value = unit.trim().toLowerCase();
+  if (!value) return "";
+  if (/^[0-9]+(?:\.[0-9]+)?\s*kg$/.test(value)) return `${unitInputValue(value)}kg`;
+  if (/^[0-9]+(?:\.[0-9]+)?\s*g$/.test(value)) return `${unitInputValue(value)}kg`;
+  if (/^[0-9]+(?:\.[0-9]+)?$/.test(value)) return `${value}kg`;
+  return unit.trim();
+}
+
 function ProductEditor({
   product,
   creating,
@@ -310,7 +343,7 @@ function ProductEditor({
       }
       await jsonPost("/api/admin/products", {
         action: creating ? "create" : "update",
-        product: { ...draft, photo },
+        product: { ...draft, unit: normalizeStoredUnit(draft.unit), photo },
       });
       await onSaved();
     } catch (reason) {
@@ -342,7 +375,18 @@ function ProductEditor({
         </div>
         <div className="editor-grid">
           <label>상품명<input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
-          <label>규격<input value={draft.unit} onChange={(e) => setDraft({ ...draft, unit: e.target.value })} placeholder="예: 1.5kg" /></label>
+          <label>규격
+            <span className="unit-input-wrap">
+              <input
+                inputMode="decimal"
+                value={unitInputValue(draft.unit)}
+                onChange={(e) => setDraft({ ...draft, unit: kgUnitFromInput(e.target.value) })}
+                placeholder="예: 5 / 0.5"
+              />
+              <b>kg</b>
+            </span>
+            <small className="field-help">숫자만 입력하면 kg가 자동으로 붙습니다. 500g은 0.5로 입력하세요.</small>
+          </label>
           <label>카테고리
             <select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value, sub: categories[e.target.value]?.[0] ?? "" })}>
               {categoryNames.map((name) => <option key={name}>{name}</option>)}
