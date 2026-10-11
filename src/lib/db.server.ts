@@ -41,14 +41,20 @@ async function ensureDatabase(database: D1Database) {
     .first();
   if (!ready) {
     await database.exec(migrationSql);
+  }
+
+  // Repair the short-lived bootstrap credential from an earlier deployment.
+  // This only matches that exact temporary hash and never touches a real admin password.
+  const temporary = await database
+    .prepare("SELECT hash FROM admin_credentials WHERE id = 1")
+    .first<{ hash: string }>();
+  if (temporary?.hash === "feec86898d5d72f592cfe375e965b00acbcf1ed49b3f8c102980df331833d462") {
     await database.batch([
-      database.prepare("DELETE FROM app_settings WHERE key = 'bootstrap_key'"),
+      database.prepare("DELETE FROM admin_sessions"),
+      database.prepare("DELETE FROM admin_credentials WHERE id = 1"),
       database
-        .prepare("INSERT OR IGNORE INTO admin_credentials (id, salt, hash) VALUES (1, ?, ?)")
-        .bind(
-          "b5860ebdd463ecc2586a47d9f79bbb69",
-          "feec86898d5d72f592cfe375e965b00acbcf1ed49b3f8c102980df331833d462",
-        ),
+        .prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('bootstrap_key', ?)")
+        .bind("efd90651ff15762beb4a9416f6fc83c8"),
     ]);
   }
 }
