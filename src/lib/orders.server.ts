@@ -55,15 +55,19 @@ export async function orderAvailability() {
 }
 
 type OrderRequestItem = { productId: string; optionLabel: string; quantity: number };
+type PreparedItem = {
+  productId: string;
+  productName: string;
+  unit: string;
+  optionLabel: string;
+  quantity: number;
+  unitPrice: number;
+  taxType: string;
+  warehouseZone: string;
+};
 
-export async function createCustomerOrder(customer: CustomerSummary, items: OrderRequestItem[], note = "", source = "app") {
-  await ensureDatabase();
-  if (source === "app") {
-    const availability = await orderAvailability();
-    if (!availability.allowed) throw new Error(availability.reason);
-  }
+async function prepareItems(customer: CustomerSummary, items: OrderRequestItem[]): Promise<PreparedItem[]> {
   if (!Array.isArray(items) || items.length === 0 || items.length > 100) throw new Error("주문상품을 확인해 주세요.");
-
   const normalized = items.map((item) => ({
     productId: String(item.productId || "").trim(),
     optionLabel: String(item.optionLabel || "").trim(),
@@ -71,11 +75,7 @@ export async function createCustomerOrder(customer: CustomerSummary, items: Orde
   })).filter((item) => item.productId && item.optionLabel && Number.isFinite(item.quantity) && item.quantity > 0);
   if (normalized.length !== items.length) throw new Error("주문 수량을 확인해 주세요.");
 
-  const prepared: Array<{
-    productId: string; productName: string; unit: string; optionLabel: string; quantity: number;
-    unitPrice: number; taxType: string; warehouseZone: string;
-  }> = [];
-
+  const prepared: PreparedItem[] = [];
   for (const item of normalized) {
     const row = await db().prepare(`
       SELECT p.id, p.name, p.unit, p.soldout, p.tax_type, p.warehouse_zone,
@@ -89,34 +89,75 @@ export async function createCustomerOrder(customer: CustomerSummary, items: Orde
     const ratio = item.quantity / step;
     if (Math.abs(ratio - Math.round(ratio)) > 0.0001) throw new Error(`${String(row.name)} 수량 단위를 확인해 주세요.`);
     const base = row.price == null ? 0 : Number(row.price);
-    const group = customer.priceGroup === "B" ? row.price_b : row.price_a;
-    const unitPrice = group == null ? base : Number(group);
+    const groupPrice = customer.priceGroup === "B" ? row.price_b : row.price_a;
     prepared.push({
-      productId: String(row.id), productName: String(row.name), unit: String(row.unit ?? ""),
-      optionLabel: String(row.label), quantity: item.quantity, unitPrice,
-      taxType: String(row.tax_type ?? "taxable"), warehouseZone: String(row.warehouse_zone ?? ""),
+      productId: String(row.id),
+      productName: String(row.name),
+      unit: String(row.unit ?? ""),
+      optionLabel: String(row.label),
+      quantity: item.quantity,
+      unitPrice: groupPrice == null ? base : Number(groupPrice),
+      taxType: String(row.tax_type ?? "taxable"),
+      warehouseZone: String(row.warehouse_zone ?? ""),
     });
   }
+  return prepared;
+}
 
+function itemInsert(orderId: string, item: PreparedItem) {
+  return db().prepare(`
+    INSERT INTO order_items (order_id, product_id, product_name, unit, option_label, quantity, unit_price, tax_type, warehouse_zone)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(orderId, item.productId, item.productName, item.unit, item.optionLabel, item.quantity, item.unitPrice, item.taxType, item.warehouseZone);
+}
+
+export async function createCustomerOrder(customer: CustomerSummary, items: OrderRequestItem[], note = "", source = "app") {
+  await ensureDatabase();
+  if (source === "app") {
+    const availability = await orderAvailability();
+    if (!availability.allowed) throw new Error(availability.reason);
+  }
+  const prepared = await prepareItems(customer, items);
   const id = randomOrderId();
   const total = Math.round(prepared.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
-  const statements = [
+  await db().batch([
     db().prepare(`INSERT INTO orders (id, customer_id, source, status, region_snapshot, total_amount, note)
                   VALUES (?, ?, ?, 'received', ?, ?, ?)`)
       .bind(id, customer.id, source, customer.region || "미지정", total, String(note || "").slice(0, 500)),
-    ...prepared.map((item) => db().prepare(`
-      INSERT INTO order_items (order_id, product_id, product_name, unit, option_label, quantity, unit_price, tax_type, warehouse_zone)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(id, item.productId, item.productName, item.unit, item.optionLabel, item.quantity, item.unitPrice, item.taxType, item.warehouseZone)),
-  ];
-  await db().batch(statements);
+    ...prepared.map((item) => itemInsert(id, item)),
+  ]);
   return { id, total, itemCount: prepared.length };
+}
+
+export async function updateCustomerOrder(customer: CustomerSummary, orderId: string, items: OrderRequestItem[], note = "") {
+  await ensureDatabase();
+  const settings = await readOrderSettings();
+  const row = await db().prepare(`
+    SELECT id,status,printed_at,created_at FROM orders
+    WHERE id=? AND customer_id=? LIMIT 1
+  `).bind(orderId, customer.id).first<Record<string, unknown>>();
+  if (!row) throw new Error("수정할 주문을 찾을 수 없습니다.");
+  if (String(row.status) !== "received" || row.printed_at) throw new Error("이미 출고 준비가 시작되어 앱에서 수정할 수 없습니다.");
+  const created = new Date(String(row.created_at).replace(" ", "T") + "Z").getTime();
+  if (!Number.isFinite(created) || Date.now() - created > settings.editMinutes * 60 * 1000) {
+    throw new Error(`주문 후 ${settings.editMinutes}분이 지나 앱에서 수정할 수 없습니다.`);
+  }
+
+  const prepared = await prepareItems(customer, items);
+  const total = Math.round(prepared.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
+  await db().batch([
+    db().prepare("DELETE FROM order_items WHERE order_id=?").bind(orderId),
+    ...prepared.map((item) => itemInsert(orderId, item)),
+    db().prepare("UPDATE orders SET total_amount=?,note=?,updated_at=datetime('now') WHERE id=? AND customer_id=?")
+      .bind(total, String(note || "").slice(0, 500), orderId, customer.id),
+  ]);
+  return { id: orderId, total, itemCount: prepared.length };
 }
 
 export async function customerDashboard(customerId: string) {
   await ensureDatabase();
   const recent = await db().prepare(`
-    SELECT o.id, o.status, o.total_amount, o.created_at,
+    SELECT o.id, o.status, o.total_amount, o.created_at, o.printed_at,
            GROUP_CONCAT(oi.product_name || ' ' || CAST(oi.quantity AS TEXT) || oi.option_label, ' · ') AS summary
     FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id
     WHERE o.customer_id = ? AND o.status != 'cancelled'
@@ -136,7 +177,7 @@ export async function customerDashboard(customerId: string) {
   }
   return {
     recent: (recent.results as Array<Record<string, unknown>>).map((r) => ({
-      id: String(r.id), status: String(r.status), total: Number(r.total_amount ?? 0), createdAt: String(r.created_at), summary: String(r.summary ?? ""),
+      id: String(r.id), status: String(r.status), total: Number(r.total_amount ?? 0), createdAt: String(r.created_at), summary: String(r.summary ?? ""), printed: Boolean(r.printed_at),
     })),
     frequentProductIds: (frequent.results as Array<Record<string, unknown>>).map((r) => String(r.product_id)),
     lastOrderItems: lastItems.map((r) => ({ productId: String(r.product_id), productName: String(r.product_name), optionLabel: String(r.option_label), quantity: Number(r.quantity) })),

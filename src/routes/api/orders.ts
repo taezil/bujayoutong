@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getCustomer, validMutationOrigin } from "../../lib/auth.server";
-import { createCustomerOrder, orderAvailability } from "../../lib/orders.server";
+import { createCustomerOrder, orderAvailability, updateCustomerOrder } from "../../lib/orders.server";
 
 export const Route = createFileRoute("/api/orders")({
   server: { handlers: {
@@ -29,6 +29,18 @@ export const Route = createFileRoute("/api/orders")({
         return Response.json({ ok: true });
       } catch (error) {
         return Response.json({ error: error instanceof Error ? error.message : "주문 취소에 실패했습니다." }, { status: 400 });
+      }
+    },
+    PUT: async ({ request }) => {
+      if (!validMutationOrigin(request)) return Response.json({ error: "잘못된 요청입니다." }, { status: 403 });
+      const customer = await getCustomer(request);
+      if (!customer) return Response.json({ error: "로그인이 필요합니다." }, { status: 401 });
+      try {
+        const body = await request.json() as { orderId?: string; items?: Array<{ productId: string; optionLabel: string; quantity: number }>; note?: string };
+        const order = await updateCustomerOrder(customer, String(body.orderId ?? ""), body.items ?? [], String(body.note ?? ""));
+        return Response.json({ ok: true, order });
+      } catch (error) {
+        return Response.json({ error: error instanceof Error ? error.message : "주문을 수정하지 못했습니다." }, { status: 400 });
       }
     },
     POST: async ({ request }) => {
