@@ -238,7 +238,7 @@ function StorePage() {
             <img src={BUJA_LOGO_DATA} alt="부자유통" />
           </a>
           <div className="session-actions customer-session-actions">
-            <span><b>{auth.customer.name}</b><small>{auth.customer.code} · 거래처</small></span>
+            <span><b>{auth.customer.loginName || auth.customer.name}</b><small>{auth.customer.code} · {auth.customer.loginName ? auth.customer.name : "거래처"}</small></span>
             <button type="button" onClick={logoutCustomer}>로그아웃</button>
           </div>
         </div>
@@ -436,6 +436,7 @@ function StorePage() {
 function CustomerLogin({ onSuccess }: { onSuccess: () => Promise<void> }) {
   const [code, setCode] = useState("");
   const [pin, setPin] = useState("");
+  const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -446,7 +447,7 @@ function CustomerLogin({ onSuccess }: { onSuccess: () => Promise<void> }) {
       const response = await fetch("/api/customer/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, pin }),
+        body: JSON.stringify({ code, pin, username }),
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "로그인에 실패했습니다.");
@@ -465,8 +466,9 @@ function CustomerLogin({ onSuccess }: { onSuccess: () => Promise<void> }) {
         <h1>처음 한 번만 로그인해 주세요.</h1>
         <span>이 휴대폰에서는 다음부터 자동으로 로그인됩니다.</span>
         <form onSubmit={submit}>
-          <label>거래처번호<input value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: 8-18" autoComplete="username" /></label>
-          <label>최초 인증번호<input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="숫자 6자리" inputMode="numeric" autoComplete="current-password" /></label>
+          <label>거래처번호<input value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: 8-18" autoComplete="organization" /></label>
+          <label>직원 아이디 <small>직원계정 사용 시에만</small><input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="사장님 기존 계정은 비워두세요" autoComplete="username" /></label>
+          <label>인증번호 / PIN<input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="숫자 6자리" inputMode="numeric" autoComplete="current-password" /></label>
           {error && <p className="form-error">{error}</p>}
           <button type="submit" disabled={busy || !code.trim() || pin.length !== 6}>{busy ? "확인 중..." : "로그인"}</button>
         </form>
