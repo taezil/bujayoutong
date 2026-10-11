@@ -128,7 +128,7 @@ function AdminPage() {
         {error && <p className="admin-banner-error">{error}</p>}
         <OrderOpsPanel store={store} onError={setError} />
         <CustomerOpsPanel onError={setError} />
-        <InventoryOpsPanel onError={setError} />
+        <InventoryOpsPanel onError={setError} storeVersion={store.version} />
         <SettingsPanel store={store} onSaved={loadStore} onError={setError} />
         <CategoryPanel store={store} onSaved={loadStore} onError={setError} />
         <section className="admin-section">
@@ -587,6 +587,8 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
   const [qty, setQty] = useState(1);
   const [manualItems, setManualItems] = useState<Array<{ productId: string; productName: string; optionLabel: string; quantity: number }>>([]);
   const [source, setSource] = useState("phone");
+  const [productSearch, setProductSearch] = useState(product?.name ?? "");
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
 
   async function load() {
     const [or, cr] = await Promise.all([
@@ -624,6 +626,17 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
 
   const active = orders.filter((o) => o.status === "received" || o.status === "preparing");
   const regions = Array.from(new Set(active.map((o) => o.region || "미지정"))).sort();
+  const productNeedle = productSearch.trim().toLowerCase().replace(/\s+/g, "");
+  const productSuggestions = productNeedle
+    ? store.products.filter((p) => `${p.name} ${p.category} ${p.sub}`.toLowerCase().replace(/\s+/g, "").includes(productNeedle)).slice(0, 10)
+    : [];
+
+  function selectManualProduct(nextProduct: Product) {
+    setProductId(nextProduct.id);
+    setProductSearch(nextProduct.name);
+    setOptionLabel(nextProduct.packOptions[0]?.label ?? "");
+    setProductPickerOpen(false);
+  }
 
   return (
     <section className="admin-section ops-section">
@@ -646,7 +659,28 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
         <div className="manual-order-controls">
           <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>{customers.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
           <select value={source} onChange={(e) => setSource(e.target.value)}><option value="phone">전화발주</option><option value="sms">문자발주</option><option value="admin">직접입력</option></select>
-          <select value={productId} onChange={(e) => setProductId(e.target.value)}>{store.products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+          <div className="product-autocomplete">
+            <input
+              value={productSearch}
+              placeholder="상품명 입력 예: 등심돈"
+              autoComplete="off"
+              onFocus={() => setProductPickerOpen(true)}
+              onChange={(e) => { setProductSearch(e.target.value); setProductPickerOpen(true); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && productSuggestions[0]) { e.preventDefault(); selectManualProduct(productSuggestions[0]); }
+                if (e.key === "Escape") setProductPickerOpen(false);
+              }}
+            />
+            {productPickerOpen && productNeedle && (
+              <div className="product-suggestions">
+                {productSuggestions.length ? productSuggestions.map((p) => (
+                  <button type="button" key={p.id} onMouseDown={(e) => e.preventDefault()} onClick={() => selectManualProduct(p)}>
+                    <strong>{p.name}</strong><span>{p.category}{p.sub ? ` · ${p.sub}` : ""}{p.unit ? ` · ${p.unit}` : ""}</span>
+                  </button>
+                )) : <div className="product-suggestion-empty">일치하는 상품이 없습니다.</div>}
+              </div>
+            )}
+          </div>
           <select value={optionLabel} onChange={(e) => setOptionLabel(e.target.value)}>{(product?.packOptions ?? []).map((o) => <option key={o.label}>{o.label}</option>)}</select>
           <input type="number" min="0.001" step="0.001" value={qty} onChange={(e) => setQty(Number(e.target.value || 0))} />
           <button type="button" onClick={addManualItem}>품목 추가</button>
@@ -667,15 +701,16 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
   );
 }
 
-function InventoryOpsPanel({ onError }: { onError: (value: string) => void }) {
+function InventoryOpsPanel({ onError, storeVersion }: { onError: (value: string) => void; storeVersion: number }) {
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("전체");
   async function load() {
     const response = await fetch("/api/admin/inventory", { cache: "no-store" });
     if (!response.ok) return;
     setRows(((await response.json()) as { inventory: InventoryRow[] }).inventory);
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [storeVersion]);
   async function adjust(row: InventoryRow) {
     const next = window.prompt(`${row.productName} / ${row.optionLabel} 현재 재고 ${row.quantity}\n새 재고 수량`, String(row.quantity));
     if (next === null) return;
@@ -686,12 +721,31 @@ function InventoryOpsPanel({ onError }: { onError: (value: string) => void }) {
     } catch (reason) { onError(reason instanceof Error ? reason.message : "재고 조정에 실패했습니다."); }
   }
   const needle = query.trim().toLowerCase();
-  const visible = rows.filter((r) => !needle || `${r.productName} ${r.category} ${r.warehouseZone}`.toLowerCase().includes(needle));
+  const categories = Array.from(new Set(rows.map((r) => r.category || "미분류"))).sort((a, b) => a.localeCompare(b, "ko"));
+  const visible = rows.filter((r) => {
+    if (category !== "전체" && (r.category || "미분류") !== category) return false;
+    return !needle || `${r.productName} ${r.category} ${r.warehouseZone}`.toLowerCase().includes(needle);
+  });
+  const grouped = categories
+    .filter((name) => category === "전체" || category === name)
+    .map((name) => ({ name, rows: visible.filter((r) => (r.category || "미분류") === name) }))
+    .filter((group) => group.rows.length > 0);
+  const productCount = (name: string) => new Set(rows.filter((r) => (r.category || "미분류") === name).map((r) => r.productId)).size;
   return (
     <section className="admin-section ops-section">
       <div className="admin-section-head"><div><h2>재고</h2><p>판매단위별 현재고를 확인하고 조정합니다. 출고확정 시 자동 차감됩니다.</p></div></div>
       <input className="ops-search" placeholder="상품·카테고리·창고위치 검색" value={query} onChange={(e) => setQuery(e.target.value)} />
-      <div className="inventory-grid">{visible.slice(0, 120).map((row) => <button type="button" className="inventory-card" key={`${row.productId}-${row.optionLabel}`} onClick={() => void adjust(row)}><span>{row.warehouseZone || "위치 미지정"}</span><strong>{row.productName}</strong><small>{row.optionLabel}</small><b className={row.quantity < 0 ? "red" : ""}>{row.quantity}</b></button>)}</div>
+      <div className="inventory-category-tabs">
+        <button type="button" className={category === "전체" ? "selected" : ""} onClick={() => setCategory("전체")}>전체 <b>{new Set(rows.map((r) => r.productId)).size}</b></button>
+        {categories.map((name) => <button type="button" key={name} className={category === name ? "selected" : ""} onClick={() => setCategory(name)}>{name} <b>{productCount(name)}</b></button>)}
+      </div>
+      <div className="inventory-groups">
+        {grouped.map((group) => <section className="inventory-category-group" key={group.name}>
+          <div className="inventory-category-head"><h3>{group.name}</h3><span>{productCount(group.name)}개 상품</span></div>
+          <div className="inventory-grid">{group.rows.map((row) => <button type="button" className="inventory-card" key={`${row.productId}-${row.optionLabel}`} onClick={() => void adjust(row)}><span>{row.warehouseZone || "위치 미지정"}</span><strong>{row.productName}</strong><small>{row.optionLabel}</small><b className={row.quantity < 0 ? "red" : ""}>{row.quantity}</b></button>)}</div>
+        </section>)}
+        {!grouped.length && <p className="ops-empty">조건에 맞는 재고가 없습니다.</p>}
+      </div>
     </section>
   );
 }

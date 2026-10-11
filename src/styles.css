@@ -812,3 +812,85 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .compact-stepper { align-self: center; }
 }
 .recent-order-actions { display: inline-flex !important; gap: 5px; margin: 0 !important; }
+
+/* Inventory category browsing + fast product lookup */
+.product-autocomplete { position: relative; min-width: 0; }
+.product-autocomplete > input { width: 100%; }
+.product-suggestions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 5px);
+  z-index: 60;
+  max-height: 330px;
+  overflow-y: auto;
+  border: 1px solid #cfd9cd;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(31, 55, 36, .16);
+}
+.product-suggestions button {
+  width: 100%;
+  display: grid;
+  gap: 3px;
+  border: 0;
+  border-bottom: 1px solid #edf0eb;
+  padding: 11px 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.product-suggestions button:last-child { border-bottom: 0; }
+.product-suggestions button:hover,
+.product-suggestions button:focus { background: #f1f7f0; outline: none; }
+.product-suggestions strong { font-size: 14px; color: #202620; }
+.product-suggestions span { font-size: 11px; color: #768078; }
+.product-suggestion-empty { padding: 14px 12px; color: #7b847d; font-size: 12px; }
+
+.inventory-category-tabs {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  margin: 0 0 18px;
+  padding: 2px 0 7px;
+  scrollbar-width: thin;
+}
+.inventory-category-tabs button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  border: 1px solid #d7dfd5;
+  border-radius: 999px;
+  padding: 0 13px;
+  background: #fff;
+  color: #505b52;
+  font-weight: 800;
+  cursor: pointer;
+}
+.inventory-category-tabs button b {
+  margin-left: 4px;
+  color: #879087;
+  font-size: 10px;
+}
+.inventory-category-tabs button.selected {
+  border-color: #0b6a39;
+  background: #0b6a39;
+  color: #fff;
+}
+.inventory-category-tabs button.selected b { color: #d9eee0; }
+.inventory-groups { display: grid; gap: 24px; }
+.inventory-category-group { min-width: 0; }
+.inventory-category-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5ebe2;
+}
+.inventory-category-head h3 { margin: 0; font-size: 18px; }
+.inventory-category-head span { color: #778078; font-size: 11px; font-weight: 700; }
+
+@media (max-width: 900px) {
+  .product-autocomplete { grid-column: 1 / -1; }
+}
