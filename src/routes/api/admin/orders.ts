@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/admin/orders")({
       if (deliveryDate) { where += " AND o.delivery_date=?"; params.push(deliveryDate); }
       const orders = await db().prepare(`
         SELECT o.id,o.customer_id,o.source,o.status,o.region_snapshot,o.total_amount,o.note,o.created_at,o.printed_at,o.shipped_at,
-               o.delivery_date,o.is_additional,o.created_by_staff_id,o.created_by_staff_name,
+               o.delivery_date,o.is_additional,o.created_by_staff_id,o.created_by_staff_name,o.order_period,o.load_printed_at,
                c.code AS customer_code,c.name AS customer_name
         FROM orders o JOIN customers c ON c.id=o.customer_id
         ${where} ORDER BY o.created_at DESC LIMIT 600
@@ -47,7 +47,7 @@ export const Route = createFileRoute("/api/admin/orders")({
       }
       return Response.json({orders:(orders.results as Array<Record<string,unknown>>).map(r=>({
         id:String(r.id),customerId:String(r.customer_id),customerCode:String(r.customer_code),customerName:String(r.customer_name),source:String(r.source),status:String(r.status),region:String(r.region_snapshot),total:Number(r.total_amount),note:String(r.note??""),createdAt:String(r.created_at),printedAt:r.printed_at?String(r.printed_at):null,shippedAt:r.shipped_at?String(r.shipped_at):null,
-        deliveryDate:String(r.delivery_date||""),isAdditional:Number(r.is_additional||0)===1,createdByStaffName:String(r.created_by_staff_name||""),
+        deliveryDate:String(r.delivery_date||""),isAdditional:Number(r.is_additional||0)===1,createdByStaffName:String(r.created_by_staff_name||""),orderPeriod:String(r.order_period||"AM")==="PM"?"PM":"AM",loadPrintedAt:r.load_printed_at?String(r.load_printed_at):null,
         items:(itemMap.get(String(r.id))??[]).map(i=>({id:Number(i.id),productId:String(i.product_id),productName:String(i.product_name),unit:String(i.unit??""),optionLabel:String(i.option_label),quantity:Number(i.quantity),unitPrice:Number(i.unit_price),taxType:String(i.tax_type),warehouseZone:String(i.warehouse_zone??"")})),
         adjustments:(adjustmentMap.get(String(r.id))??[]).map(a=>({id:Number(a.id),itemId:Number(a.order_item_id),type:String(a.adjustment_type),quantity:Number(a.quantity),amount:Number(a.amount),actorName:String(a.actor_name||""),note:String(a.note||""),createdAt:String(a.created_at)})),
       }))},{headers:{"Cache-Control":"no-store"}});
@@ -64,12 +64,19 @@ export const Route = createFileRoute("/api/admin/orders")({
           const customer=await getCustomerById(cleanText(body.customerId,80));
           if(!customer||!customer.active) throw new Error("거래처를 확인해 주세요.");
           const items=Array.isArray(body.items)?body.items as Array<{productId:string;optionLabel:string;quantity:number}>:[];
-          const source=cleanText(body.source,20)||"phone";
-          const order=await createCustomerOrder(customer,items,cleanText(body.note,500),source,{deliveryDate:cleanText(body.deliveryDate,10)||kstDate(),confirmAnomaly:body.confirmAnomaly===true});
-          await writeAudit({actor,action:"admin_order",entityType:"order",entityId:order.id,summary:`${customer.code} ${customer.name} ${source} 주문 입력 · ${order.deliveryDate}`});
+          const source="admin";
+          const order=await createCustomerOrder(customer,items,cleanText(body.note,500),source,{deliveryDate:cleanText(body.deliveryDate,10)||kstDate(),orderPeriod:cleanText(body.orderPeriod,2),confirmAnomaly:body.confirmAnomaly===true});
+          await writeAudit({actor,action:"admin_order",entityType:"order",entityId:order.id,summary:`${customer.code} ${customer.name} 주문발주 입력 · ${order.orderPeriod==="PM"?"오후발주":"오전발주"} · ${order.deliveryDate}`});
           return Response.json({ok:true,order});
         }
         const id=cleanText(body.id,80);
+        if(action==="mark-load-printed"){
+          const region=cleanText(body.region,80); const deliveryDate=cleanText(body.deliveryDate,10)||kstDate();
+          if(!region) throw new Error("지역을 선택해 주세요.");
+          await db().prepare("UPDATE orders SET load_printed_at=datetime('now') WHERE region_snapshot=? AND delivery_date=? AND status IN ('received','preparing') AND COALESCE(load_printed_at,'')=''").bind(region,deliveryDate).run();
+          await writeAudit({actor,action:"print_load_sheet",entityType:"order",summary:`${deliveryDate} ${region} 상차준비표 출력완료`});
+          return Response.json({ok:true});
+        }
         if(action==="mark-region-printed"){
           const region=cleanText(body.region,80); const deliveryDate=cleanText(body.deliveryDate,10)||kstDate();
           if(!region) throw new Error("지역을 선택해 주세요.");
