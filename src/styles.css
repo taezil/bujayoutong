@@ -1604,3 +1604,45 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .region-card { flex-direction: column; }
   .region-card-actions { width: 100%; min-width: 0; }
 }
+
+
+/* Final no-overflow order-entry grid */
+.manual-order-controls {
+  grid-template-columns: minmax(0,1fr) 150px 92px 105px !important;
+  grid-template-areas:
+    "customer date period period"
+    "product unit qty add" !important;
+  padding-right: 0 !important;
+}
+.manual-order-controls .manual-customer { grid-area: customer; }
+.manual-order-controls .manual-date { grid-area: date; width: 100%; }
+.manual-order-controls .order-period-toggle { grid-area: period; width: 100%; }
+.manual-order-controls .product-autocomplete { grid-area: product; }
+.manual-order-controls .manual-unit-select { grid-area: unit; width: 100%; }
+.manual-order-controls .manual-qty-unit { grid-area: qty; width: 92px; justify-self: stretch; }
+.manual-order-controls .manual-add-item {
+  grid-area: add;
+  width: 105px;
+  transform: none !important;
+  justify-self: stretch;
+}
+.manual-submit-row {
+  grid-template-columns: minmax(0,1fr) 150px 92px 105px !important;
+  padding-right: 0 !important;
+}
+.manual-submit-row .admin-primary { grid-column: 1; }
+
+@media (max-width: 760px) {
+  .manual-order-controls {
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-areas:
+      "customer customer"
+      "date period"
+      "product product"
+      "unit qty"
+      "add add" !important;
+  }
+  .manual-order-controls .manual-qty-unit,
+  .manual-order-controls .manual-add-item { width: 100%; }
+  .manual-submit-row { grid-template-columns: 1fr !important; }
+}
