@@ -1,10 +1,10 @@
 {
-  "name":"부자유통",
-  "short_name":"부자유통",
-  "description":"거래처용 식자재 주문 사이트",
-  "start_url":"/",
-  "display":"standalone",
-  "background_color":"#ffffff",
-  "theme_color":"#1677D2",
-  "icons":[]
+  "name": "부자유통",
+  "short_name": "부자유통",
+  "description": "거래처용 식자재 주문 사이트",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FCFCF9",
+  "theme_color": "#0B6A39",
+  "icons": []
 }
