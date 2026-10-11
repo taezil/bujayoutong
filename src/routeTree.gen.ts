@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AdminAccountsRouteImport } from './routes/admin_.accounts'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DriverRouteImport } from './routes/driver'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
@@ -21,6 +22,7 @@ import { Route as ApiStoreRouteImport } from './routes/api/store'
 import { Route as ApiAdminAuditRouteImport } from './routes/api/admin/audit'
 import { Route as ApiAdminCategoriesRouteImport } from './routes/api/admin/categories'
 import { Route as ApiAdminCustomersRouteImport } from './routes/api/admin/customers'
+import { Route as ApiAdminCustomerUsersRouteImport } from './routes/api/admin/customer-users'
 import { Route as ApiAdminDashboardRouteImport } from './routes/api/admin/dashboard'
 import { Route as ApiAdminInventoryRouteImport } from './routes/api/admin/inventory'
 import { Route as ApiAdminLedgerRouteImport } from './routes/api/admin/ledger'
@@ -28,6 +30,7 @@ import { Route as ApiAdminLoginRouteImport } from './routes/api/admin/login'
 import { Route as ApiAdminLogoutRouteImport } from './routes/api/admin/logout'
 import { Route as ApiAdminOrdersRouteImport } from './routes/api/admin/orders'
 import { Route as ApiAdminPrintLedgerRouteImport } from './routes/api/admin/print-ledger'
+import { Route as ApiAdminPrintLoadSheetRouteImport } from './routes/api/admin/print-load-sheet'
 import { Route as ApiAdminPrintOrdersRouteImport } from './routes/api/admin/print-orders'
 import { Route as ApiAdminProductsRouteImport } from './routes/api/admin/products'
 import { Route as ApiAdminSettingsRouteImport } from './routes/api/admin/settings'
@@ -53,6 +56,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAccountsRoute = AdminAccountsRouteImport.update({
+  id: '/admin/accounts',
+  path: '/admin/accounts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -105,6 +113,11 @@ const ApiAdminCustomersRoute = ApiAdminCustomersRouteImport.update({
   path: '/api/admin/customers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminCustomerUsersRoute = ApiAdminCustomerUsersRouteImport.update({
+  id: '/api/admin/customer-users',
+  path: '/api/admin/customer-users',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminDashboardRoute = ApiAdminDashboardRouteImport.update({
   id: '/api/admin/dashboard',
   path: '/api/admin/dashboard',
@@ -138,6 +151,11 @@ const ApiAdminOrdersRoute = ApiAdminOrdersRouteImport.update({
 const ApiAdminPrintLedgerRoute = ApiAdminPrintLedgerRouteImport.update({
   id: '/api/admin/print-ledger',
   path: '/api/admin/print-ledger',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminPrintLoadSheetRoute = ApiAdminPrintLoadSheetRouteImport.update({
+  id: '/api/admin/print-load-sheet',
+  path: '/api/admin/print-load-sheet',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminPrintOrdersRoute = ApiAdminPrintOrdersRouteImport.update({
@@ -224,6 +242,7 @@ const ApiStaffStatusRoute = ApiStaffStatusRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/admin/accounts': typeof AdminAccountsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -234,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
   '/api/admin/customers': typeof ApiAdminCustomersRoute
+  '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
   '/api/admin/dashboard': typeof ApiAdminDashboardRoute
   '/api/admin/inventory': typeof ApiAdminInventoryRoute
   '/api/admin/ledger': typeof ApiAdminLedgerRoute
@@ -241,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/logout': typeof ApiAdminLogoutRoute
   '/api/admin/orders': typeof ApiAdminOrdersRoute
   '/api/admin/print-ledger': typeof ApiAdminPrintLedgerRoute
+  '/api/admin/print-load-sheet': typeof ApiAdminPrintLoadSheetRoute
   '/api/admin/print-orders': typeof ApiAdminPrintOrdersRoute
   '/api/admin/products': typeof ApiAdminProductsRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
@@ -261,6 +282,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/admin/accounts': typeof AdminAccountsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -271,6 +293,7 @@ export interface FileRoutesByTo {
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
   '/api/admin/customers': typeof ApiAdminCustomersRoute
+  '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
   '/api/admin/dashboard': typeof ApiAdminDashboardRoute
   '/api/admin/inventory': typeof ApiAdminInventoryRoute
   '/api/admin/ledger': typeof ApiAdminLedgerRoute
@@ -278,6 +301,7 @@ export interface FileRoutesByTo {
   '/api/admin/logout': typeof ApiAdminLogoutRoute
   '/api/admin/orders': typeof ApiAdminOrdersRoute
   '/api/admin/print-ledger': typeof ApiAdminPrintLedgerRoute
+  '/api/admin/print-load-sheet': typeof ApiAdminPrintLoadSheetRoute
   '/api/admin/print-orders': typeof ApiAdminPrintOrdersRoute
   '/api/admin/products': typeof ApiAdminProductsRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
@@ -299,6 +323,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/admin/accounts': typeof AdminAccountsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -309,6 +334,7 @@ export interface FileRoutesById {
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
   '/api/admin/customers': typeof ApiAdminCustomersRoute
+  '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
   '/api/admin/dashboard': typeof ApiAdminDashboardRoute
   '/api/admin/inventory': typeof ApiAdminInventoryRoute
   '/api/admin/ledger': typeof ApiAdminLedgerRoute
@@ -316,6 +342,7 @@ export interface FileRoutesById {
   '/api/admin/logout': typeof ApiAdminLogoutRoute
   '/api/admin/orders': typeof ApiAdminOrdersRoute
   '/api/admin/print-ledger': typeof ApiAdminPrintLedgerRoute
+  '/api/admin/print-load-sheet': typeof ApiAdminPrintLoadSheetRoute
   '/api/admin/print-orders': typeof ApiAdminPrintOrdersRoute
   '/api/admin/products': typeof ApiAdminProductsRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
@@ -338,6 +365,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/admin/accounts'
     | '/dashboard'
     | '/driver'
     | '/robots.txt'
@@ -348,6 +376,7 @@ export interface FileRouteTypes {
     | '/api/admin/audit'
     | '/api/admin/categories'
     | '/api/admin/customers'
+    | '/api/admin/customer-users'
     | '/api/admin/dashboard'
     | '/api/admin/inventory'
     | '/api/admin/ledger'
@@ -355,6 +384,7 @@ export interface FileRouteTypes {
     | '/api/admin/logout'
     | '/api/admin/orders'
     | '/api/admin/print-ledger'
+    | '/api/admin/print-load-sheet'
     | '/api/admin/print-orders'
     | '/api/admin/products'
     | '/api/admin/settings'
@@ -375,6 +405,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/admin/accounts'
     | '/dashboard'
     | '/driver'
     | '/robots.txt'
@@ -385,6 +416,7 @@ export interface FileRouteTypes {
     | '/api/admin/audit'
     | '/api/admin/categories'
     | '/api/admin/customers'
+    | '/api/admin/customer-users'
     | '/api/admin/dashboard'
     | '/api/admin/inventory'
     | '/api/admin/ledger'
@@ -392,6 +424,7 @@ export interface FileRouteTypes {
     | '/api/admin/logout'
     | '/api/admin/orders'
     | '/api/admin/print-ledger'
+    | '/api/admin/print-load-sheet'
     | '/api/admin/print-orders'
     | '/api/admin/products'
     | '/api/admin/settings'
@@ -412,6 +445,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/admin/accounts'
     | '/dashboard'
     | '/driver'
     | '/robots.txt'
@@ -422,6 +456,7 @@ export interface FileRouteTypes {
     | '/api/admin/audit'
     | '/api/admin/categories'
     | '/api/admin/customers'
+    | '/api/admin/customer-users'
     | '/api/admin/dashboard'
     | '/api/admin/inventory'
     | '/api/admin/ledger'
@@ -429,6 +464,7 @@ export interface FileRouteTypes {
     | '/api/admin/logout'
     | '/api/admin/orders'
     | '/api/admin/print-ledger'
+    | '/api/admin/print-load-sheet'
     | '/api/admin/print-orders'
     | '/api/admin/products'
     | '/api/admin/settings'
@@ -450,6 +486,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  AdminAccountsRoute: typeof AdminAccountsRoute
   DashboardRoute: typeof DashboardRoute
   DriverRoute: typeof DriverRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
@@ -460,6 +497,7 @@ export interface RootRouteChildren {
   ApiAdminAuditRoute: typeof ApiAdminAuditRoute
   ApiAdminCategoriesRoute: typeof ApiAdminCategoriesRoute
   ApiAdminCustomersRoute: typeof ApiAdminCustomersRoute
+  ApiAdminCustomerUsersRoute: typeof ApiAdminCustomerUsersRoute
   ApiAdminDashboardRoute: typeof ApiAdminDashboardRoute
   ApiAdminInventoryRoute: typeof ApiAdminInventoryRoute
   ApiAdminLedgerRoute: typeof ApiAdminLedgerRoute
@@ -467,6 +505,7 @@ export interface RootRouteChildren {
   ApiAdminLogoutRoute: typeof ApiAdminLogoutRoute
   ApiAdminOrdersRoute: typeof ApiAdminOrdersRoute
   ApiAdminPrintLedgerRoute: typeof ApiAdminPrintLedgerRoute
+  ApiAdminPrintLoadSheetRoute: typeof ApiAdminPrintLoadSheetRoute
   ApiAdminPrintOrdersRoute: typeof ApiAdminPrintOrdersRoute
   ApiAdminProductsRoute: typeof ApiAdminProductsRoute
   ApiAdminSettingsRoute: typeof ApiAdminSettingsRoute
@@ -499,6 +538,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/accounts': {
+      id: '/admin/accounts'
+      path: '/admin/accounts'
+      fullPath: '/admin/accounts'
+      preLoaderRoute: typeof AdminAccountsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -571,6 +617,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminCustomersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/customer-users': {
+      id: '/api/admin/customer-users'
+      path: '/api/admin/customer-users'
+      fullPath: '/api/admin/customer-users'
+      preLoaderRoute: typeof ApiAdminCustomerUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/dashboard': {
       id: '/api/admin/dashboard'
       path: '/api/admin/dashboard'
@@ -618,6 +671,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/print-ledger'
       fullPath: '/api/admin/print-ledger'
       preLoaderRoute: typeof ApiAdminPrintLedgerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/print-load-sheet': {
+      id: '/api/admin/print-load-sheet'
+      path: '/api/admin/print-load-sheet'
+      fullPath: '/api/admin/print-load-sheet'
+      preLoaderRoute: typeof ApiAdminPrintLoadSheetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/print-orders': {
@@ -738,6 +798,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  AdminAccountsRoute: AdminAccountsRoute,
   DashboardRoute: DashboardRoute,
   DriverRoute: DriverRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
@@ -748,6 +809,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminAuditRoute: ApiAdminAuditRoute,
   ApiAdminCategoriesRoute: ApiAdminCategoriesRoute,
   ApiAdminCustomersRoute: ApiAdminCustomersRoute,
+  ApiAdminCustomerUsersRoute: ApiAdminCustomerUsersRoute,
   ApiAdminDashboardRoute: ApiAdminDashboardRoute,
   ApiAdminInventoryRoute: ApiAdminInventoryRoute,
   ApiAdminLedgerRoute: ApiAdminLedgerRoute,
@@ -755,6 +817,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminLogoutRoute: ApiAdminLogoutRoute,
   ApiAdminOrdersRoute: ApiAdminOrdersRoute,
   ApiAdminPrintLedgerRoute: ApiAdminPrintLedgerRoute,
+  ApiAdminPrintLoadSheetRoute: ApiAdminPrintLoadSheetRoute,
   ApiAdminPrintOrdersRoute: ApiAdminPrintOrdersRoute,
   ApiAdminProductsRoute: ApiAdminProductsRoute,
   ApiAdminSettingsRoute: ApiAdminSettingsRoute,
