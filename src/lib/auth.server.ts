@@ -3,15 +3,7 @@ import type { CustomerSummary } from "./db.server";
 
 const ADMIN_COOKIE_NAME = "buja_admin_session";
 const CUSTOMER_COOKIE_NAME = "buja_customer_session";
-const STAFF_COOKIE_NAME = "buja_staff_session";
 const encoder = new TextEncoder();
-
-export type StaffSession = {
-  id: string;
-  username: string;
-  displayName: string;
-  role: "ADMIN" | "DRIVER";
-};
 
 function toHex(bytes: ArrayBuffer | Uint8Array) {
   const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -63,14 +55,6 @@ export function clearCustomerSessionCookie() {
   return `${CUSTOMER_COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
-export function staffSessionCookie(token: string, maxAgeSeconds = 60 * 60 * 24 * 180) {
-  return `${STAFF_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
-}
-
-export function clearStaffSessionCookie() {
-  return `${STAFF_COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
-}
-
 export async function adminSetupRequired() {
   await ensureDatabase();
   const row = await db().prepare("SELECT id FROM admin_credentials WHERE id = 1").first();
@@ -80,16 +64,13 @@ export async function adminSetupRequired() {
 export async function isAdmin(request: Request) {
   await ensureDatabase();
   const token = parseCookie(request, ADMIN_COOKIE_NAME);
-  if (token) {
-    const hash = await sha256(token);
-    const row = await db()
-      .prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > datetime('now')")
-      .bind(hash)
-      .first();
-    if (row) return true;
-  }
-  const staff = await getStaff(request);
-  return staff?.role === "ADMIN";
+  if (!token) return false;
+  const hash = await sha256(token);
+  const row = await db()
+    .prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > datetime('now')")
+    .bind(hash)
+    .first();
+  return Boolean(row);
 }
 
 export async function createAdmin(password: string, bootstrapKey: string) {
@@ -130,63 +111,6 @@ export async function logoutAdmin(request: Request) {
   if (!token) return;
   const hash = await sha256(token);
   await db().prepare("DELETE FROM admin_sessions WHERE token_hash = ?").bind(hash).run();
-}
-
-export async function loginStaff(username: string, pin: string) {
-  await ensureDatabase();
-  const normalized = username.trim().toLowerCase();
-  if (!normalized || !/^\d{6}$/.test(pin)) throw new Error("아이디와 6자리 PIN을 확인해 주세요.");
-  const row = await db().prepare(
-    "SELECT id, username, display_name, role, auth_salt, auth_hash, active FROM staff_users WHERE lower(username)=lower(?) LIMIT 1",
-  ).bind(normalized).first<Record<string, unknown>>();
-  if (!row || Number(row.active ?? 0) !== 1) throw new Error("아이디와 PIN을 확인해 주세요.");
-  const hash = await derivePassword(pin, String(row.auth_salt));
-  if (hash !== String(row.auth_hash)) throw new Error("아이디와 PIN을 확인해 주세요.");
-  const token = randomHex(32);
-  const tokenHash = await sha256(token);
-  await db().batch([
-    db().prepare("DELETE FROM staff_sessions WHERE expires_at <= datetime('now')"),
-    db().prepare("INSERT INTO staff_sessions(token_hash,staff_id,expires_at) VALUES(?,?,datetime('now','+180 days'))").bind(tokenHash, String(row.id)),
-  ]);
-  return {
-    token,
-    staff: { id: String(row.id), username: String(row.username), displayName: String(row.display_name), role: String(row.role) === "ADMIN" ? "ADMIN" : "DRIVER" } as StaffSession,
-  };
-}
-
-export async function getStaff(request: Request): Promise<StaffSession | null> {
-  await ensureDatabase();
-  const token = parseCookie(request, STAFF_COOKIE_NAME);
-  if (!token) return null;
-  const tokenHash = await sha256(token);
-  const row = await db().prepare(`
-    SELECT u.id,u.username,u.display_name,u.role,u.active
-    FROM staff_sessions s JOIN staff_users u ON u.id=s.staff_id
-    WHERE s.token_hash=? AND s.expires_at>datetime('now') AND u.active=1
-    LIMIT 1
-  `).bind(tokenHash).first<Record<string, unknown>>();
-  if (!row) return null;
-  return {
-    id: String(row.id), username: String(row.username), displayName: String(row.display_name),
-    role: String(row.role) === "ADMIN" ? "ADMIN" : "DRIVER",
-  };
-}
-
-export async function logoutStaff(request: Request) {
-  const token = parseCookie(request, STAFF_COOKIE_NAME);
-  if (!token) return;
-  const tokenHash = await sha256(token);
-  await db().prepare("DELETE FROM staff_sessions WHERE token_hash=?").bind(tokenHash).run();
-}
-
-export async function resetStaffPin(staffId: string, pin: string) {
-  if (!/^\d{6}$/.test(pin)) throw new Error("PIN은 숫자 6자리로 입력해 주세요.");
-  const salt = randomHex(16);
-  const hash = await derivePassword(pin, salt);
-  await db().batch([
-    db().prepare("UPDATE staff_users SET auth_salt=?,auth_hash=?,updated_at=datetime('now') WHERE id=?").bind(salt, hash, staffId),
-    db().prepare("DELETE FROM staff_sessions WHERE staff_id=?").bind(staffId),
-  ]);
 }
 
 export function normalizeCustomerCode(value: string) {

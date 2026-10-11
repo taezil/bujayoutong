@@ -22,11 +22,9 @@ function normalize(value: string) {
 
 type CustomerStatus = { authenticated: boolean; customer: CustomerSummary | null };
 type DashboardData = {
-  recent: Array<{ id: string; status: string; total: number; createdAt: string; deliveryDate: string; summary: string; printed: boolean }>;
+  recent: Array<{ id: string; status: string; total: number; createdAt: string; summary: string; printed: boolean }>;
   frequentProductIds: string[];
-  usualOrderItems: Array<{ productId: string; productName: string; optionLabel: string; quantity: number; orderCount: number }>;
   lastOrderItems: Array<{ productId: string; productName: string; optionLabel: string; quantity: number }>;
-  weekdayTemplates: Array<{ weekday: number; label: string; orderId: string | null; orderedAt: string | null; items: Array<{ productId: string; productName: string; optionLabel: string; quantity: number }> }>;
 };
 type CartLine = {
   productId: string; productName: string; unit: string; optionLabel: string; quantity: number; unitPrice: number; step: number;
@@ -45,7 +43,6 @@ function StorePage() {
   const [auth, setAuth] = useState<CustomerStatus | null>(null);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [notice, setNotice] = useState("");
-  const [weekdayOpen, setWeekdayOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   async function refreshStore() {
@@ -141,20 +138,6 @@ function StorePage() {
     window.setTimeout(() => setNotice(""), 1600);
   }
 
-  function loadUsualOrder() {
-    if (!dashboard?.usualOrderItems?.length) return;
-    const lines: CartLine[] = [];
-    for (const item of dashboard.usualOrderItems) {
-      const product = store.products.find((row) => row.id === item.productId);
-      const option = product?.packOptions.find((row) => row.label === item.optionLabel);
-      if (product && option && !product.soldout) lines.push({ productId: product.id, productName: product.name, unit: product.unit, optionLabel: option.label, quantity: item.quantity, unitPrice: option.price ?? 0, step: option.step || 1 });
-    }
-    if (!lines.length) return;
-    setEditingOrderId(null); setCart(lines); setCheckoutOpen(true);
-    setNotice(`평소 주문표 ${lines.length}개 품목을 불러왔습니다.`);
-    window.setTimeout(() => setNotice(""), 1800);
-  }
-
   function repeatLastOrder() {
     if (!dashboard?.lastOrderItems.length) return;
     setEditingOrderId(null);
@@ -169,22 +152,6 @@ function StorePage() {
     if (!lines.length) return;
     addToCart(lines);
     setNotice(`지난 주문 ${lines.length}개 품목을 장바구니에 담았습니다.`);
-  }
-
-  function loadWeekdayTemplate(items: DashboardData["weekdayTemplates"][number]["items"], label: string) {
-    const lines: CartLine[] = [];
-    for (const item of items) {
-      const product = store.products.find((row) => row.id === item.productId);
-      const option = product?.packOptions.find((row) => row.label === item.optionLabel);
-      if (product && option && !product.soldout) lines.push({ productId: product.id, productName: product.name, unit: product.unit, optionLabel: option.label, quantity: item.quantity, unitPrice: option.price ?? 0, step: option.step || 1 });
-    }
-    if (!lines.length) return;
-    setEditingOrderId(null);
-    setCart(lines);
-    setWeekdayOpen(false);
-    setCheckoutOpen(true);
-    setNotice(`${label} 지난 주문을 불러왔습니다.`);
-    window.setTimeout(() => setNotice(""), 1800);
   }
 
   function editLatestOrder(orderId: string) {
@@ -257,21 +224,21 @@ function StorePage() {
                 : "주문 접수 중지"}
             </div>
           </div>
-          <div className="quick-actions primary-order-actions">
-            <button type="button" className="event" onClick={() => chooseCategory(store.promoCategory)}>🚨 행사상품</button>
-            <button type="button" className="weekday" disabled={!dashboard?.weekdayTemplates?.some((row) => row.items.length)} onClick={() => setWeekdayOpen(true)}>📅 요일별 지난 주문</button>
-            <button type="button" onClick={() => { setCategory("전체"); setQuery(""); window.setTimeout(() => searchRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50); }}>🔎 전체상품</button>
+          <div className="quick-actions">
+            <button type="button" onClick={() => { setCategory("전체"); setQuery(""); searchRef.current?.focus(); }}>🔎 전체상품 찾기</button>
+            <button type="button" onClick={() => chooseCategory(store.promoCategory)}>🚨 행사상품</button>
+            <button type="button" disabled={!dashboard?.lastOrderItems.length} onClick={() => void repeatLastOrder()}>↻ 지난 주문 그대로 담기</button>
           </div>
         </section>
 
         {frequentProducts.length > 0 && (
           <section className="wrap frequent-section">
-            <div className="section-mini-head"><div><p>이 거래처 기준</p><h2>평소 주문표 · 자주 주문</h2></div><button type="button" className="usual-order-load" onClick={loadUsualOrder}>평소 수량으로 한 번에 담기</button></div>
+            <div className="section-mini-head"><div><p>이 거래처 기준</p><h2>자주 주문</h2></div><span>최근 주문기록을 기준으로 자동 정리</span></div>
             <div className="frequent-rail">
               {frequentProducts.slice(0, 8).map((product) => (
                 <button type="button" className="mini-product" key={product.id} onClick={() => setSelected(product)} disabled={product.soldout}>
                   <div>{product.photo ? <img src={product.photo} alt="" /> : <img src={BUJA_MARK_DATA} alt="" />}</div>
-                  <strong>{product.name}</strong><span>{product.unit}{dashboard?.usualOrderItems?.find((row) => row.productId === product.id) ? ` · 평소 ${dashboard.usualOrderItems.find((row) => row.productId === product.id)?.quantity}${dashboard.usualOrderItems.find((row) => row.productId === product.id)?.optionLabel}` : ""}</span>
+                  <strong>{product.name}</strong><span>{product.unit}</span>
                 </button>
               ))}
             </div>
@@ -284,7 +251,7 @@ function StorePage() {
             <div className="recent-order-rail">
               {dashboard.recent.slice(0, 4).map((order) => (
                 <div className="recent-order-card" key={order.id}>
-                  <div><b>{order.createdAt.slice(5, 16)}{order.deliveryDate ? ` · 배송 ${order.deliveryDate.slice(5)}` : ""}</b><span>{order.status === "shipped" ? "출고완료" : order.status === "cancelled" ? "취소" : "접수"}</span></div>
+                  <div><b>{order.createdAt.slice(5, 16)}</b><span>{order.status === "shipped" ? "출고완료" : order.status === "cancelled" ? "취소" : "접수"}</span></div>
                   <p>{order.summary}</p><div className="recent-order-bottom"><strong>{won(order.total)}원</strong><span className="recent-order-actions">{canEditOrder(order) && dashboard.recent[0]?.id === order.id && <button type="button" onClick={() => editLatestOrder(order.id)}>수정</button>}{order.status === "received" && !order.printed && <button type="button" onClick={() => void cancelOrder(order.id)}>취소</button>}</span></div>
                 </div>
               ))}
@@ -406,26 +373,12 @@ function StorePage() {
           cart={cart}
           setCart={setCart}
           editingOrderId={editingOrderId}
-          receivable={auth.customer.receivable ?? 0}
           onClose={() => setCheckoutOpen(false)}
           onOrdered={async (id) => {
             setCheckoutOpen(false); setCart([]); setEditingOrderId(null); setNotice(`주문이 ${editingOrderId ? "수정" : "접수"}되었습니다. ${id}`);
             await refreshDashboard(); window.setTimeout(() => setNotice(""), 3500);
           }}
         />
-      )}
-      {weekdayOpen && dashboard && (
-        <div className="sheet-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setWeekdayOpen(false); }}>
-          <section className="order-sheet weekday-sheet" role="dialog" aria-modal="true">
-            <div className="sheet-top"><div><p>최근 해당 요일 주문</p><h2>요일별 지난 주문</h2><span>월요일부터 토요일까지 골라 바로 불러올 수 있습니다.</span></div><button type="button" className="sheet-close" onClick={() => setWeekdayOpen(false)}>×</button></div>
-            <div className="weekday-template-list">{dashboard.weekdayTemplates.map((row) => (
-              <div className={`weekday-template ${row.items.length ? "has-order" : "empty"}`} key={row.weekday}>
-                <div><strong>{row.label}</strong><span>{row.orderedAt ? `최근 ${row.orderedAt.slice(0,10)}` : "주문기록 없음"}</span></div>
-                {row.items.length ? <><p>{row.items.slice(0,6).map((item) => `${item.productName} ${item.quantity}${item.optionLabel}`).join(" · ")}{row.items.length > 6 ? ` 외 ${row.items.length - 6}개` : ""}</p><button type="button" onClick={() => loadWeekdayTemplate(row.items, row.label)}>{row.label} 주문 불러오기</button></> : <p>아직 이 요일의 주문기록이 없습니다.</p>}
-              </div>
-            ))}</div>
-          </section>
-        </div>
       )}
       {notice && <div className="toast-message">{notice}</div>}
     </div>
@@ -705,7 +658,7 @@ function OrderSheet({ product, onClose, onAdd }: { product: Product; onClose: ()
   );
 }
 
-function CheckoutSheet({ cart, setCart, editingOrderId, receivable, onClose, onOrdered }: { cart: CartLine[]; setCart: React.Dispatch<React.SetStateAction<CartLine[]>>; editingOrderId: string | null; receivable: number; onClose: () => void; onOrdered: (id: string) => Promise<void> }) {
+function CheckoutSheet({ cart, setCart, editingOrderId, onClose, onOrdered }: { cart: CartLine[]; setCart: React.Dispatch<React.SetStateAction<CartLine[]>>; editingOrderId: string | null; onClose: () => void; onOrdered: (id: string) => Promise<void> }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -715,18 +668,12 @@ function CheckoutSheet({ cart, setCart, editingOrderId, receivable, onClose, onO
     setCart((current) => current.map((line, i) => i === index ? { ...line, quantity: Math.max(0, Number((line.quantity + direction * line.step).toFixed(3))) } : line).filter((line) => line.quantity > 0));
   }
 
-  async function submit(confirmAnomaly = false) {
+  async function submit() {
     if (!cart.length) return;
     setBusy(true); setMessage("");
     try {
-      const response = await fetch("/api/orders", { method: editingOrderId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId: editingOrderId ?? undefined, items: cart.map((line) => ({ productId: line.productId, optionLabel: line.optionLabel, quantity: line.quantity })), note, confirmAnomaly }) });
-      const data = await response.json() as { error?: string; warning?: boolean; warnings?: Array<{ message: string }>; order?: { id: string } };
-      if (response.status === 409 && data.warning) {
-        const details = (data.warnings ?? []).map((row) => `• ${row.message}`).join("\n");
-        setBusy(false);
-        if (window.confirm(`⚠ 평소 주문량보다 많은 품목이 있습니다.\n\n${details}\n\n수량이 맞으면 확인을 눌러 주문하세요.`)) await submit(true);
-        return;
-      }
+      const response = await fetch("/api/orders", { method: editingOrderId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId: editingOrderId ?? undefined, items: cart.map((line) => ({ productId: line.productId, optionLabel: line.optionLabel, quantity: line.quantity })), note }) });
+      const data = await response.json() as { error?: string; order?: { id: string } };
       if (!response.ok || !data.order) throw new Error(data.error || "주문 접수에 실패했습니다.");
       await onOrdered(data.order.id);
     } catch (error) { setMessage(error instanceof Error ? error.message : "주문 접수에 실패했습니다."); }
@@ -746,8 +693,7 @@ function CheckoutSheet({ cart, setCart, editingOrderId, receivable, onClose, onO
         <label className="customer-field"><span>요청사항</span><input value={note} onChange={(event) => setNote(event.target.value)} placeholder="없으면 비워두세요" maxLength={200} /></label>
         <div className="order-summary"><span>예상 금액</span><strong>{total > 0 ? `${won(total)}원` : "가격 문의 포함"}</strong></div>
         {message && <p className="form-error" role="alert">{message}</p>}
-        <button type="button" className="compose-sms" onClick={() => void submit(false)} disabled={busy || !cart.length}>{busy ? "처리 중..." : editingOrderId ? "수정 확정" : "주문 확정"}</button>
-        <p className={`receivable-note ${receivable > 0 ? "has-balance" : ""}`}>현재 미수금 {won(receivable)}원</p>
+        <button type="button" className="compose-sms" onClick={() => void submit()} disabled={busy || !cart.length}>{busy ? "처리 중..." : editingOrderId ? "수정 확정" : "주문 확정"}</button>
         <p className="sheet-help">주문 확정을 누르면 부자유통 관리자 화면에 바로 접수됩니다.</p>
       </section>
     </div>

@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getStaff, isAdmin, makeCustomerPinCredential, normalizeCustomerCode, revokeCustomerSessions, validMutationOrigin } from "../../../lib/auth.server";
+import { isAdmin, makeCustomerPinCredential, normalizeCustomerCode, revokeCustomerSessions, validMutationOrigin } from "../../../lib/auth.server";
 import { db, ensureDatabase } from "../../../lib/db.server";
 import { cleanText } from "../../../lib/admin-validation.server";
-import { writeAudit, staffActor } from "../../../lib/audit.server";
 
 function cleanPriceGroup(value: unknown) { return value === "B" ? "B" : "A"; }
 
@@ -29,8 +28,6 @@ export const Route = createFileRoute("/api/admin/customers")({
       try {
         const body = await request.json() as Record<string, unknown>;
         const action = cleanText(body.action, 30);
-        const staff = await getStaff(request);
-        const actor = staff ? staffActor(staff) : { type: "admin" as const, id: "legacy-admin", name: "관리자" };
         if (action === "create") {
           const code = normalizeCustomerCode(cleanText(body.code, 40));
           const name = cleanText(body.name, 120);
@@ -42,7 +39,6 @@ export const Route = createFileRoute("/api/admin/customers")({
             (id,code,name,phone,business_number,address,store_phone,region,price_group,auth_salt,auth_hash,active)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,1)`)
             .bind(id,code,name,cleanText(body.phone,30),cleanText(body.businessNumber,30),cleanText(body.address,240),cleanText(body.storePhone,30),cleanText(body.region,80),cleanPriceGroup(body.priceGroup),credential.salt,credential.hash).run();
-          await writeAudit({actor,action:"customer_create",entityType:"customer",entityId:id,summary:`거래처 ${code} ${name} 추가`});
           return Response.json({ ok:true,id });
         }
         const id = cleanText(body.id, 80);
@@ -53,21 +49,18 @@ export const Route = createFileRoute("/api/admin/customers")({
           if (!code || !name) throw new Error("거래처번호와 거래처명을 입력해 주세요.");
           await db().prepare(`UPDATE customers SET code=?,name=?,phone=?,business_number=?,address=?,store_phone=?,region=?,price_group=?,updated_at=datetime('now') WHERE id=?`)
             .bind(code,name,cleanText(body.phone,30),cleanText(body.businessNumber,30),cleanText(body.address,240),cleanText(body.storePhone,30),cleanText(body.region,80),cleanPriceGroup(body.priceGroup),id).run();
-          await writeAudit({actor,action:"customer_update",entityType:"customer",entityId:id,summary:`거래처 ${code} ${name} 정보수정`});
           return Response.json({ok:true});
         }
         if (action === "reset-pin") {
           const credential = await makeCustomerPinCredential(cleanText(body.pin,6));
           await db().prepare("UPDATE customers SET auth_salt=?,auth_hash=?,updated_at=datetime('now') WHERE id=?").bind(credential.salt,credential.hash,id).run();
           await revokeCustomerSessions(id);
-          await writeAudit({actor,action:"customer_pin_reset",entityType:"customer",entityId:id,summary:`거래처 로그인 PIN 초기화`});
           return Response.json({ok:true});
         }
         if (action === "toggle") {
           const active = body.active === true || body.active === 1;
           await db().prepare("UPDATE customers SET active=?,updated_at=datetime('now') WHERE id=?").bind(active?1:0,id).run();
           if (!active) await revokeCustomerSessions(id);
-          await writeAudit({actor,action:"customer_toggle",entityType:"customer",entityId:id,summary:`거래처 계정 ${active ? "사용" : "중지"}`});
           return Response.json({ok:true});
         }
         if (action === "logout-all") {
@@ -83,8 +76,6 @@ export const Route = createFileRoute("/api/admin/customers")({
             db().prepare("INSERT INTO payments(customer_id,amount,method,note) VALUES(?,?,?,?)").bind(id,amount,method,note),
             db().prepare("INSERT INTO receivable_ledger(customer_id,amount,event_type,note) VALUES(?,?,'payment',?)").bind(id,-amount,note || "입금"),
           ]);
-          const c = await db().prepare("SELECT code,name FROM customers WHERE id=?").bind(id).first<{code:string;name:string}>();
-          await writeAudit({actor,action:"payment",entityType:"customer",entityId:id,summary:`${c?.code ?? ""} ${c?.name ?? ""} 입금 ${amount.toLocaleString()}원 등록`});
           return Response.json({ok:true});
         }
         throw new Error("지원하지 않는 작업입니다.");
