@@ -588,15 +588,15 @@ function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
         <div className="ops-metric"><b>{customers.length}</b><span>거래처</span><b>{new Intl.NumberFormat("ko-KR").format(totalReceivable)}원</b><span>총 미수</span></div>
       </div>
       <div className="customer-create-grid">
-        <input placeholder="거래처번호 예: 8-18" value={code} onChange={(e) => setCode(e.target.value)} />
-        <input placeholder="거래처명" value={name} onChange={(e) => setName(e.target.value)} />
-        <input placeholder="지역 예: 1단지" value={region} onChange={(e) => setRegion(e.target.value)} />
-        <input placeholder="가게 전화번호" value={storePhone} onChange={(e) => setStorePhone(e.target.value)} />
+        <input className="customer-code" placeholder="거래처번호 예: 8-18" value={code} onChange={(e) => setCode(e.target.value)} />
+        <input className="customer-name" placeholder="거래처명" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className="customer-region" placeholder="지역 예: 1단지" value={region} onChange={(e) => setRegion(e.target.value)} />
+        <input className="customer-phone" placeholder="가게 전화번호" value={storePhone} onChange={(e) => setStorePhone(e.target.value)} />
         <input className="customer-business-number" placeholder="사업자번호" value={businessNumber} onChange={(e) => setBusinessNumber(e.target.value)} />
         <input className="customer-address" placeholder="가게 주소" value={address} onChange={(e) => setAddress(e.target.value)} />
-        <select value={priceGroup} onChange={(e) => setPriceGroup(e.target.value)}><option value="A">가격 A그룹</option><option value="B">가격 B그룹</option></select>
-        <input placeholder="최초 인증번호 6자리" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} />
-        <button className="admin-primary" type="button" onClick={() => void create()} disabled={!code.trim() || !name.trim() || pin.length !== 6}>+ 거래처 추가</button>
+        <select className="customer-price-group" value={priceGroup} onChange={(e) => setPriceGroup(e.target.value)}><option value="A">가격 A그룹</option><option value="B">가격 B그룹</option></select>
+        <input className="customer-pin" placeholder="최초 인증번호 6자리" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} />
+        <button className="admin-primary customer-add" type="button" onClick={() => void create()} disabled={!code.trim() || !name.trim() || pin.length !== 6}>+ 거래처 추가</button>
       </div>
       <div className="customer-group-filter"><span>가격그룹 보기</span><button type="button" className={filterGroup === "전체" ? "selected" : ""} onClick={() => setFilterGroup("전체")}>전체 {customers.length}</button><button type="button" className={filterGroup === "A" ? "selected" : ""} onClick={() => setFilterGroup("A")}>A그룹 {customers.filter((c) => c.priceGroup === "A").length}</button><button type="button" className={filterGroup === "B" ? "selected" : ""} onClick={() => setFilterGroup("B")}>B그룹 {customers.filter((c) => c.priceGroup === "B").length}</button></div>
       <input className="ops-search" placeholder="거래처번호·상호·지역 검색" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -714,8 +714,8 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
       <div className="manual-order-box">
         <div><h3>전화·문자 주문 대신 입력</h3><p>직원이 이 화면에서 입력하면 앱 주문과 동일하게 재고·미수·전표 흐름에 들어갑니다.</p></div>
         <div className="manual-order-controls">
-          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>{customers.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
-          <select value={source} onChange={(e) => setSource(e.target.value)}><option value="phone">전화발주</option><option value="sms">문자발주</option><option value="admin">직접입력</option></select>
+          <select className="manual-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>{customers.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
+          <select className="manual-source" value={source} onChange={(e) => setSource(e.target.value)}><option value="phone">전화발주</option><option value="sms">문자발주</option><option value="admin">직접입력</option></select>
           <label className="manual-date"><span>배송일</span><input type="date" value={deliveryDate} min={kstDateLocal(0)} onChange={(e) => setDeliveryDate(e.target.value)} /></label>
           <div className="product-autocomplete">
             <input
@@ -739,7 +739,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
               </div>
             )}
           </div>
-          <select value={optionLabel} onChange={(e) => setOptionLabel(e.target.value)}>{(product?.packOptions ?? []).map((o) => <option key={o.label}>{o.label}</option>)}</select>
+          <select className="manual-unit-select" value={optionLabel} onChange={(e) => setOptionLabel(e.target.value)}>{(product?.packOptions ?? []).map((o) => <option key={o.label}>{o.label}</option>)}</select>
           <div className="manual-qty-unit"><input type="number" min="0" step="1" value={qty} onChange={(e) => setQty(Math.max(0, Math.round(Number(e.target.value || 0))))} /><b>{optionLabel || "단위"}</b></div>
           <button type="button" className="manual-add-item" onClick={addManualItem}>품목 추가</button>
         </div>
