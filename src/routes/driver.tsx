@@ -91,7 +91,7 @@ function DriverPage(){
   if(loading)return <div className="driver-state">직원 정보를 확인하는 중입니다.</div>;
   if(!staff)return <StaffLogin onLogin={status}/>;
   return <div className="driver-page">
-    <header className="driver-header"><img src={BUJA_LOGO_DATA} alt="부자유통"/><div className="session-actions"><span><b>{staff.displayName}</b><small>배송기사</small></span><button type="button" onClick={logout}>로그아웃</button></div></header>
+    <header className="driver-header"><img src={BUJA_LOGO_DATA} alt="부자유통"/><div className="driver-header-actions"><a className="price-list-shortcut" href="/price-list">부자유통 단가표</a><div className="session-actions"><span><b>{staff.displayName}</b><small>배송기사</small></span><button type="button" onClick={logout}>로그아웃</button></div></div></header>
     <main className="driver-main">
       <section className="driver-date-panel"><div><p>배송일</p><h1>{date}</h1></div><div className="driver-date-buttons"><input aria-label="배송일 선택" type="date" value={date} min={localDate(0)} onChange={e=>setDate(e.target.value)}/></div></section>
 
