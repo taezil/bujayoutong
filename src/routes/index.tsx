@@ -34,243 +34,698 @@ function StorePage() {
   const initial = Route.useLoaderData() as StoreData;
   const [store, setStore] = useState(initial);
   const [category, setCategory] = useState("ì „ì²´");
-  const [sub, setSub] = useState("ì „Ûm8ñÈZ®Ëkºwµçkz»§Â+a…æş
-Ş§ûZŠWè­û¥–‹­¦ë]˜[YO^ØÛÙ_HÛÚ[™ÙO^ÊJHOˆÙ]ÛÙJK\™Ù]˜[YJ_HXÙZÛ\H»&"ˆLNˆ]]ĞÛÛ\]OH\Ù\›˜[YHˆÏÛX™[‚ˆX™[»-g;-";'n;)§zì¢;f.[œ]˜[YO^Ü[ŸHÛÚ[™ÙO^ÊJHOˆÙ][ŠK\™Ù]˜[YKœ™\XÙJ×ÙËˆŠKœÛXÙJŠJ_HXÙZÛ\H»"*û'¤»'¤:é«ˆ[œ][ÙOH›[Y\šXÈˆ]]ĞÛÛ\]OH˜İ\œ™[\\ÜİÛÜ™ˆÏÛX™[‚ˆÙ\œ›Üˆ	‰ˆÛ\ÜÓ˜[YOH™›Ü›KY\œ›ÜˆÙ\œ›ÜŸOÜŸBˆ]Ûˆ\OHœİX›Z]ˆ\ØX›Y^Ø\ŞHXÛÙKš[J
-H[‹›[™İOOHŸOØ\ŞHÈ»fe{'n;)$K‹‹ˆˆˆºèg:­î;'nŸOØ]Û‚ˆÙ›Ü›O‚ˆÛX[»'n;)§zì¢;f.:éo:êª:ém;"ç:êm:í ;'¤;'(;a­{'/:èg:ë.;'f;em;(ï;!.;&¥ÜÛX[‚ˆÛXZ[‚ˆÙ]‚ˆ
-NÂŸB‚™[˜İ[Ûˆ›Û[ĞØ\›İ\Ù[
-Âˆ›ÙXİËˆÛ“Ü™\‹ŸNˆÂˆ›ÙXİÎˆ›ÙXİ×NÂˆÛ“Ü™\ˆ
-›ÙXİˆ›ÙXİ
-HOˆ›ÚYÂŸJHÂˆÛÛœİ˜XÚÔ™YˆH\ÙT™YS]‘[[Y[Š[
-NÂˆÛÛœİÜÚ][Û”™YˆH\ÙT™YŠ
-NÂˆÛÛœİ[\˜Xİ[Û•[Y\”™YˆH\ÙT™Y[X™\ˆ[Š[
-NÂˆÛÛœİÜ]\ÙYÙ]]\ÙYHH\ÙTİ]J˜[ÙJNÂˆÛÛœİ™\X]Ûİ[HX]›X^
-‹X]˜ÙZ[
-MÈX]›X^
-›ÙXİË›[™İJJJNÂˆÛÛœİ™\X]Y›ÙXİÈH\œ˜^K™œ›ÛJÈ[™İˆ™\X]Ûİ[K
+  const [sub, setSub] = useState("ì „ì²´");
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<Product | null>(null);
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [auth, setAuth] = useState<CustomerStatus | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [notice, setNotice] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
-HOˆ›ÙXİÊK™›]
+  async function refreshStore() {
+    try {
+      const response = await fetch("/api/store", { cache: "no-store" });
+      if (response.ok) setStore(await response.json() as StoreData);
+    } catch {
+      // Keep the last successfully loaded catalogue on screen.
+    }
+  }
 
-NÂ‚ˆ[˜İ[Ûˆ]\ÙQ›Ü’[\˜Xİ[ÛŠ[^HHŒŒ
-HÂˆÙ]]\ÙY
-YJNÂˆYˆ
-[\˜Xİ[Û•[Y\”™Y‹˜İ\œ™[OOH[
-HÚ[™İË˜ÛX\•[Y[İ]
-[\˜Xİ[Û•[Y\”™Y‹˜İ\œ™[
-NÂˆ[\˜Xİ[Û•[Y\”™Y‹˜İ\œ™[HÚ[™İËœÙ][Y[İ]
+  async function refreshDashboard() {
+    try {
+      const response = await fetch("/api/customer/dashboard", { cache: "no-store" });
+      if (response.ok) setDashboard(await response.json() as DashboardData);
+    } catch {
+      // Recent ordering shortcuts are optional.
+    }
+  }
+
+  async function loadSession() {
+    const response = await fetch("/api/customer/status", { cache: "no-store" });
+    const next = await response.json() as CustomerStatus;
+    setAuth(next);
+    if (next.authenticated) await Promise.all([refreshStore(), refreshDashboard()]);
+  }
+
+  async function logoutCustomer() {
+    await fetch("/api/customer/logout", { method: "POST" });
+    setDashboard(null);
+    setCart([]);
+    setEditingOrderId(null);
+    setAuth({ authenticated: false, customer: null });
+  }
+
+  useEffect(() => {
+    void loadSession().catch(() => setAuth({ authenticated: false, customer: null }));
+  }, []);
+
+  useEffect(() => {
+    if (!auth?.authenticated) return;
+    const timer = window.setInterval(() => { void refreshStore(); void refreshDashboard(); }, 5 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [auth?.authenticated]);
+
+  const categoryNames = Object.keys(store.categories);
+  const tabs = [
+    ...(store.promoCategory && categoryNames.includes(store.promoCategory) ? [store.promoCategory] : []),
+    "ì „ì²´",
+    ...categoryNames.filter((name) => name !== store.promoCategory),
+  ];
+
+  const promoProducts = useMemo(
+    () => store.products.filter((product) => product.category === store.promoCategory),
+    [store.products, store.promoCategory],
+  );
+
+  const frequentProducts = useMemo(() => {
+    if (!dashboard) return [];
+    const rank = new Map(dashboard.frequentProductIds.map((id, index) => [id, index]));
+    return store.products
+      .filter((product) => rank.has(product.id))
+      .sort((a, b) => (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99));
+  }, [dashboard, store.products]);
+
+  const filtered = useMemo(() => {
+    const needle = normalize(query);
+    return store.products.filter((product) => {
+      if (category !== "ì „ì²´" && product.category !== category) return false;
+      if (category !== "ì „ì²´" && sub !== "ì „ì²´" && product.sub !== sub) return false;
+      if (!needle) return true;
+      return normalize(`${product.name} ${product.category} ${product.sub} ${product.unit}`).includes(needle);
+    });
+  }, [store.products, category, sub, query]);
+
+  function chooseCategory(name: string) {
+    setCategory(name);
+    setSub("ì „ì²´");
+  }
+
+  function addToCart(lines: CartLine[]) {
+    setCart((current) => {
+      const next = [...current];
+      for (const line of lines) {
+        const index = next.findIndex((item) => item.productId === line.productId && item.optionLabel === line.optionLabel);
+        if (index >= 0) next[index] = { ...next[index], quantity: Number((next[index].quantity + line.quantity).toFixed(3)) };
+        else next.push(line);
+      }
+      return next;
+    });
+    setSelected(null);
+    setNotice("ì¥ë°”êµ¬ë‹ˆì— ë‹´ì•˜ìŠµë‹ˆë‹¤.");
+    window.setTimeout(() => setNotice(""), 1600);
+  }
+
+  function repeatLastOrder() {
+    if (!dashboard?.lastOrderItems.length) return;
+    setEditingOrderId(null);
+    const lines: CartLine[] = [];
+    for (const item of dashboard.lastOrderItems) {
+      const product = store.products.find((row) => row.id === item.productId);
+      const option = product?.packOptions.find((row) => row.label === item.optionLabel);
+      if (product && option && !product.soldout) {
+        lines.push({ productId: product.id, productName: product.name, unit: product.unit, optionLabel: option.label, quantity: item.quantity, unitPrice: option.price ?? 0, step: option.step || 1 });
+      }
+    }
+    if (!lines.length) return;
+    addToCart(lines);
+    setNotice(`ì§€ë‚œ ì£¼ë¬¸ ${lines.length}ê°œ í’ˆëª©ì„ ì¥ë°”êµ¬ë‹ˆì— ë‹´ì•˜ìŠµë‹ˆë‹¤.`);
+  }
+
+  function editLatestOrder(orderId: string) {
+    if (!dashboard?.lastOrderItems.length || dashboard.recent[0]?.id !== orderId) return;
+    const lines: CartLine[] = [];
+    for (const item of dashboard.lastOrderItems) {
+      const product = store.products.find((row) => row.id === item.productId);
+      const option = product?.packOptions.find((row) => row.label === item.optionLabel);
+      if (product && option) {
+        lines.push({ productId: product.id, productName: product.name, unit: product.unit, optionLabel: option.label, quantity: item.quantity, unitPrice: option.price ?? 0, step: option.step || 1 });
+      }
+    }
+    if (!lines.length) return;
+    setCart(lines);
+    setEditingOrderId(orderId);
+    setCheckoutOpen(true);
+  }
+
+  function canEditOrder(order: DashboardData["recent"][number]) {
+    if (order.status !== "received" || order.printed) return false;
+    const created = new Date(order.createdAt.replace(" ", "T") + "Z").getTime();
+    return Number.isFinite(created) && Date.now() - created <= store.orderSettings.editMinutes * 60 * 1000;
+  }
+
+  async function cancelOrder(orderId: string) {
+    if (!window.confirm("ì´ ì£¼ë¬¸ì„ ì·¨ì†Œí• ê¹Œìš”? ì´ë¯¸ ì¶œê³ ì¤€ë¹„ê°€ ì‹œì‘ëœ ì£¼ë¬¸ì€ ì·¨ì†Œë˜ì§€ ì•ŠìŠµë‹ˆë‹¤.")) return;
+    const response = await fetch("/api/orders", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId }),
+    });
+    const data = await response.json() as { error?: string };
+    if (!response.ok) { window.alert(data.error || "ì£¼ë¬¸ ì·¨ì†Œì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤."); return; }
+    setNotice("ì£¼ë¬¸ì´ ì·¨ì†Œë˜ì—ˆìŠµë‹ˆë‹¤.");
+    await refreshDashboard();
+    window.setTimeout(() => setNotice(""), 2500);
+  }
+
+  if (auth === null) {
+    return <div className="state-page"><img className="state-logo" src={BUJA_MARK_DATA} alt="" /><p>ê±°ë˜ì²˜ ì •ë³´ë¥¼ í™•ì¸í•˜ëŠ” ì¤‘ì…ë‹ˆë‹¤.</p></div>;
+  }
+  if (!auth.authenticated || !auth.customer) {
+    return <CustomerLogin onSuccess={loadSession} />;
+  }
+
+  return (
+    <div className="site-shell">
+      <header className="topbar">
+        <div className="wrap topbar-inner">
+          <a href="/" className="brand-lockup" aria-label="ë¶€ììœ í†µ í™ˆ">
+            <img src={BUJA_LOGO_DATA} alt="ë¶€ììœ í†µ" />
+          </a>
+          <div className="customer-head">
+            <span><b>{auth.customer.name}</b><small>{auth.customer.code}</small></span>
+            <button type="button" onClick={logoutCustomer}>ë¡œê·¸ì•„ì›ƒ</button>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section className="wrap customer-home">
+          <div className="customer-greeting">
+            <div>
+              <p>{auth.customer.region ? `${auth.customer.region} Â· ` : ""}{auth.customer.code}</p>
+              <h1>{auth.customer.name} ì‚¬ì¥ë‹˜, ë¬´ì—‡ì„ ì£¼ë¬¸í• ê¹Œìš”?</h1>
+            </div>
+            <div className={`order-open-badge ${store.orderSettings.enabled ? "on" : "off"}`}>
+              {store.orderSettings.enabled
+                ? (store.orderSettings.open24h ? "24ì‹œê°„ ì£¼ë¬¸ ê°€ëŠ¥" : `${store.orderSettings.openTime}~${store.orderSettings.closeTime}`)
+                : "ì£¼ë¬¸ ì ‘ìˆ˜ ì¤‘ì§€"}
+            </div>
+          </div>
+          <div className="quick-actions">
+            <button type="button" onClick={() => { setCategory("ì „ì²´"); setQuery(""); searchRef.current?.focus(); }}>ğŸ” ì „ì²´ìƒí’ˆ ì°¾ê¸°</button>
+            <button type="button" onClick={() => chooseCategory(store.promoCategory)}>ğŸš¨ í–‰ì‚¬ìƒí’ˆ</button>
+            <button type="button" disabled={!dashboard?.lastOrderItems.length} onClick={() => void repeatLastOrder()}>â†» ì§€ë‚œ ì£¼ë¬¸ ê·¸ëŒ€ë¡œ ë‹´ê¸°</button>
+          </div>
+        </section>
+
+        {frequentProducts.length > 0 && (
+          <section className="wrap frequent-section">
+            <div className="section-mini-head"><div><p>ì´ ê±°ë˜ì²˜ ê¸°ì¤€</p><h2>ìì£¼ ì£¼ë¬¸</h2></div><span>ìµœê·¼ ì£¼ë¬¸ê¸°ë¡ì„ ê¸°ì¤€ìœ¼ë¡œ ìë™ ì •ë¦¬</span></div>
+            <div className="frequent-rail">
+              {frequentProducts.slice(0, 8).map((product) => (
+                <button type="button" className="mini-product" key={product.id} onClick={() => setSelected(product)} disabled={product.soldout}>
+                  <div>{product.photo ? <img src={product.photo} alt="" /> : <img src={BUJA_MARK_DATA} alt="" />}</div>
+                  <strong>{product.name}</strong><span>{product.unit}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {dashboard && dashboard.recent.length > 0 && (
+          <section className="wrap recent-orders">
+            <div className="section-mini-head"><div><p>ìµœê·¼ ì ‘ìˆ˜ë‚´ì—­</p><h2>ì´ì „ ì£¼ë¬¸</h2></div></div>
+            <div className="recent-order-rail">
+              {dashboard.recent.slice(0, 4).map((order) => (
+                <div className="recent-order-card" key={order.id}>
+                  <div><b>{order.createdAt.slice(5, 16)}</b><span>{order.status === "shipped" ? "ì¶œê³ ì™„ë£Œ" : order.status === "cancelled" ? "ì·¨ì†Œ" : "ì ‘ìˆ˜"}</span></div>
+                  <p>{order.summary}</p><div className="recent-order-bottom"><strong>{won(order.total)}ì›</strong><span className="recent-order-actions">{canEditOrder(order) && dashboard.recent[0]?.id === order.id && <button type="button" onClick={() => editLatestOrder(order.id)}>ìˆ˜ì •</button>}{order.status === "received" && !order.printed && <button type="button" onClick={() => void cancelOrder(order.id)}>ì·¨ì†Œ</button>}</span></div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {promoProducts.length > 0 && (
+          <PromoCarousel
+            products={promoProducts}
+            onOrder={(product) => setSelected(product)}
+          />
+        )}
+
+        <section className="category-zone" aria-label="ìƒí’ˆ ë¶„ë¥˜">
+          <div className="wrap">
+            <nav className="category-rail">
+              {tabs.map((name) => {
+                const promo = name === store.promoCategory;
+                return (
+                  <button
+                    type="button"
+                    key={name}
+                    className={`category-chip ${category === name ? "selected" : ""} ${promo ? "promo" : ""}`}
+                    onClick={() => chooseCategory(name)}
+                    aria-pressed={category === name}
+                  >
+                    {promo ? `ğŸš¨${name}ğŸš¨` : name}
+                  </button>
+                );
+              })}
+            </nav>
+            {category !== "ì „ì²´" && (
+              <div className="subcategory-rail">
+                {["ì „ì²´", ...(store.categories[category] ?? [])].map((name) => (
+                  <button
+                    type="button"
+                    key={name}
+                    className={sub === name ? "selected" : ""}
+                    onClick={() => setSub(name)}
+                    aria-pressed={sub === name}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="wrap catalogue-section">
+          <div className="catalogue-head">
+            <div>
+              <h2>{category === "ì „ì²´" ? "ì „ì²´ ìƒí’ˆ" : category}</h2>
+              <p>{filtered.length}ê°œ ìƒí’ˆ</p>
+            </div>
+            <label className="search-box">
+              <span aria-hidden="true">âŒ•</span>
+              <span className="sr-only">ìƒí’ˆ ê²€ìƒ‰</span>
+              <input
+                ref={searchRef}
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="ìƒí’ˆëª…Â·ë¶„ë¥˜ ê²€ìƒ‰"
+                autoComplete="off"
+              />
+              {query && (
+                <button type="button" onClick={() => setQuery("")} aria-label="ê²€ìƒ‰ì–´ ì§€ìš°ê¸°">Ã—</button>
+              )}
+            </label>
+          </div>
+
+          {filtered.length ? (
+            <div className="product-grid">
+              {filtered.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  promoCategory={store.promoCategory}
+                  onOrder={() => setSelected(product)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <img src={BUJA_MARK_DATA} alt="" />
+              <strong>ì¡°ê±´ì— ë§ëŠ” ìƒí’ˆì´ ì—†ìŠµë‹ˆë‹¤.</strong>
+              <button type="button" onClick={() => { setQuery(""); setCategory("ì „ì²´"); setSub("ì „ì²´"); }}>ì „ì²´ ìƒí’ˆ ë³´ê¸°</button>
+            </div>
+          )}
+        </section>
+
+        <section className="wrap order-guide">
+          <div className="guide-number">01</div>
+          <div>
+            <h2>ì•±ì—ì„œ ì£¼ë¬¸í•˜ë©´ ë¶€ììœ í†µì— ë°”ë¡œ ì ‘ìˆ˜ë©ë‹ˆë‹¤.</h2>
+            <p>ë¬¸ìë¥¼ ë‹¤ì‹œ ë³´ë‚¼ í•„ìš”ê°€ ì—†ìŠµë‹ˆë‹¤. ì£¼ë¬¸ ì™„ë£Œ ì•ˆë‚´ê°€ ëœ¨ë©´ ì •ìƒ ì ‘ìˆ˜ëœ ê²ƒì…ë‹ˆë‹¤.</p>
+          </div>
+        </section>
+      </main>
+
+      <footer className="footer">
+        <div className="wrap footer-inner">
+          <span>ë¶€ììœ í†µ</span>
+          <span>ê±°ë˜ì²˜ìš© ì‹ìì¬ ì£¼ë¬¸</span>
+        </div>
+      </footer>
+
+      {selected && <OrderSheet product={selected} onClose={() => setSelected(null)} onAdd={addToCart} />}
+      {cart.length > 0 && (
+        <button type="button" className="floating-cart" onClick={() => setCheckoutOpen(true)}>
+          <span>ì¥ë°”êµ¬ë‹ˆ Â· {cart.length}í’ˆëª©</span>
+          <b>{new Intl.NumberFormat("ko-KR").format(cart.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0))}ì›</b>
+        </button>
+      )}
+      {checkoutOpen && (
+        <CheckoutSheet
+          cart={cart}
+          setCart={setCart}
+          editingOrderId={editingOrderId}
+          onClose={() => setCheckoutOpen(false)}
+          onOrdered={async (id) => {
+            setCheckoutOpen(false); setCart([]); setEditingOrderId(null); setNotice(`ì£¼ë¬¸ì´ ${editingOrderId ? "ìˆ˜ì •" : "ì ‘ìˆ˜"}ë˜ì—ˆìŠµë‹ˆë‹¤. ${id}`);
+            await refreshDashboard(); window.setTimeout(() => setNotice(""), 3500);
+          }}
+        />
+      )}
+      {notice && <div className="toast-message">{notice}</div>}
+    </div>
+  );
+}
 
 
-HOˆÙ]]\ÙY
-˜[ÙJK[^JNÂˆB‚ˆ[˜İ[ÛˆÙYÛY[ÚY
+function CustomerLogin({ onSuccess }: { onSuccess: () => Promise<void> }) {
+  const [code, setCode] = useState("");
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-HÂˆÛÛœİ˜XÚÈH˜XÚÔ™Y‹˜İ\œ™[Âˆ™]\›ˆ˜XÚÈÈ˜XÚËœØÜ›ÛÚYÈ™\X]Ûİ[ˆÂˆB‚ˆ[˜İ[Ûˆ›Ü›X[^™SÛÜÜÚ][ÛŠ
-HÂˆÛÛœİ˜XÚÈH˜XÚÔ™Y‹˜İ\œ™[ÂˆYˆ
-]˜XÚÊH™]\›ÂˆÛÛœİÙYÛY[HÙYÛY[ÚY
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true); setError("");
+    try {
+      const response = await fetch("/api/customer/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, pin }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "ë¡œê·¸ì¸ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
+      await onSuccess();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ë¡œê·¸ì¸ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
+    } finally { setBusy(false); }
+  }
 
-NÂˆYˆ
-\ÙYÛY[
-H™]\›Â‚ˆ]™^H˜XÚËœØÜ›ÛYÂˆÚ[H
-™^HÙYÛY[
-ˆŠH™^OHÙYÛY[ÂˆÚ[H
-™^ÙYÛY[
-ˆMJH™^
-ÏHÙYÛY[Â‚ˆÜÚ][Û”™Y‹˜İ\œ™[H™^ÂˆYˆ
-X]˜XœÊ˜XÚËœØÜ›ÛYH™^
-HˆJH˜XÚËœØÜ›ÛYH™^ÂˆB‚ˆ[˜İ[ÛˆØÜ›ÛUšY]ÜÜ
-\™Xİ[ÛˆLHJHÂˆÛÛœİ˜XÚÈH˜XÚÔ™Y‹˜İ\œ™[ÂˆYˆ
-]˜XÚÊH™]\›Âˆ]\ÙQ›Ü’[\˜Xİ[ÛŠ
-NÂˆ˜XÚËœØÜ›ÛJÂˆYˆ\™Xİ[Ûˆ
-ˆX]›X^
-˜XÚË˜ÛY[ÚY
-ˆÌŠKˆ™Z]š[ÜˆœÛ[Ûİ‹ˆJNÂˆÚ[™İËœÙ][Y[İ]
-›Ü›X[^™SÛÜÜÚ][Û‹L
-NÂˆB‚ˆ\ÙQY™™Xİ
+  return (
+    <div className="customer-login-page">
+      <header className="login-brand"><img src={BUJA_LOGO_DATA} alt="ë¶€ììœ í†µ" /></header>
+      <main className="customer-login-card">
+        <img src={BUJA_MARK_DATA} alt="" />
+        <p>ê±°ë˜ì²˜ ì „ìš© ì£¼ë¬¸</p>
+        <h1>ì²˜ìŒ í•œ ë²ˆë§Œ ë¡œê·¸ì¸í•´ ì£¼ì„¸ìš”.</h1>
+        <span>ì´ íœ´ëŒ€í°ì—ì„œëŠ” ë‹¤ìŒë¶€í„° ìë™ìœ¼ë¡œ ë¡œê·¸ì¸ë©ë‹ˆë‹¤.</span>
+        <form onSubmit={submit}>
+          <label>ê±°ë˜ì²˜ë²ˆí˜¸<input value={code} onChange={(e) => setCode(e.target.value)} placeholder="ì˜ˆ: 8-18" autoComplete="username" /></label>
+          <label>ìµœì´ˆ ì¸ì¦ë²ˆí˜¸<input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="ìˆ«ì 6ìë¦¬" inputMode="numeric" autoComplete="current-password" /></label>
+          {error && <p className="form-error">{error}</p>}
+          <button type="submit" disabled={busy || !code.trim() || pin.length !== 6}>{busy ? "í™•ì¸ ì¤‘..." : "ë¡œê·¸ì¸"}</button>
+        </form>
+        <small>ì¸ì¦ë²ˆí˜¸ë¥¼ ëª¨ë¥´ì‹œë©´ ë¶€ììœ í†µìœ¼ë¡œ ë¬¸ì˜í•´ ì£¼ì„¸ìš”.</small>
+      </main>
+    </div>
+  );
+}
 
+function PromoCarousel({
+  products,
+  onOrder,
+}: {
+  products: Product[];
+  onOrder: (product: Product) => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const positionRef = useRef(0);
+  const interactionTimerRef = useRef<number | null>(null);
+  const [paused, setPaused] = useState(false);
+  const repeatCount = Math.max(6, Math.ceil(14 / Math.max(products.length, 1)));
+  const repeatedProducts = Array.from({ length: repeatCount }, () => products).flat();
 
-HOˆÂˆÛÛœİ˜XÚÈH˜XÚÔ™Y‹˜İ\œ™[ÂˆYˆ
-]˜XÚÈ›ÙXİË›[™İOOH
-H™]\›Â‚ˆÛÛœİXÙP]ÛÜİ\H
+  function pauseForInteraction(delay = 2200) {
+    setPaused(true);
+    if (interactionTimerRef.current !== null) window.clearTimeout(interactionTimerRef.current);
+    interactionTimerRef.current = window.setTimeout(() => setPaused(false), delay);
+  }
 
-HOˆÂˆÛÛœİÙYÛY[HÙYÛY[ÚY
+  function segmentWidth() {
+    const track = trackRef.current;
+    return track ? track.scrollWidth / repeatCount : 0;
+  }
 
-NÂˆYˆ
-\ÙYÛY[
-H™]\›ÂˆÜÚ][Û”™Y‹˜İ\œ™[HÙYÛY[Âˆ˜XÚËœØÜ›ÛYHÙYÛY[ÂˆNÂ‚ˆÛÛœİœ˜[YHHÚ[™İËœ™\]Y\İ[š[X][Û‘œ˜[YJXÙP]ÛÜİ\
-NÂˆ™]\›ˆ
+  function normalizeLoopPosition() {
+    const track = trackRef.current;
+    if (!track) return;
+    const segment = segmentWidth();
+    if (!segment) return;
 
-HOˆÚ[™İË˜Ø[˜Ù[[š[X][Û‘œ˜[YJœ˜[YJNÂˆKÜ›ÙXİË›[™İ™\X]Ûİ[JNÂ‚ˆ\ÙQY™™Xİ
+    let next = track.scrollLeft;
+    while (next >= segment * 2) next -= segment;
+    while (next < segment * 0.55) next += segment;
 
+    positionRef.current = next;
+    if (Math.abs(track.scrollLeft - next) > 1) track.scrollLeft = next;
+  }
 
-HOˆÂˆÛÛœİ˜XÚÈH˜XÚÔ™Y‹˜İ\œ™[ÂˆYˆ
-]˜XÚÈ›ÙXİË›[™İOOH
-H™]\›Â‚ˆ]œ˜[YHHÂˆ]™]š[İ\ÈHÂˆÛÛœİ^[Ô\”ÙXÛÛ™HŒÂ‚ˆÛÛœİ[š[X]HH
-[YNˆ[X™\ŠHOˆÂˆYˆ
-\™]š[İ\ÊH™]š[İ\ÈH[YNÂˆÛÛœİ[\ÙYHX]›Z[Š[YHH™]š[İ\Ë
-NÂˆ™]š[İ\ÈH[YNÂ‚ˆÛÛœİÙYÛY[HÙYÛY[ÚY
+  function scrollByViewport(direction: -1 | 1) {
+    const track = trackRef.current;
+    if (!track) return;
+    pauseForInteraction(2400);
+    track.scrollBy({
+      left: direction * Math.max(240, track.clientWidth * 0.72),
+      behavior: "smooth",
+    });
+    window.setTimeout(normalizeLoopPosition, 650);
+  }
 
-NÂˆYˆ
-ÙYÛY[ˆ
-HÂˆYˆ
-]\ÙY
-HÂˆÜÚ][Û”™Y‹˜İ\œ™[H˜XÚËœØÜ›ÛYÂˆH[ÙHÂˆ]™^HÜÚ][Û”™Y‹˜İ\œ™[
-È
-^[Ô\”ÙXÛÛ™
-ˆ[\ÙY
-HÈLÂˆÚ[H
-™^HÙYÛY[
-ˆŠH™^OHÙYÛY[ÂˆÚ[H
-™^ÙYÛY[
-ˆMJH™^
-ÏHÙYÛY[ÂˆÜÚ][Û”™Y‹˜İ\œ™[H™^Âˆ˜XÚËœØÜ›ÛYH™^ÂˆBˆB‚ˆœ˜[YHHÚ[™İËœ™\]Y\İ[š[X][Û‘œ˜[YJ[š[X]JNÂˆNÂ‚ˆœ˜[YHHÚ[™İËœ™\]Y\İ[š[X][Û‘œ˜[YJ[š[X]JNÂˆ™]\›ˆ
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track || products.length === 0) return;
 
-HOˆÚ[™İË˜Ø[˜Ù[[š[X][Û‘œ˜[YJœ˜[YJNÂˆKÜ]\ÙY›ÙXİË›[™İ™\X]Ûİ[JNÂ‚ˆ\ÙQY™™Xİ
+    const placeAtLoopStart = () => {
+      const segment = segmentWidth();
+      if (!segment) return;
+      positionRef.current = segment;
+      track.scrollLeft = segment;
+    };
 
+    const frame = window.requestAnimationFrame(placeAtLoopStart);
+    return () => window.cancelAnimationFrame(frame);
+  }, [products.length, repeatCount]);
 
-HOˆÂˆ™]\›ˆ
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track || products.length === 0) return;
 
-HOˆÂˆYˆ
-[\˜Xİ[Û•[Y\”™Y‹˜İ\œ™[OOH[
-HÚ[™İË˜ÛX\•[Y[İ]
-[\˜Xİ[Û•[Y\”™Y‹˜İ\œ™[
-NÂˆNÂˆK×JNÂ‚ˆ™]\›ˆ
-ˆÙXİ[ÛˆÛ\ÜÓ˜[YOHœ›Û[Ë\ÚİØØ\ÙHˆ\šXK[X™[YOHœ›Û[Ë]]H‚ˆ]ˆÛ\ÜÓ˜[YOHÜ˜\›Û[Ë\ÚİØØ\ÙKZ[›™\ˆ‚ˆ]ˆÛ\ÜÓ˜[YOHœ›Û[ËZXY[™È‚ˆ]‚ˆºí ;'¤;'(;a­H;&):â¦;'f;-¥;,§Ü‚ˆHYHœ›Û[Ë]]H¼'æª;e¢{ «;d¢:êªOÚO‚ˆÜ[»e¢{ «; à{d¢;'a:ì%:èg;fe{'n;ef:¬è;"&:çâ{'a;!(;`ç{em:ë.;'¤:èg;(ï:ë.;ef;!.;&¥ÜÜ[‚ˆÙ]‚ˆ]ˆÛ\ÜÓ˜[YOHœ›Û[ËXÛÛ›ÛÈˆ\šXK[X™[H»e¢{ «; à{d¢;"«:ço;'m:äç;'m:ãæH‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆØÜ›ÛUšY]ÜÜ
-LJ_H\šXK[X™[H»'m;(!;e¢{ «; à{d¢¸¡¤Ø]Û‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆØÜ›ÛUšY]ÜÜ
-J_H\šXK[X™[Hºâé;'c;e¢{ «; à{d¢¸¡¤Ø]Û‚ˆÙ]‚ˆÙ]‚‚ˆ]‚ˆ™Y^İ˜XÚÔ™YŸBˆÛ\ÜÓ˜[YOHœ›Û[Ë]˜XÚÈ‚ˆÛ”Ú[\‘İÛ^Ê
-HOˆ]\ÙQ›Ü’[\˜Xİ[ÛŠ
-_BˆÛ”Ú[\•\^Ê
-HOˆ]\ÙQ›Ü’[\˜Xİ[ÛŠML
-_BˆÛ•İXÚİ\^Ê
-HOˆ]\ÙQ›Ü’[\˜Xİ[ÛŠ
-_BˆÛ•ÚY[^Ê
-HOˆ]\ÙQ›Ü’[\˜Xİ[ÛŠ
-_BˆÛ”ØÜ›Û^Ê
-HOˆÂˆYˆ
-]\ÙY	‰ˆ˜XÚÔ™Y‹˜İ\œ™[
-HÜÚ][Û”™Y‹˜İ\œ™[H˜XÚÔ™Y‹˜İ\œ™[œØÜ›ÛYÂˆ_Bˆ‚ˆÜ™\X]Y›ÙXİË›X\
+    let frame = 0;
+    let previous = 0;
+    const pixelsPerSecond = 22;
 
-›ÙXİ[™^
-HOˆ
-ˆ›ÙXİØ\™ˆÙ^O^Ø	Ü›ÙXİšYK\›Û[ËIÚ[™^XBˆ›ÙXİ^Ü›ÙXİBˆ›Û[ĞØ]YÛÜO^Ü›ÙXİ˜Ø]YÛÜ_BˆÛ“Ü™\^Ê
-HOˆÛ“Ü™\Š›ÙXİ
-_Bˆ^˜PÛ\ÜÓ˜[YOHœ›Û[Ë\ÛYKXØ\™‚ˆÏ‚ˆ
-J_BˆÙ]‚ˆÙ]‚ˆÜÙXİ[Û‚ˆ
-NÂŸB‚™[˜İ[Ûˆ›ÙXİØ\™
-Âˆ›ÙXİˆ›Û[ĞØ]YÛÜKˆÛ“Ü™\‹ˆ^˜PÛ\ÜÓ˜[YHHˆ‹ŸNˆÂˆ›ÙXİˆ›ÙXİÂˆ›Û[ĞØ]YÛÜNˆİš[™ÎÂˆÛ“Ü™\ˆ
+    const animate = (time: number) => {
+      if (!previous) previous = time;
+      const elapsed = Math.min(time - previous, 80);
+      previous = time;
 
-HOˆ›ÚYÂˆ^˜PÛ\ÜÓ˜[YOÎˆİš[™ÎÂŸJHÂˆÛÛœİšXÙ\ÈH›ÙXİœXÚÓÜ[ÛœÂˆ™š[\Š
-Ü[ÛŠHOˆÜ[Û‹œšXÙHOOH[
-Bˆ›X\
+      const segment = segmentWidth();
+      if (segment > 0) {
+        if (paused) {
+          positionRef.current = track.scrollLeft;
+        } else {
+          let next = positionRef.current + (pixelsPerSecond * elapsed) / 1000;
+          while (next >= segment * 2) next -= segment;
+          while (next < segment * 0.55) next += segment;
+          positionRef.current = next;
+          track.scrollLeft = next;
+        }
+      }
 
-Ü[ÛŠHOˆÜ[Û‹œšXÙH\È[X™\ŠNÂˆÛÛœİ\ÔšXÙHHšXÙ\Ë›[™İˆÂ‚ˆ™]\›ˆ
-ˆ\XÛBˆÛ\ÜÓ˜[YO^Ø›ÙXİXØ\™	Ü›ÙXİ˜Ø]YÛÜHOOH›Û[ĞØ]YÛÜHÈœ›Û[ËXØ\™ˆˆˆŸH	Ü›ÙXİœÛÛİ]ÈœÛÛİ]ˆˆˆŸH	Ù^˜PÛ\ÜÓ˜[Y_XBˆ‚ˆ]ˆÛ\ÜÓ˜[YOHœ›ÙXİZ[XYÙH‚ˆÜ›ÙXİœİÈÈ
-ˆ[YÈÜ˜Ï^Ü›ÙXİœİßH[^Ü›ÙXİ›˜[Y_HØY[™ÏH›^HˆÏ‚ˆ
-Hˆ
-ˆ]ˆÛ\ÜÓ˜[YOHš[XYÙK\XÙZÛ\ˆ‚ˆ[YÈÜ˜Ï^Ğ•RWÓPT’×ÑU_H[HˆˆÏ‚ˆÙ]‚ˆ
-_BˆÜ›ÙXİ˜Ø]YÛÜHOOH›Û[ĞØ]YÛÜH	‰ˆÜ[ˆÛ\ÜÓ˜[YOH™]™[X˜YÙH¼'æª:®-:®"H;e¢{ «; à{d¢ÜÜ[ŸBˆÜ›ÙXİœÛÛİ]	‰ˆÜ[ˆÛ\ÜÓ˜[YOHœÛÛİ]X˜YÙH»d¢;("ÜÜ[ŸBˆÙ]‚ˆ]ˆÛ\ÜÓ˜[YOHœ›ÙXİZ[™›È‚ˆÛ\ÜÓ˜[YOHœ›ÙXİ[Y]HÜ›ÙXİ˜Ø]YÛÜ_H0­ÈÜ›ÙXİœİXŸOÜ‚ˆÏÜ›ÙXİ›˜[Y_OÚÏ‚ˆÛ\ÜÓ˜[YOHœ›ÙXİ][š]Ü›ÙXİ[š]º­ç:¬ªH:ë.;'fŸOÜ‚ˆ]ˆÛ\ÜÓ˜[YOHœšXÙK[[™H‚ˆİ›Û™ÏÚ\ÔšXÙHÈÛÛŠX]›Z[Š‹‹œšXÙ\ÊJHˆº¬ :¬ªH:ë.;'fŸOÜİ›Û™Ï‚ˆÚ\ÔšXÙH	‰ˆÜ[»&äÜ›ÙXİœXÚÓÜ[ÛœË›[™İˆHÈºí ;a,ˆˆˆŸOÜÜ[ŸBˆÙ]‚ˆÙ]‚ˆ]Û‚ˆÛ\ÜÓ˜[YOH›Ü™\‹\İš\‚ˆ\OH˜]Ûˆ‚ˆ\ØX›Y^Ü›ÙXİœÛÛİ]BˆÛÛXÚÏ^ÛÛ“Ü™\ŸBˆ‚ˆÜ›ÙXİœÛÛİ]È»d¢;("ˆˆºì%:èg;(ï:ë.ŸHÜ[ˆ\šXKZY[HYH¸¡¤ÜÜ[‚ˆØ]Û‚ˆØ\XÛO‚ˆ
-NÂŸB‚™[˜İ[ÛˆÜ™\”ÚY]
-È›ÙXİÛÛÜÙKÛYNˆÈ›ÙXİˆ›ÙXİÈÛÛÜÙNˆ
+      frame = window.requestAnimationFrame(animate);
+    };
 
-HOˆ›ÚYÈÛYˆ
-[™\ÎˆØ\[™V×JHOˆ›ÚYJHÂˆÛÛœİÜ]X[]Y\ËÙ]]X[]Y\×HH\ÙTİ]O[X™\–×OŠ›ÙXİœXÚÓÜ[ÛœË›X\
+    frame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(frame);
+  }, [paused, products.length, repeatCount]);
 
+  useEffect(() => {
+    return () => {
+      if (interactionTimerRef.current !== null) window.clearTimeout(interactionTimerRef.current);
+    };
+  }, []);
 
-HOˆ
-JNÂˆÛÛœİÛY\ÜØYÙKÙ]Y\ÜØYÙWHH\ÙTİ]JˆŠNÂ‚ˆ[˜İ[ÛˆÙ]]J[™^ˆ[X™\‹™^ˆ[X™\ŠHÂˆÛÛœİÜ[ÛˆH›ÙXİœXÚÓÜ[ÛœÖÚ[™^NÂˆYˆ
-[Ü[ÛŠH™]\›ÂˆÛÛœİİ\HÜ[Û‹œİ\NÂˆÛÛœİ›İ[™YHX]›X^
-X]œ›İ[™
-™^Èİ\
-H
-ˆİ\
-NÂˆÙ]]X[]Y\Ê
-İ\œ™[
-HOˆİ\œ™[›X\
+  return (
+    <section className="promo-showcase" aria-labelledby="promo-title">
+      <div className="wrap promo-showcase-inner">
+        <div className="promo-heading">
+          <div>
+            <p>ë¶€ììœ í†µ ì˜¤ëŠ˜ì˜ ì¶”ì²œ</p>
+            <h1 id="promo-title">ğŸš¨ í–‰ì‚¬í’ˆëª©</h1>
+            <span>í–‰ì‚¬ìƒí’ˆì„ ë°”ë¡œ í™•ì¸í•˜ê³  ìˆ˜ëŸ‰ì„ ì„ íƒí•´ ë¬¸ìë¡œ ì£¼ë¬¸í•˜ì„¸ìš”.</span>
+          </div>
+          <div className="promo-controls" aria-label="í–‰ì‚¬ìƒí’ˆ ìŠ¬ë¼ì´ë“œ ì´ë™">
+            <button type="button" onClick={() => scrollByViewport(-1)} aria-label="ì´ì „ í–‰ì‚¬ìƒí’ˆ">â†</button>
+            <button type="button" onClick={() => scrollByViewport(1)} aria-label="ë‹¤ìŒ í–‰ì‚¬ìƒí’ˆ">â†’</button>
+          </div>
+        </div>
 
-˜[YKJHOˆHOOH[™^È[X™\Š›İ[™YÑš^Y
-ÊJHˆ˜[YJJNÂˆB‚ˆ[˜İ[ÛˆY
+        <div
+          ref={trackRef}
+          className="promo-track"
+          onPointerDown={() => pauseForInteraction()}
+          onPointerUp={() => pauseForInteraction(1500)}
+          onTouchStart={() => pauseForInteraction()}
+          onWheel={() => pauseForInteraction()}
+          onScroll={() => {
+            if (paused && trackRef.current) positionRef.current = trackRef.current.scrollLeft;
+          }}
+        >
+          {repeatedProducts.map((product, index) => (
+            <ProductCard
+              key={`${product.id}-promo-${index}`}
+              product={product}
+              promoCategory={product.category}
+              onOrder={() => onOrder(product)}
+              extraClassName="promo-slide-card"
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
-HÂˆÛÛœİ[™\ÈH›ÙXİœXÚÓÜ[ÛœË›X\
+function ProductCard({
+  product,
+  promoCategory,
+  onOrder,
+  extraClassName = "",
+}: {
+  product: Product;
+  promoCategory: string;
+  onOrder: () => void;
+  extraClassName?: string;
+}) {
+  const prices = product.packOptions
+    .filter((option) => option.price !== null)
+    .map((option) => option.price as number);
+  const hasPrice = prices.length > 0;
 
-Ü[Û‹[™^
-HOˆ
-ÈÜ[Û‹]Nˆ]X[]Y\ÖÚ[™^HÏÈJJBˆ™š[\Š
-›İÊHOˆ›İËœ]Hˆ
-Bˆ›X\
+  return (
+    <article
+      className={`product-card ${product.category === promoCategory ? "promo-card" : ""} ${product.soldout ? "soldout" : ""} ${extraClassName}`}
+    >
+      <div className="product-image">
+        {product.photo ? (
+          <img src={product.photo} alt={product.name} loading="lazy" />
+        ) : (
+          <div className="image-placeholder">
+            <img src={BUJA_MARK_DATA} alt="" />
+          </div>
+        )}
+        {product.category === promoCategory && <span className="event-badge">ğŸš¨ ê¸´ê¸‰ í–‰ì‚¬ ìƒí’ˆ</span>}
+        {product.soldout && <span className="soldout-badge">í’ˆì ˆ</span>}
+      </div>
+      <div className="product-info">
+        <p className="product-meta">{product.category} Â· {product.sub}</p>
+        <h3>{product.name}</h3>
+        <p className="product-unit">{product.unit || "ê·œê²© ë¬¸ì˜"}</p>
+        <div className="price-line">
+          <strong>{hasPrice ? won(Math.min(...prices)) : "ê°€ê²© ë¬¸ì˜"}</strong>
+          {hasPrice && <span>ì›{product.packOptions.length > 1 ? "ë¶€í„°" : ""}</span>}
+        </div>
+      </div>
+      <button
+        className="order-strip"
+        type="button"
+        disabled={product.soldout}
+        onClick={onOrder}
+      >
+        {product.soldout ? "í’ˆì ˆ" : "ë°”ë¡œ ì£¼ë¬¸"} <span aria-hidden="true">â†’</span>
+      </button>
+    </article>
+  );
+}
 
-ÈÜ[Û‹]HJHOˆ
-È›ÙXİYˆ›ÙXİšY›ÙXİ˜[YNˆ›ÙXİ›˜[YK[š]ˆ›ÙXİ[š]Ü[Û“X™[ˆÜ[Û‹›X™[]X[]Nˆ]K[š]šXÙNˆÜ[Û‹œšXÙHÏÈİ\ˆÜ[Û‹œİ\HJJNÂˆYˆ
-[[™\Ë›[™İ
-HÈÙ]Y\ÜØYÙJ»"&:çâ{'a;ef:à¦;'m; àH;!(;`ç{em;(ï;!.;&¥ˆŠNÈ™]\›ÈBˆÛY
-[™\ÊNÂˆB‚ˆ™]\›ˆ
-ˆ]ˆÛ\ÜÓ˜[YOHœÚY]X˜XÚÙ›Üˆ›ÛOHœ™\Ù[][ÛˆˆÛ“[İ\ÙQİÛ^Ê]™[
-HOˆÈYˆ
-]™[\™Ù]OOH]™[˜İ\œ™[\™Ù]
-HÛÛÜÙJ
-NÈ_O‚ˆÙXİ[ÛˆÛ\ÜÓ˜[YOH›Ü™\‹\ÚY]ˆ›ÛOH™X[ÙÈˆ\šXK[[Ù[HYHˆ\šXK[X™[YOH›Ü™\‹]]H‚ˆ]ˆÛ\ÜÓ˜[YOHœÚY]]Ü]»(ï:ë.:âí:®,ÜˆYH›Ü™\‹]]HÜ›ÙXİ›˜[Y_OÚÜ[Ü›ÙXİ[š]OÜÜ[Ù]]Ûˆ\OH˜]ÛˆˆÛ\ÜÓ˜[YOHœÚY]XÛÜÙHˆÛÛXÚÏ^ÛÛÛÜÙ_O°åÏØ]ÛÙ]‚ˆ]ˆÛ\ÜÓ˜[YOHœ]X[]K[\İÜ›ÙXİœXÚÓÜ[ÛœË›X\
+function OrderSheet({ product, onClose, onAdd }: { product: Product; onClose: () => void; onAdd: (lines: CartLine[]) => void }) {
+  const [quantities, setQuantities] = useState<number[]>(product.packOptions.map(() => 0));
+  const [message, setMessage] = useState("");
 
-Ü[Û‹[™^
-HOˆ]X[]T›İÈÙ^O^Ø	ÛÜ[Û‹›X™[KIÚ[™^XHÜ[Û^ÛÜ[ÛŸH]O^Ü]X[]Y\ÖÚ[™^HÏÈHÛÚ[™ÙO^Ê™^
-HOˆÙ]]J[™^™^
-_HÏŠ_OÙ]‚ˆÛY\ÜØYÙH	‰ˆÛ\ÜÓ˜[YOH™›Ü›KY\œ›Üˆˆ›ÛOH˜[\ÛY\ÜØYÙ_OÜŸBˆ]Ûˆ\OH˜]ÛˆˆÛ\ÜÓ˜[YOH˜ÛÛ\ÜÙK\Û\ÈˆÛÛXÚÏ^ØYO»'©zì%:­k:ââ:âí:®,Ü[ˆ\šXKZY[HYH¸¡¤ÜÜ[Ø]Û‚ˆÜÙXİ[Û‚ˆÙ]‚ˆ
-NÂŸB‚™[˜İ[ÛˆÚXÚÛİ]ÚY]
-ÈØ\Ù]Ø\Y][™ÓÜ™\’YÛÛÜÙKÛ“Ü™\™YNˆÈØ\ˆØ\[™V×NÈÙ]Ø\ˆ™XXİ‘\Ü]Ú™XXİ”Ù]İ]PXİ[ÛØ\[™V×OÈY][™ÓÜ™\’Yˆİš[™È[ÈÛÛÜÙNˆ
+  function setQty(index: number, next: number) {
+    const option = product.packOptions[index];
+    if (!option) return;
+    const step = option.step || 1;
+    const rounded = Math.max(0, Math.round(next / step) * step);
+    setQuantities((current) => current.map((value, i) => i === index ? Number(rounded.toFixed(3)) : value));
+  }
 
-HOˆ›ÚYÈÛ“Ü™\™Yˆ
-Yˆİš[™ÊHOˆ›ÛZ\ÙO›ÚYˆJHÂˆÛÛœİÛ›İKÙ]›İWHH\ÙTİ]JˆŠNÂˆÛÛœİØ\ŞKÙ]\ŞWHH\ÙTİ]J˜[ÙJNÂˆÛÛœİÛY\ÜØYÙKÙ]Y\ÜØYÙWHH\ÙTİ]JˆŠNÂˆÛÛœİİ[HØ\œ™YXÙJ
-İ[K[™JHOˆİ[H
-È[™K[š]šXÙH
-ˆ[™Kœ]X[]K
-NÂ‚ˆ[˜İ[ÛˆÚ[™ÙJ[™^ˆ[X™\‹\™Xİ[Ûˆ[X™\ŠHÂˆÙ]Ø\
+  function add() {
+    const lines = product.packOptions.map((option, index) => ({ option, qty: quantities[index] ?? 0 }))
+      .filter((row) => row.qty > 0)
+      .map(({ option, qty }) => ({ productId: product.id, productName: product.name, unit: product.unit, optionLabel: option.label, quantity: qty, unitPrice: option.price ?? 0, step: option.step || 1 }));
+    if (!lines.length) { setMessage("ìˆ˜ëŸ‰ì„ í•˜ë‚˜ ì´ìƒ ì„ íƒí•´ ì£¼ì„¸ìš”."); return; }
+    onAdd(lines);
+  }
 
-İ\œ™[
-HOˆİ\œ™[›X\
+  return (
+    <div className="sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="order-sheet" role="dialog" aria-modal="true" aria-labelledby="order-title">
+        <div className="sheet-top"><div><p>ì£¼ë¬¸ ë‹´ê¸°</p><h2 id="order-title">{product.name}</h2><span>{product.unit}</span></div><button type="button" className="sheet-close" onClick={onClose}>Ã—</button></div>
+        <div className="quantity-list">{product.packOptions.map((option, index) => <QuantityRow key={`${option.label}-${index}`} option={option} qty={quantities[index] ?? 0} onChange={(next) => setQty(index, next)} />)}</div>
+        {message && <p className="form-error" role="alert">{message}</p>}
+        <button type="button" className="compose-sms" onClick={add}>ì¥ë°”êµ¬ë‹ˆ ë‹´ê¸° <span aria-hidden="true">â†’</span></button>
+      </section>
+    </div>
+  );
+}
 
-[™KJHOˆHOOH[™^ÈÈ‹‹›[™K]X[]NˆX]›X^
-[X™\Š
-[™Kœ]X[]H
-È\™Xİ[Ûˆ
-ˆ[™Kœİ\
-KÑš^Y
-ÊJJHHˆ[™JK™š[\Š
-[™JHOˆ[™Kœ]X[]Hˆ
-JNÂˆB‚ˆ\Ş[˜È[˜İ[ÛˆİX›Z]
+function CheckoutSheet({ cart, setCart, editingOrderId, onClose, onOrdered }: { cart: CartLine[]; setCart: React.Dispatch<React.SetStateAction<CartLine[]>>; editingOrderId: string | null; onClose: () => void; onOrdered: (id: string) => Promise<void> }) {
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const total = cart.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
 
-HÂˆYˆ
-XØ\›[™İ
-H™]\›ÂˆÙ]\ŞJYJNÈÙ]Y\ÜØYÙJˆŠNÂˆHÂˆÛÛœİ™\ÜÛœÙHH]ØZ]™]Ú
-‹Ø\KÛÜ™\œÈ‹ÈY]ÙˆY][™ÓÜ™\’YÈ”Uˆˆ”ÔÕ‹XY\œÎˆÈÛÛ[U\Hˆ˜\XØ][Û‹ÚœÛÛˆˆK›ÙNˆ”ÓÓ‹œİš[™ÚYJÈÜ™\’YˆY][™ÓÜ™\’YÏÈ[™Yš[™Y][\ÎˆØ\›X\
+  function change(index: number, direction: number) {
+    setCart((current) => current.map((line, i) => i === index ? { ...line, quantity: Math.max(0, Number((line.quantity + direction * line.step).toFixed(3))) } : line).filter((line) => line.quantity > 0));
+  }
 
-[™JHOˆ
-È›ÙXİYˆ[™Kœ›ÙXİYÜ[Û“X™[ˆ[™K›Ü[Û“X™[]X[]Nˆ[™Kœ]X[]HJJK›İHJHJNÂˆÛÛœİ]HH]ØZ]™\ÜÛœÙKšœÛÛŠ
-H\ÈÈ\œ›ÜÎˆİš[™ÎÈÜ™\ÎˆÈYˆİš[™ÈHNÂˆYˆ
-\™\ÜÛœÙK›ÚÈY]K›Ü™\ŠH›İÈ™]È\œ›ÜŠ]K™\œ›Üˆ»(ï:ë.;(${"&;%ä;"é;c*;e¢;"­zââ:âéˆŠNÂˆ]ØZ]Û“Ü™\™Y
-]K›Ü™\‹šY
-NÂˆHØ]Ú
-\œ›ÜŠHÈÙ]Y\ÜØYÙJ\œ›Üˆ[œİ[˜Ù[Ùˆ\œ›ÜˆÈ\œ›Ü‹›Y\ÜØYÙHˆ»(ï:ë.;(${"&;%ä;"é;c*;e¢;"­zââ:âéˆŠNÈBˆš[˜[HÈÙ]\ŞJ˜[ÙJNÈBˆB‚ˆ™]\›ˆ
-ˆ]ˆÛ\ÜÓ˜[YOHœÚY]X˜XÚÙ›Üˆ›ÛOHœ™\Ù[][ÛˆˆÛ“[İ\ÙQİÛ^Ê]™[
-HOˆÈYˆ
-]™[\™Ù]OOH]™[˜İ\œ™[\™Ù]	‰ˆX\ŞJHÛÛÜÙJ
-NÈ_O‚ˆÙXİ[ÛˆÛ\ÜÓ˜[YOH›Ü™\‹\ÚY]ÚXÚÛİ]\ÚY]ˆ›ÛOH™X[ÙÈˆ\šXK[[Ù[HYH‚ˆ]ˆÛ\ÜÓ˜[YOHœÚY]]Ü]ÙY][™ÓÜ™\’YÈ»(ï:ë.;"&;(%Hˆˆ»-g;(¡H;fe{'nŸOÜÙY][™ÓÜ™\’YÈ»(ï:ë.;"&;(%{ef:®,ˆˆ»(ï:ë.;ef:®,ŸOÚÜ[ØØ\›[™İz¬';d¢:êªOÜÜ[Ù]]Ûˆ\OH˜]ÛˆˆÛ\ÜÓ˜[YOHœÚY]XÛÜÙHˆÛÛXÚÏ^ÛÛÛÜÙ_H\ØX›Y^Ø\Ş_O°åÏØ]ÛÙ]‚ˆ]ˆÛ\ÜÓ˜[YOH˜ÚXÚÛİ][[™\ÈØØ\›X\
+  async function submit() {
+    if (!cart.length) return;
+    setBusy(true); setMessage("");
+    try {
+      const response = await fetch("/api/orders", { method: editingOrderId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId: editingOrderId ?? undefined, items: cart.map((line) => ({ productId: line.productId, optionLabel: line.optionLabel, quantity: line.quantity })), note }) });
+      const data = await response.json() as { error?: string; order?: { id: string } };
+      if (!response.ok || !data.order) throw new Error(data.error || "ì£¼ë¬¸ ì ‘ìˆ˜ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
+      await onOrdered(data.order.id);
+    } catch (error) { setMessage(error instanceof Error ? error.message : "ì£¼ë¬¸ ì ‘ìˆ˜ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤."); }
+    finally { setBusy(false); }
+  }
 
-[™K[™^
-HOˆ
-ˆ]ˆÛ\ÜÓ˜[YOH˜ÚXÚÛİ][[™HˆÙ^O^Ø	Û[™Kœ›ÙXİYKIÛ[™K›Ü[Û“X™[XO‚ˆ]İ›Û™ÏÛ[™Kœ›ÙXİ˜[Y_OÜİ›Û™ÏÜ[Û[™K›Ü[Û“X™[H0­ÈÛ[™K[š]šXÙHÈ	İÛÛŠ[™K[š]šXÙJ_{&äˆº¬ :¬ªH:ë.;'fŸOÜÜ[Ù]‚ˆ]ˆÛ\ÜÓ˜[YOH˜ÛÛ\Xİ\İ\\ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÚ[™ÙJ[™^LJ_O¸¢$Ø]ÛÛ[™Kœ]X[]_OØ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÚ[™ÙJ[™^J_OŠÏØ]ÛÙ]‚ˆÙ]‚ˆ
-J_OÙ]‚ˆX™[Û\ÜÓ˜[YOH˜İ\İÛY\‹YšY[Ü[»&¥;,«{ «;ekOÜÜ[[œ]˜[YO^Û›İ_HÛÚ[™ÙO^Ê]™[
-HOˆÙ]›İJ]™[\™Ù]˜[YJ_HXÙZÛ\H»%á»'/:êm:îa;&ã:äd;!.;&¥ˆX^[™İ^ÌŒHÏÛX™[‚ˆ]ˆÛ\ÜÓ˜[YOH›Ü™\‹\İ[[X\HÜ[»&"; àH:®";%hOÜÜ[İ›Û™Ïİİ[ˆÈ	İÛÛŠİ[
-_{&äˆº¬ :¬ªH:ë.;'f;cë;ejŸOÜİ›Û™ÏÙ]‚ˆÛY\ÜØYÙH	‰ˆÛ\ÜÓ˜[YOH™›Ü›KY\œ›Üˆˆ›ÛOH˜[\ÛY\ÜØYÙ_OÜŸBˆ]Ûˆ\OH˜]ÛˆˆÛ\ÜÓ˜[YOH˜ÛÛ\ÜÙK\Û\ÈˆÛÛXÚÏ^Ê
-HOˆ›ÚYİX›Z]
+  return (
+    <div className="sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
+      <section className="order-sheet checkout-sheet" role="dialog" aria-modal="true">
+        <div className="sheet-top"><div><p>{editingOrderId ? "ì£¼ë¬¸ ìˆ˜ì •" : "ìµœì¢… í™•ì¸"}</p><h2>{editingOrderId ? "ì£¼ë¬¸ ìˆ˜ì •í•˜ê¸°" : "ì£¼ë¬¸í•˜ê¸°"}</h2><span>{cart.length}ê°œ í’ˆëª©</span></div><button type="button" className="sheet-close" onClick={onClose} disabled={busy}>Ã—</button></div>
+        <div className="checkout-lines">{cart.map((line, index) => (
+          <div className="checkout-line" key={`${line.productId}-${line.optionLabel}`}>
+            <div><strong>{line.productName}</strong><span>{line.optionLabel} Â· {line.unitPrice ? `${won(line.unitPrice)}ì›` : "ê°€ê²© ë¬¸ì˜"}</span></div>
+            <div className="compact-stepper"><button type="button" onClick={() => change(index, -1)}>âˆ’</button><b>{line.quantity}</b><button type="button" onClick={() => change(index, 1)}>+</button></div>
+          </div>
+        ))}</div>
+        <label className="customer-field"><span>ìš”ì²­ì‚¬í•­</span><input value={note} onChange={(event) => setNote(event.target.value)} placeholder="ì—†ìœ¼ë©´ ë¹„ì›Œë‘ì„¸ìš”" maxLength={200} /></label>
+        <div className="order-summary"><span>ì˜ˆìƒ ê¸ˆì•¡</span><strong>{total > 0 ? `${won(total)}ì›` : "ê°€ê²© ë¬¸ì˜ í¬í•¨"}</strong></div>
+        {message && <p className="form-error" role="alert">{message}</p>}
+        <button type="button" className="compose-sms" onClick={() => void submit()} disabled={busy || !cart.length}>{busy ? "ì²˜ë¦¬ ì¤‘..." : editingOrderId ? "ìˆ˜ì • í™•ì •" : "ì£¼ë¬¸ í™•ì •"}</button>
+        <p className="sheet-help">ì£¼ë¬¸ í™•ì •ì„ ëˆ„ë¥´ë©´ ë¶€ììœ í†µ ê´€ë¦¬ì í™”ë©´ì— ë°”ë¡œ ì ‘ìˆ˜ë©ë‹ˆë‹¤.</p>
+      </section>
+    </div>
+  );
+}
 
-_H\ØX›Y^Ø\ŞHXØ\›[™İOØ\ŞHÈ»,¦:é«;)$K‹‹ˆˆˆY][™ÓÜ™\’YÈ»"&;(%H;fe{(%Hˆˆ»(ï:ë.;fe{(%HŸOØ]Û‚ˆÛ\ÜÓ˜[YOHœÚY]Z[»(ï:ë.;fe{(%{'a:â!:ém:êm:í ;'¤;'(;a­H:­ :é«;'¤;fe:êm;%ä:ì%:èg;(${"&:ä*zââ:âéÜ‚ˆÜÙXİ[Û‚ˆÙ]‚ˆ
-NÂŸB‚™[˜İ[Ûˆ]X[]T›İÊÂˆÜ[Û‹ˆ]KˆÛÚ[™ÙKŸNˆÂˆÜ[ÛˆXÚÓÜ[ÛÂˆ]Nˆ[X™\ÂˆÛÚ[™ÙNˆ
-™^ˆ[X™\ŠHOˆ›ÚYÂŸJHÂˆÛÛœİİ\HÜ[Û‹œİ\NÂˆ™]\›ˆ
-ˆ]ˆÛ\ÜÓ˜[YOHœ]X[]K\›İÈ‚ˆ]‚ˆİ›Û™ÏÛÜ[Û‹›X™[OÜİ›Û™Ï‚ˆÜ[ÛÜ[Û‹œšXÙHOOH[Èº¬ :¬ªH:ë.;'fˆˆ	İÛÛŠÜ[Û‹œšXÙJ_{&äOÜÜ[‚ˆÙ]‚ˆ]ˆÛ\ÜÓ˜[YOHœİ\\ˆ‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÛÚ[™ÙJ]HHİ\
-_H\šXK[X™[^Ø	ÛÜ[Û‹›X™[H;"&:çâH;)!;'m:®,O¸¢$Ø]Û‚ˆ[œ]ˆ[œ][ÙOH™XÚ[X[‚ˆ˜[YO^Ü]_BˆÛÚ[™ÙO^Ê]™[
-HOˆÛÚ[™ÙJ[X™\Š]™[\™Ù]˜[YH
-J_Bˆ\šXK[X™[^Ø	ÛÜ[Û‹›X™[H;"&:çâXBˆÏ‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÛÚ[™ÙJ]H
-Èİ\
-_H\šXK[X™[^Ø	ÛÜ[Û‹›X™[H;"&:çâH:â¦:é«:®,OŠÏØ]Û‚ˆÙ]‚ˆÙ]‚ˆ
-NÂŸB
+function QuantityRow({
+  option,
+  qty,
+  onChange,
+}: {
+  option: PackOption;
+  qty: number;
+  onChange: (next: number) => void;
+}) {
+  const step = option.step || 1;
+  return (
+    <div className="quantity-row">
+      <div>
+        <strong>{option.label}</strong>
+        <span>{option.price === null ? "ê°€ê²© ë¬¸ì˜" : `${won(option.price)}ì›`}</span>
+      </div>
+      <div className="stepper">
+        <button type="button" onClick={() => onChange(qty - step)} aria-label={`${option.label} ìˆ˜ëŸ‰ ì¤„ì´ê¸°`}>âˆ’</button>
+        <input
+          inputMode="decimal"
+          value={qty}
+          onChange={(event) => onChange(Number(event.target.value || 0))}
+          aria-label={`${option.label} ìˆ˜ëŸ‰`}
+        />
+        <button type="button" onClick={() => onChange(qty + step)} aria-label={`${option.label} ìˆ˜ëŸ‰ ëŠ˜ë¦¬ê¸°`}>+</button>
+      </div>
+    </div>
+  );
+}

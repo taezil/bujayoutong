@@ -34,206 +34,664 @@ function AdminPage() {
   const [editing, setEditing] = useState<Product | "new" | null>(null);
 
   const loadStore = useCallback(async () => {
-    const response = await fetch("/api/store", { ß_;éÈZ®Ëkºwµçkz»§Â+a…æş
-Ş§ûZŠWè­û¥–‹­¦ë[Z[‹\ÙXİ[Û‹ZXY‚ˆ]º¬l:ç¦;,¦0­È:ëî;"&:®"Úº¬l:ç¦;,¦:èg:­î;'n;)à;%ëK:¬ :¬ªz­î:èîK:ëî;"&:®":¬ï;'¡z®";'a:­ :é«;ejzââ:âéÜÙ]‚ˆ]ˆÛ\ÜÓ˜[YOH›ÜË[Y]šXÈØİ\İÛY\œË›[™İOØÜ[º¬l:ç¦;,¦ÜÜ[Û™]È[“[X™\‘›Ü›X]
-šÛËRÔˆŠK™›Ü›X]
-İ[™XÙZ]˜X›J_{&äØÜ[»-'H:ëî;"&ÜÜ[Ù]‚ˆÙ]‚ˆ]ˆÛ\ÜÓ˜[YOH˜İ\İÛY\‹XÜ™X]KYÜšY‚ˆ[œ]XÙZÛ\Hº¬l:ç¦;,¦:ì¢;f.;&"ˆLNˆ˜[YO^ØÛÙ_HÛÚ[™ÙO^ÊJHOˆÙ]ÛÙJK\™Ù]˜[YJ_HÏ‚ˆ[œ]XÙZÛ\Hº¬l:ç¦;,¦:ê¡Hˆ˜[YO^Û˜[Y_HÛÚ[™ÙO^ÊJHOˆÙ]˜[YJK\™Ù]˜[YJ_HÏ‚ˆ[œ]XÙZÛ\H»)à;%ëH;&"ˆzâê;)àˆ˜[YO^Ü™YÚ[ÛŸHÛÚ[™ÙO^ÊJHOˆÙ]™YÚ[ÛŠK\™Ù]˜[YJ_HÏ‚ˆ[œ]XÙZÛ\Hº¬ :¬£;(!;fe:ì¢;f.ˆ˜[YO^ÜİÜ™TÛ™_HÛÚ[™ÙO^ÊJHOˆÙ]İÜ™TÛ™JK\™Ù]˜[YJ_HÏ‚ˆ[œ]XÙZÛ\H» «;%á{'¤:ì¢;f.ˆ˜[YO^Ø\Ú[™\ÜÓ[X™\ŸHÛÚ[™ÙO^ÊJHOˆÙ]\Ú[™\ÜÓ[X™\ŠK\™Ù]˜[YJ_HÏ‚ˆ[œ]XÙZÛ\Hº¬ :¬£;(ï;!£ˆ˜[YO^ØY™\ÜßHÛÚ[™ÙO^ÊJHOˆÙ]Y™\ÜÊK\™Ù]˜[YJ_HÏ‚ˆÙ[Xİ˜[YO^ÜšXÙQÜ›İ\HÛÚ[™ÙO^ÊJHOˆÙ]šXÙQÜ›İ\
-K\™Ù]˜[YJ_OÜ[Ûˆ˜[YOHHº¬ :¬ªHz­î:èîOÛÜ[ÛÜ[Ûˆ˜[YOHˆº¬ :¬ªHº­î:èîOÛÜ[ÛÜÙ[Xİ‚ˆ[œ]XÙZÛ\H»-g;-";'n;)§zì¢;f.»'¤:é«ˆ[œ][ÙOH›[Y\šXÈˆ˜[YO^Ü[ŸHÛÚ[™ÙO^ÊJHOˆÙ][ŠK\™Ù]˜[YKœ™\XÙJ×ÙËˆŠKœÛXÙJŠJ_HÏ‚ˆ]ÛˆÛ\ÜÓ˜[YOH˜YZ[‹\š[X\Hˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆ›ÚYÜ™X]J
-_H\ØX›Y^ÈXÛÙKš[J
-H[˜[YKš[J
-H[‹›[™İOOHŸOŠÈ:¬l:ç¦;,¦;-¥:¬ Ø]Û‚ˆÙ]‚ˆ[œ]Û\ÜÓ˜[YOH›ÜË\ÙX\˜ÚˆXÙZÛ\Hº¬l:ç¦;,¦:ì¢;f.0­û à{f.0­û)à;%ëH:¬ ; âHˆ˜[YO^Ü]Y\_HÛÚ[™ÙO^ÊJHOˆÙ]]Y\JK\™Ù]˜[YJ_HÏ‚ˆ]ˆÛ\ÜÓ˜[YOH›ÜË]X›K]Ü˜\X›HÛ\ÜÓ˜[YOH›ÜË]X›HXYº¬l:ç¦;,¦İ»)à;%ëOİº­î:èîOİºëî;"&:®"İº­ :é«İİİXY›ÙO‚ˆİš\ÚX›K›X\
+    const response = await fetch("/api/store", { cache: "no-store" });
+    if (!response.ok) throw new Error("ìƒí’ˆ ë°ì´í„°ë¥¼ ë¶ˆëŸ¬ì˜¤ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.");
+    setStore(await response.json() as StoreData);
+  }, []);
 
-ÊHOˆˆÙ^O^ØËšYHÛ\ÜÓ˜[YO^ÈXË˜Xİ]™HÈœ›İËY\ØX›YˆˆˆŸO‚ˆØË˜ÛÙ_OØÜ[ØË›˜[Y_OÜÜ[İØËœ™YÚ[Ûˆºëî;)à;(%HŸOİØËœšXÙQÜ›İ\OİÛ\ÜÓ˜[YO^ØËœ™XÙZ]˜X›HˆÈ›[Û™^K]Ø\›ˆˆˆˆŸOÛ™]È[“[X™\‘›Ü›X]
-šÛËRÔˆŠK™›Ü›X]
-Ëœ™XÙZ]˜X›J_{&äİ‚ˆ]ˆÛ\ÜÓ˜[YOHœ›İËXXİ[ÛœÈ‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÈÛÛœİ[[İ[HÚ[™İËœ›Û\
-	ØË›˜[Y_H;'¡z®";%hX
-NÈYˆ
-[[İ[	‰ˆ[X™\Š[[İ[
-Hˆ
-H›ÚYXİ[ÛŠÈXİ[Ûˆœ^[Y[‹YˆËšY[[İ[ˆ[X™\Š[[İ[
-KY]Ùˆ˜˜[šÈˆJNÈ_O»'¡z®"Ø]Û‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÈÛÛœİ[ÛHÚ[™İËœ›Û\
-»-§:è){eh:¬l:ç¦;&å
-VVVKSSJH‹™]È]J
-KÒTÓÔİš[™Ê
-KœÛXÙJÊJNÈYˆ
-[Û
-HÚ[™İË›Ü[ŠØ\KØYZ[‹Üš[[YÙ\Øİ\İÛY\’YIÙ[˜ÛÙUT’PÛÛ\Û™[
-ËšY
-_I›[ÛIÙ[˜ÛÙUT’PÛÛ\Û™[
-[Û
-_X—Ø›[šÈŠNÈ_O»&ä;'©OØ]Û‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÂˆÛÛœİ˜[YHHÚ[™İËœ›Û\
-º¬l:ç¦;,¦:ê¡H‹Ë›˜[YJNÈYˆ
-[˜[YJH™]\›ÂˆÛÛœİ™YÚ[ÛˆHÚ[™İËœ›Û\
-ºì,;!¨{)à;%ëH‹Ëœ™YÚ[ÛŠHÏÈËœ™YÚ[ÛÂˆÛÛœİİÜ™TÛ™HHÚ[™İËœ›Û\
-º¬ :¬£;(!;fe:ì¢;f.‹ËœİÜ™TÛ™JHÏÈËœİÜ™TÛ™NÂˆÛÛœİ\Ú[™\ÜÓ[X™\ˆHÚ[™İËœ›Û\
-» «;%á{'¤:ì¢;f.‹Ë˜\Ú[™\ÜÓ[X™\ŠHÏÈË˜\Ú[™\ÜÓ[X™\ÂˆÛÛœİY™\ÜÈHÚ[™İËœ›Û\
-º¬ :¬£;(ï;!£‹Ë˜Y™\ÜÊHÏÈË˜Y™\ÜÎÂˆÛÛœİšXÙQÜ›İ\HÚ[™İËœ›Û\
-º¬ :¬ªz­î:èîHH:æ$:â¥ˆ‹ËœšXÙQÜ›İ\
-HOOHˆˆÈˆˆˆHÂˆ›ÚYXİ[ÛŠÈXİ[Ûˆ\]H‹YˆËšYÛÙNˆË˜ÛÙK˜[YK™YÚ[Û‹İÜ™TÛ™K\Ú[™\ÜÓ[X™\‹Y™\ÜËÛ™NˆËœÛ™KšXÙQÜ›İ\JNÂˆ_O»(%zìí;"&;(%OØ]Û‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÈÛÛœİ™^HÚ[™İËœ›Û\
-» â»'¤:é«;'n;)§zì¢;f.‹İš[™ÊX]™›ÛÜŠL
-ÈX]œ˜[™ÛJ
-H
-ˆL
-JJNÈYˆ
-™^
-H›ÚYXİ[ÛŠÈXİ[Ûˆœ™\Ù]\[ˆ‹YˆËšY[ˆ™^JNÈ_O”SØ]Û‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆ›ÚYXİ[ÛŠÈXİ[Ûˆ›ÙÛİ]X[‹YˆËšYJ_Oºèg:­î;'n;-":®,;feØ]Û‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆ›ÚYXİ[ÛŠÈXİ[ÛˆÙÙÛH‹YˆËšYXİ]™NˆXË˜Xİ]™HJ_OØË˜Xİ]™HÈ»)${)àˆˆ» «;&ªHŸOØ]Û‚ˆÙ]İ‚ˆİŠ_Bˆİ›ÙOİX›OÙ]‚ˆÜÙXİ[Û‚ˆ
-NÂŸB‚™[˜İ[ÛˆÜ™\“ÜÔ[™[
-ÈİÜ™KÛ‘\œ›ÜˆNˆÈİÜ™NˆİÜ™Q]NÈÛ‘\œ›Üˆ
-˜[YNˆİš[™ÊHOˆ›ÚYJHÂˆÛÛœİÛÜ™\œËÙ]Ü™\œ×HH\ÙTİ]OYZ[“Ü™\–×OŠ×JNÂˆÛÛœİØİ\İÛY\œËÙ]İ\İÛY\œ×HH\ÙTİ]OYZ[İ\İÛY\–×OŠ×JNÂˆÛÛœİØİ\İÛY\’YÙ]İ\İÛY\’YHH\ÙTİ]JˆŠNÂˆÛÛœİÜ›ÙXİYÙ]›ÙXİYHH\ÙTİ]JİÜ™Kœ›ÙXİÖÌOËšYÏÈˆŠNÂˆÛÛœİ›ÙXİHİÜ™Kœ›ÙXİË™š[™
+  const loadStatus = useCallback(async () => {
+    const response = await fetch("/api/admin/status", { cache: "no-store" });
+    const next = await response.json() as AdminStatus;
+    setStatus(next);
+    if (next.authenticated) await loadStore();
+  }, [loadStore]);
 
-
-HOˆšYOOH›ÙXİY
-HÏÈİÜ™Kœ›ÙXİÖÌNÂˆÛÛœİÛÜ[Û“X™[Ù]Ü[Û“X™[HH\ÙTİ]J›ÙXİËœXÚÓÜ[ÛœÖÌOË›X™[ÏÈˆŠNÂˆÛÛœİÜ]KÙ]]WHH\ÙTİ]JJNÂˆÛÛœİÛX[X[][\ËÙ]X[X[][\×HH\ÙTİ]O\œ˜^OÈ›ÙXİYˆİš[™ÎÈ›ÙXİ˜[YNˆİš[™ÎÈÜ[Û“X™[ˆİš[™ÎÈ]X[]Nˆ[X™\ˆOŠ×JNÂˆÛÛœİÜÛİ\˜ÙKÙ]Ûİ\˜ÙWHH\ÙTİ]JœÛ™HŠNÂ‚ˆ\Ş[˜È[˜İ[ÛˆØY
+  useEffect(() => {
+    void loadStatus().catch((reason) => setError(reason instanceof Error ? reason.message : "ê´€ë¦¬ì í™”ë©´ì„ ë¶ˆëŸ¬ì˜¤ì§€ ëª»í–ˆìŠµë‹ˆë‹¤."));
+  }, [loadStatus]);
 
-HÂˆÛÛœİÛÜ‹Ü—HH]ØZ]›ÛZ\ÙK˜[
-Âˆ™]Ú
-‹Ø\KØYZ[‹ÛÜ™\œÈ‹ÈØXÚNˆ››Ë\İÜ™HˆJKˆ™]Ú
-‹Ø\KØYZ[‹Øİ\İÛY\œÈ‹ÈØXÚNˆ››Ë\İÜ™HˆJKˆJNÂˆYˆ
-Ü‹›ÚÊHÙ]Ü™\œÊ
+  async function setup(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    try {
+      await jsonPost("/api/admin/setup", { key: setupKey, password });
+      setPassword("");
+      setSetupKey("");
+      await loadStatus();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ì„¤ì •ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
+    }
+  }
 
-]ØZ]Ü‹šœÛÛŠ
-JH\ÈÈÜ™\œÎˆYZ[“Ü™\–×HJK›Ü™\œÊNÂˆYˆ
-Ü‹›ÚÊHÂˆÛÛœİ\İH
+  async function login(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    try {
+      await jsonPost("/api/admin/login", { password });
+      setPassword("");
+      await loadStatus();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ë¡œê·¸ì¸ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
+    }
+  }
 
-]ØZ]Ü‹šœÛÛŠ
-JH\ÈÈİ\İÛY\œÎˆYZ[İ\İÛY\–×HJK˜İ\İÛY\œÎÂˆÙ]İ\İÛY\œÊ\İ
-NÂˆYˆ
-Xİ\İÛY\’Y	‰ˆ\İÌJHÙ]İ\İÛY\’Y
-\İÌKšY
-NÂˆBˆBˆ\ÙQY™™Xİ
+  async function logout() {
+    await jsonPost("/api/admin/logout", {});
+    setStore(null);
+    setStatus({ setupRequired: false, authenticated: false });
+  }
 
+  if (!status) return <AdminShell><p className="admin-loading">ê´€ë¦¬ì ì •ë³´ë¥¼ í™•ì¸í•˜ëŠ” ì¤‘ì…ë‹ˆë‹¤.</p></AdminShell>;
 
-HOˆÈ›ÚYØY
+  if (status.setupRequired) {
+    return (
+      <AdminShell>
+        <div className="admin-auth-card">
+          <h1>ê´€ë¦¬ì ì²« ì„¤ì •</h1>
+          <p>ì²˜ìŒ í•œ ë²ˆë§Œ ì´ˆê¸° ì„¤ì • ì½”ë“œì™€ ìƒˆ ë¹„ë°€ë²ˆí˜¸ë¥¼ ì…ë ¥í•©ë‹ˆë‹¤.</p>
+          <form onSubmit={setup}>
+            <label>ì´ˆê¸° ì„¤ì • ì½”ë“œ<input value={setupKey} onChange={(e) => setSetupKey(e.target.value)} autoComplete="off" /></label>
+            <label>ìƒˆ ë¹„ë°€ë²ˆí˜¸<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} autoComplete="new-password" /></label>
+            {error && <p className="form-error">{error}</p>}
+            <button type="submit">ê´€ë¦¬ì ì„¤ì • ì™„ë£Œ</button>
+          </form>
+        </div>
+      </AdminShell>
+    );
+  }
 
-NÈK×JNÂˆ\ÙQY™™Xİ
+  if (!status.authenticated) {
+    return (
+      <AdminShell>
+        <div className="admin-auth-card">
+          <h1>ê´€ë¦¬ì ë¡œê·¸ì¸</h1>
+          <p>ìƒí’ˆ, ê°€ê²©, í’ˆì ˆ, ì‚¬ì§„ê³¼ ì¹´í…Œê³ ë¦¬ë¥¼ ê´€ë¦¬í•©ë‹ˆë‹¤.</p>
+          <form onSubmit={login}>
+            <label>ë¹„ë°€ë²ˆí˜¸<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label>
+            {error && <p className="form-error">{error}</p>}
+            <button type="submit">ë¡œê·¸ì¸</button>
+          </form>
+        </div>
+      </AdminShell>
+    );
+  }
 
+  if (!store) return <AdminShell><p className="admin-loading">ìƒí’ˆì„ ë¶ˆëŸ¬ì˜¤ëŠ” ì¤‘ì…ë‹ˆë‹¤.</p></AdminShell>;
 
-HOˆÂˆÛÛœİ™^HİÜ™Kœ›ÙXİË™š[™
+  return (
+    <AdminShell>
+      <div className="admin-dashboard">
+        <div className="admin-titlebar">
+          <div><p>ë¶€ììœ í†µ</p><h1>í†µí•© ê´€ë¦¬ì</h1><span>ìƒí’ˆ {store.products.length}ê°œ Â· ì£¼ë¬¸/ê±°ë˜ì²˜/ì¬ê³  í†µí•©ê´€ë¦¬ Â· ë²„ì „ {store.version}</span></div>
+          <div className="admin-top-actions"><a href="/" target="_blank" rel="noreferrer">ê³ ê° í™”ë©´</a><button type="button" onClick={logout}>ë¡œê·¸ì•„ì›ƒ</button></div>
+        </div>
+        {error && <p className="admin-banner-error">{error}</p>}
+        <OrderOpsPanel store={store} onError={setError} />
+        <CustomerOpsPanel onError={setError} />
+        <InventoryOpsPanel onError={setError} />
+        <SettingsPanel store={store} onSaved={loadStore} onError={setError} />
+        <CategoryPanel store={store} onSaved={loadStore} onError={setError} />
+        <section className="admin-section">
+          <div className="admin-section-head">
+            <div><h2>ìƒí’ˆ</h2><p>ìƒí’ˆì€ ê³„ì† ì¶”ê°€Â·ìˆ˜ì •Â·ì‚­ì œí•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.</p></div>
+            <button type="button" className="admin-primary" onClick={() => setEditing("new")}>+ ìƒˆ ìƒí’ˆ ì¶”ê°€</button>
+          </div>
+          <div className="admin-product-list">
+            {store.products.map((product) => (
+              <div className="admin-product-row" key={product.id}>
+                <div className="admin-product-thumb">{product.photo ? <img src={product.photo} alt="" /> : <img src={BUJA_MARK_DATA} alt="" />}</div>
+                <div className="admin-product-copy"><strong>{product.name}</strong><span>{product.category} Â· {product.sub} Â· {product.unit}</span></div>
+                <div className="admin-product-price">{product.soldout ? <b className="red">í’ˆì ˆ</b> : <b>{displayPrice(product)}</b>}</div>
+                <button type="button" onClick={() => setEditing(product)}>ìˆ˜ì •</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+      {editing && (
+        <ProductEditor
+          product={editing === "new" ? makeNewProduct(store) : editing}
+          creating={editing === "new"}
+          categories={store.categories}
+          onClose={() => setEditing(null)}
+          onSaved={async () => { setEditing(null); await loadStore(); }}
+          onError={setError}
+        />
+      )}
+    </AdminShell>
+  );
+}
 
-
-HOˆšYOOH›ÙXİY
-NÂˆYˆ
-™^	‰ˆ[™^œXÚÓÜ[ÛœËœÛÛYJ
-ÊHOˆË›X™[OOHÜ[Û“X™[
-JHÙ]Ü[Û“X™[
-™^œXÚÓÜ[ÛœÖÌOË›X™[ÏÈˆŠNÂˆKÜ›ÙXİYÜ[Û“X™[İÜ™Kœ›ÙXİ×JNÂ‚ˆ\Ş[˜È[˜İ[ÛˆXİ[ÛŠ›ÙNˆ™XÛÜ™İš[™Ë[šÛ›İÛŠHÂˆHÈÛ‘\œ›ÜŠˆŠNÈ]ØZ]œÛÛ”Üİ
-‹Ø\KØYZ[‹ÛÜ™\œÈ‹›ÙJNÈ]ØZ]ØY
+function AdminShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="admin-page">
+      <header className="admin-brandbar"><a href="/" aria-label="ë¶€ììœ í†µ í™ˆ"><img src={BUJA_LOGO_DATA} alt="ë¶€ììœ í†µ" /></a></header>
+      <main className="admin-wrap">{children}</main>
+    </div>
+  );
+}
 
-NÈBˆØ]Ú
-™X\ÛÛŠHÈÛ‘\œ›ÜŠ™X\ÛÛˆ[œİ[˜Ù[Ùˆ\œ›ÜˆÈ™X\ÛÛ‹›Y\ÜØYÙHˆ»(ï:ë.;'¤{%á{%ä;"é;c*;e¢;"­zââ:âéˆŠNÈBˆB‚ˆ[˜İ[ÛˆYX[X[][J
-HÂˆYˆ
-\›ÙXİ[Ü[Û“X™[]HH
-H™]\›ÂˆÙ]X[X[][\Ê
-İ\œ™[
-HOˆË‹‹˜İ\œ™[È›ÙXİYˆ›ÙXİšY›ÙXİ˜[YNˆ›ÙXİ›˜[YKÜ[Û“X™[]X[]Nˆ]HWJNÂˆB‚ˆ\Ş[˜È[˜İ[ÛˆÜ™X]SX[X[Ü™\Š
-HÂˆYˆ
-Xİ\İÛY\’Y[X[X[][\Ë›[™İ
-H™]\›Âˆ]ØZ]Xİ[ÛŠÈXİ[Ûˆ˜Ü™X]K[Ü™\ˆ‹İ\İÛY\’YÛİ\˜ÙK][\ÎˆX[X[][\Ë›X\
+function SettingsPanel({ store, onSaved, onError }: { store: StoreData; onSaved: () => Promise<void>; onError: (value: string) => void }) {
+  const [sms, setSms] = useState(store.sms);
+  const [promoCategory, setPromoCategory] = useState(store.promoCategory);
+  const [orderEnabled, setOrderEnabled] = useState(store.orderSettings.enabled);
+  const [order24h, setOrder24h] = useState(store.orderSettings.open24h);
+  const [openTime, setOpenTime] = useState(store.orderSettings.openTime);
+  const [closeTime, setCloseTime] = useState(store.orderSettings.closeTime);
+  const [editMinutes, setEditMinutes] = useState(store.orderSettings.editMinutes);
+  const [cancelMinutes, setCancelMinutes] = useState(store.orderSettings.cancelMinutes);
+  useEffect(() => {
+    setSms(store.sms); setPromoCategory(store.promoCategory);
+    setOrderEnabled(store.orderSettings.enabled); setOrder24h(store.orderSettings.open24h);
+    setOpenTime(store.orderSettings.openTime); setCloseTime(store.orderSettings.closeTime);
+    setEditMinutes(store.orderSettings.editMinutes); setCancelMinutes(store.orderSettings.cancelMinutes);
+  }, [store]);
 
-JHOˆ
-È›ÙXİYˆKœ›ÙXİYÜ[Û“X™[ˆK›Ü[Û“X™[]X[]NˆKœ]X[]HJJHJNÂˆÙ]X[X[][\Ê×JNÂˆB‚ˆÛÛœİXİ]™HHÜ™\œË™š[\Š
-ÊHOˆËœİ]\ÈOOHœ™XÙZ]™YˆËœİ]\ÈOOHœ™\\š[™ÈŠNÂˆÛÛœİ™YÚ[ÛœÈH\œ˜^K™œ›ÛJ™]ÈÙ]
-Xİ]™K›X\
+  async function save() {
+    try {
+      onError("");
+      await jsonPost("/api/admin/settings", { sms, promoCategory, orderEnabled, order24h, orderOpenTime: openTime, orderCloseTime: closeTime, editMinutes, cancelMinutes });
+      await onSaved();
+    } catch (reason) { onError(reason instanceof Error ? reason.message : "ì„¤ì • ì €ì¥ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤."); }
+  }
 
-ÊHOˆËœ™YÚ[Ûˆºëî;)à;(%HŠJJKœÛÜ
+  return (
+    <section className="admin-section admin-settings">
+      <div><h2>ì£¼ë¬¸ ìš´ì˜ ì„¤ì •</h2><p>ê´€ë¦¬ìê°€ ì£¼ë¬¸ë²„íŠ¼ê³¼ ì£¼ë¬¸ ê°€ëŠ¥ì‹œê°„ì„ ì§ì ‘ í†µì œí•©ë‹ˆë‹¤.</p></div>
+      <label>ë¬¸ì ë°±ì—… ìˆ˜ì‹ ë²ˆí˜¸<input value={sms} onChange={(e) => setSms(e.target.value)} /></label>
+      <label>í–‰ì‚¬ ì¹´í…Œê³ ë¦¬<select value={promoCategory} onChange={(e) => setPromoCategory(e.target.value)}>{Object.keys(store.categories).map((name) => <option key={name}>{name}</option>)}</select></label>
+      <label className="admin-check"><input type="checkbox" checked={orderEnabled} onChange={(e) => setOrderEnabled(e.target.checked)} /> ì£¼ë¬¸ ì ‘ìˆ˜ ON</label>
+      <label className="admin-check"><input type="checkbox" checked={order24h} onChange={(e) => setOrder24h(e.target.checked)} /> 24ì‹œê°„ ì£¼ë¬¸</label>
+      {!order24h && <><label>ì£¼ë¬¸ ì‹œì‘<input type="time" value={openTime} onChange={(e) => setOpenTime(e.target.value)} /></label><label>ì£¼ë¬¸ ë§ˆê°<input type="time" value={closeTime} onChange={(e) => setCloseTime(e.target.value)} /></label></>}
+      <label>ìˆ˜ì • ê¸°ì¤€(ë¶„)<input type="number" min="0" value={editMinutes} onChange={(e) => setEditMinutes(Number(e.target.value || 0))} /></label>
+      <label>ì·¨ì†Œ ê°€ëŠ¥(ë¶„)<input type="number" min="0" value={cancelMinutes} onChange={(e) => setCancelMinutes(Number(e.target.value || 0))} /></label>
+      <button type="button" onClick={save}>ì„¤ì • ì €ì¥</button>
+    </section>
+  );
+}
 
-NÂ‚ˆ™]\›ˆ
-ˆÙXİ[ÛˆÛ\ÜÓ˜[YOH˜YZ[‹\ÙXİ[ÛˆÜË\ÙXİ[Ûˆ‚ˆ]ˆÛ\ÜÓ˜[YOH˜YZ[‹\ÙXİ[Û‹ZXY]»(ï:ë.0­È;(!;dg;-§:è)H0­È;-§:¬èÚ»%lKû(!;feúë.;'¤;(ï:ë.;'a;eg:¬ìû%ä;!';,¦:é«;ef:¬è;)à;%ëzìá;"è:­ç:í¡:éã;-§:è){ejzââ:âéÜÙ]]ˆÛ\ÜÓ˜[YOH›ÜË[Y]šXÈØXİ]™K›[™İOØÜ[»-§:¬è:ã :®,ÜÜ[ØXİ]™K™š[\Š
-ÊHOˆ[Ëœš[Y]
-K›[™İOØÜ[ºëî;-§:è)OÜÜ[Ù]Ù]‚‚ˆ]ˆÛ\ÜÓ˜[YOHœ™YÚ[Û‹XØ\™È‚ˆÜ™YÚ[ÛœË›X\
+function CategoryPanel({ store, onSaved, onError }: { store: StoreData; onSaved: () => Promise<void>; onError: (value: string) => void }) {
+  const [newCategory, setNewCategory] = useState("");
 
-™YÚ[ÛŠHOˆÂˆÛÛœİ›İÜÈHXİ]™K™š[\Š
-ÊHOˆ
-Ëœ™YÚ[Ûˆºëî;)à;(%HŠHOOH™YÚ[ÛŠNÂˆÛÛœİ[œš[YH›İÜË™š[\Š
-ÊHOˆ[Ëœš[Y]
-K›[™İÂˆ™]\›ˆ]ˆÛ\ÜÓ˜[YOHœ™YÚ[Û‹XØ\™ˆÙ^O^Ü™YÚ[ÛŸO]İ›Û™ÏÜ™YÚ[ÛŸOÜİ›Û™ÏÜ[»(ï:ë.Ü›İÜË›[™İz¬m0­È;"è:­çİ[œš[Yz¬mÜÜ[Ù]]‚ˆ]Ûˆ\OH˜]Ûˆˆ\ØX›Y^È][œš[YHÛÛXÚÏ^Ê
-HOˆÚ[™İË›Ü[ŠØ\KØYZ[‹Üš[[Ü™\œÏÜ™YÚ[ÛIÙ[˜ÛÙUT’PÛÛ\Û™[
-™YÚ[ÛŠ_I[œš[YLX—Ø›[šÈŠ_O»"è:­ç:í¡;-§:è)OØ]Û‚ˆ]Ûˆ\OH˜]Ûˆˆ\ØX›Y^È][œš[YHÛÛXÚÏ^Ê
-HOˆÈYˆ
-Ú[™İË˜ÛÛ™š\›J	Ü™YÚ[ÛŸH;"è:­ç;(ï:ë.;'a;-§:è){&a:èã:èg;dg;"ç;eh:®c;&¥Ø
-JH›ÚYXİ[ÛŠÈXİ[Ûˆ›X\šË\™YÚ[Û‹\š[Y‹™YÚ[ÛˆJNÈ_O»-§:è){&a:èãØ]Û‚ˆÙ]Ù]ÂˆJ_BˆÈ\™YÚ[ÛœË›[™İ	‰ˆÛ\ÜÓ˜[YOH›ÜËY[\H»f!;'«;-§:¬è:ã :®,;(ï:ë.;'m;%á»"­zââ:âéÜŸBˆÙ]‚‚ˆ]ˆÛ\ÜÓ˜[YOH›X[X[[Ü™\‹X›Ş‚ˆ]Ï»(!;fe0­úë.;'¤;(ï:ë.:ã ;"è;'¡zè)OÚÏ»)à{&ä;'m;'m;fe:êm;%ä;!';'¡zè){ef:êm;%lH;(ï:ë.:¬ï:ãæ{'o;ef:¬£;'«:¬è0­úëî;"&0­û(!;dg;gd:é¡;%ä:äé;%­:¬$zââ:âéÜÙ]‚ˆ]ˆÛ\ÜÓ˜[YOH›X[X[[Ü™\‹XÛÛ›ÛÈ‚ˆÙ[Xİ˜[YO^Øİ\İÛY\’YHÛÚ[™ÙO^ÊJHOˆÙ]İ\İÛY\’Y
-K\™Ù]˜[YJ_OØİ\İÛY\œË™š[\Š
-ÊHOˆË˜Xİ]™JK›X\
+  async function action(body: Record<string, string>) {
+    try {
+      onError("");
+      await jsonPost("/api/admin/categories", body);
+      await onSaved();
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "ì¹´í…Œê³ ë¦¬ ì‘ì—…ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
+    }
+  }
 
-ÊHOˆÜ[ÛˆÙ^O^ØËšYH˜[YO^ØËšYOØË˜ÛÙ_H0­ÈØË›˜[Y_OÛÜ[ÛŠ_OÜÙ[Xİ‚ˆÙ[Xİ˜[YO^ÜÛİ\˜Ù_HÛÚ[™ÙO^ÊJHOˆÙ]Ûİ\˜ÙJK\™Ù]˜[YJ_OÜ[Ûˆ˜[YOHœÛ™H»(!;fe:ì';(ïÛÜ[ÛÜ[Ûˆ˜[YOHœÛ\Èºë.;'¤:ì';(ïÛÜ[ÛÜ[Ûˆ˜[YOH˜YZ[ˆ»)à{(${'¡zè)OÛÜ[ÛÜÙ[Xİ‚ˆÙ[Xİ˜[YO^Ü›ÙXİYHÛÚ[™ÙO^ÊJHOˆÙ]›ÙXİY
-K\™Ù]˜[YJ_OÜİÜ™Kœ›ÙXİË›X\
+  return (
+    <section className="admin-section">
+      <div className="admin-section-head">
+        <div><h2>ì¹´í…Œê³ ë¦¬</h2><p>ì¹´í…Œê³ ë¦¬ì™€ ì„¸ë¶€ ë¶„ë¥˜ë„ ê³„ì† ì¶”ê°€Â·ìˆ˜ì •í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.</p></div>
+        <div className="inline-add">
+          <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="ìƒˆ ì¹´í…Œê³ ë¦¬" />
+          <button type="button" onClick={async () => {
+            if (!newCategory.trim()) return;
+            await action({ action: "add-category", name: newCategory });
+            setNewCategory("");
+          }}>ì¶”ê°€</button>
+        </div>
+      </div>
+      <div className="category-admin-grid">
+        {Object.entries(store.categories).map(([category, subs]) => (
+          <div className="category-admin-card" key={category}>
+            <div className="category-admin-title">
+              <strong>{category}{category === store.promoCategory ? " ğŸš¨" : ""}</strong>
+              <div>
+                <button type="button" onClick={() => {
+                  const name = window.prompt("ìƒˆ ì¹´í…Œê³ ë¦¬ëª…", category);
+                  if (name && name !== category) void action({ action: "rename-category", category, name });
+                }}>ì´ë¦„ë³€ê²½</button>
+                <button type="button" onClick={() => {
+                  if (window.confirm(`â€˜${category}â€™ ì¹´í…Œê³ ë¦¬ë¥¼ ì‚­ì œí• ê¹Œìš”? ìƒí’ˆì´ ë“¤ì–´ ìˆìœ¼ë©´ ì‚­ì œë˜ì§€ ì•ŠìŠµë‹ˆë‹¤.`)) {
+                    void action({ action: "delete-category", category });
+                  }
+                }}>ì‚­ì œ</button>
+              </div>
+            </div>
+            <ul>
+              {subs.map((sub) => (
+                <li key={sub}>
+                  <span>{sub}</span>
+                  <div>
+                    <button type="button" onClick={() => {
+                      const name = window.prompt("ìƒˆ ì„¸ë¶€ ì¹´í…Œê³ ë¦¬ëª…", sub);
+                      if (name && name !== sub) void action({ action: "rename-sub", category, sub, name });
+                    }}>ìˆ˜ì •</button>
+                    <button type="button" onClick={() => {
+                      if (window.confirm(`â€˜${sub}â€™ ì„¸ë¶€ ì¹´í…Œê³ ë¦¬ë¥¼ ì‚­ì œí• ê¹Œìš”?`)) void action({ action: "delete-sub", category, sub });
+                    }}>ì‚­ì œ</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="add-sub" onClick={() => {
+              const name = window.prompt(`â€˜${category}â€™ì— ì¶”ê°€í•  ì„¸ë¶€ ì¹´í…Œê³ ë¦¬ëª…`);
+              if (name) void action({ action: "add-sub", category, name });
+            }}>+ ì„¸ë¶€ ì¹´í…Œê³ ë¦¬ ì¶”ê°€</button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-
-HOˆÜ[ÛˆÙ^O^ÜšYH˜[YO^ÜšYOÜ›˜[Y_OÛÜ[ÛŠ_OÜÙ[Xİ‚ˆÙ[Xİ˜[YO^ÛÜ[Û“X™[HÛÚ[™ÙO^ÊJHOˆÙ]Ü[Û“X™[
-K\™Ù]˜[YJ_OÊ›ÙXİËœXÚÓÜ[ÛœÈÏÈ×JK›X\
+function sanitizeKgNumber(value: string) {
+  const normalized = value.replace(/,/g, ".").replace(/[^0-9.]/g, "");
+  const [whole = "", ...decimals] = normalized.split(".");
+  return decimals.length ? `${whole}.${decimals.join("")}` : whole;
+}
 
-ÊHOˆÜ[ÛˆÙ^O^ÛË›X™[OÛË›X™[OÛÜ[ÛŠ_OÜÙ[Xİ‚ˆ[œ]\OH›[X™\ˆˆZ[HŒŒHˆİ\HŒŒHˆ˜[YO^Ü]_HÛÚ[™ÙO^ÊJHOˆÙ]]J[X™\ŠK\™Ù]˜[YH
-J_HÏ‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^ØYX[X[][_O»d¢:êªH;-¥:¬ Ø]Û‚ˆÙ]‚ˆÛX[X[][\Ë›[™İˆ	‰ˆ]ˆÛ\ÜÓ˜[YOH›X[X[Z][\ÈÛX[X[][\Ë›X\
+function unitInputValue(unit: string) {
+  const value = unit.trim().toLowerCase();
+  const kg = value.match(/^([0-9]+(?:\.[0-9]+)?)\s*kg$/);
+  if (kg) return kg[1] ?? "";
+  const grams = value.match(/^([0-9]+(?:\.[0-9]+)?)\s*g$/);
+  if (grams) {
+    const converted = Number(grams[1]) / 1000;
+    return Number.isFinite(converted) ? String(converted) : "";
+  }
+  return sanitizeKgNumber(value);
+}
 
-][K[™^
-HOˆÜ[ˆÙ^O^Ø	Ú][Kœ›ÙXİYKIÚ[™^XOÚ][Kœ›ÙXİ˜[Y_HÚ][Kœ]X[]_^Ú][K›Ü[Û“X™[O]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÙ]X[X[][\Ê
-
-HOˆ™š[\Š
-ËJHOˆHOOH[™^
-J_O°åÏØ]ÛÜÜ[Š_OÙ]ŸBˆ]ÛˆÛ\ÜÓ˜[YOH˜YZ[‹\š[X\Hˆ\OH˜]Ûˆˆ\ØX›Y^ÈXİ\İÛY\’Y[X[X[][\Ë›[™İHÛÛXÚÏ^Ê
-HOˆ›ÚYÜ™X]SX[X[Ü™\Š
-_O»'m;(ï:ë.;(${"&Ø]Û‚ˆÙ]‚‚ˆ]ˆÛ\ÜÓ˜[YOH›ÜË]X›K]Ü˜\X›HÛ\ÜÓ˜[YOH›ÜË]X›HXY»(ï:ë.İ»)à;%ëOİ»d¢:êªOİº®";%hOİ» à{`çû,¦:é«İİİXY›ÙO‚ˆÛÜ™\œËœÛXÙJ
-K›X\
+function kgUnitFromInput(value: string) {
+  const cleaned = sanitizeKgNumber(value);
+  return cleaned ? `${cleaned}kg` : "";
+}
 
-ÊHOˆˆÙ^O^ÛËšYO‚ˆÛË˜İ\İÛY\ÛÙ_H0­ÈÛË˜İ\İÛY\“˜[Y_OØÜ[ÛË˜Ü™X]Y]H0­ÈÛËœÛİ\˜Ù_OÜÜ[İÛËœ™YÚ[Ûˆºëî;)à;(%HŸOİ‚ˆ]ˆÛ\ÜÓ˜[YOH›Ü™\‹Z][K[[™\ÈÛËš][\Ë›X\
+function normalizeStoredUnit(unit: string) {
+  const value = unit.trim().toLowerCase();
+  if (!value) return "";
+  if (/^[0-9]+(?:\.[0-9]+)?\s*kg$/.test(value)) return `${unitInputValue(value)}kg`;
+  if (/^[0-9]+(?:\.[0-9]+)?\s*g$/.test(value)) return `${unitInputValue(value)}kg`;
+  if (/^[0-9]+(?:\.[0-9]+)?$/.test(value)) return `${value}kg`;
+  return unit.trim();
+}
 
-JHOˆ]Ûˆ\OH˜]ÛˆˆÙ^O^ÚKšYH]OHºâê:¬ ;"&;(%HˆÛÛXÚÏ^Ê
-HOˆÈÛÛœİ™^HÚ[™İËœ›Û\
-	ÚKœ›ÙXİ˜[Y_H:âê:¬ İš[™ÊK[š]šXÙJJNÈYˆ
-™^OOH[	‰ˆ[X™\Š™^
-HH
-H›ÚYXİ[ÛŠÈXİ[Ûˆ\]K\šXÙH‹YˆËšY][RYˆKšY[š]šXÙNˆ[X™\Š™^
-HJNÈ_OÚKœ›ÙXİ˜[Y_HÚKœ]X[]_^ÚK›Ü[Û“X™[H0­ÈÛ™]È[“[X™\‘›Ü›X]
-šÛËRÔˆŠK™›Ü›X]
-K[š]šXÙJ_{&äØ]ÛŠ_OÙ]İ‚ˆÛ™]È[“[X™\‘›Ü›X]
-šÛËRÔˆŠK™›Ü›X]
-Ëİ[
-_{&äİ‚ˆ]ˆÛ\ÜÓ˜[YOHœ›İËXXİ[ÛœÈÜ[ÛËœİ]\ÈOOHœÚ\YˆÈ»-§:¬è;&a:èãˆˆËœİ]\ÈOOH˜Ø[˜Ù[YˆÈ»-ê;!£ˆˆËœš[Y]È»-§:è){&a:èãˆˆ»(${"&ŸOÜÜ[ÛËœİ]\ÈOOHœÚ\Yˆ	‰ˆËœİ]\ÈOOH˜Ø[˜Ù[Yˆ	‰ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÈYˆ
-Ú[™İË˜ÛÛ™š\›J	ÛË˜İ\İÛY\“˜[Y_H;(ï:ë.;'a;-§:¬è;fe{(%{eh:®c;&¥È;'«:¬è;&`:ëî;"&:®";'m:ì&;& zä*zââ:âé˜
-JH›ÚYXİ[ÛŠÈXİ[ÛˆœÚ\‹YˆËšYJNÈ_O»-§:¬è;fe{(%OØ]Û]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÈYˆ
-Ú[™İË˜ÛÛ™š\›J»'m;(ï:ë.;'a;-ê;!£;eh:®c;&¥ÈŠJH›ÚYXİ[ÛŠÈXİ[Ûˆ˜Ø[˜Ù[‹YˆËšYJNÈ_O»-ê;!£Ø]ÛÏŸOÙ]İ‚ˆİŠ_Bˆİ›ÙOİX›OÙ]‚ˆÜÙXİ[Û‚ˆ
-NÂŸB‚™[˜İ[Ûˆ[™[ÜSÜÔ[™[
-ÈÛ‘\œ›ÜˆNˆÈÛ‘\œ›Üˆ
-˜[YNˆİš[™ÊHOˆ›ÚYJHÂˆÛÛœİÜ›İÜËÙ]›İÜ×HH\ÙTİ]O[™[ÜT›İÖ×OŠ×JNÂˆÛÛœİÜ]Y\KÙ]]Y\WHH\ÙTİ]JˆŠNÂˆ\Ş[˜È[˜İ[ÛˆØY
+function ProductEditor({
+  product,
+  creating,
+  categories,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  product: Product;
+  creating: boolean;
+  categories: Record<string, string[]>;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+  onError: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState<Product>(() => structuredClone(product));
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const categoryNames = Object.keys(categories);
 
-HÂˆÛÛœİ™\ÜÛœÙHH]ØZ]™]Ú
-‹Ø\KØYZ[‹Ú[™[ÜH‹ÈØXÚNˆ››Ë\İÜ™HˆJNÂˆYˆ
-\™\ÜÛœÙK›ÚÊH™]\›ÂˆÙ]›İÜÊ
+  useEffect(() => {
+    if (!categories[draft.category]?.includes(draft.sub)) {
+      setDraft((current) => ({ ...current, sub: categories[current.category]?.[0] ?? "" }));
+    }
+  }, [draft.category, draft.sub, categories]);
 
-]ØZ]™\ÜÛœÙKšœÛÛŠ
-JH\ÈÈ[™[ÜNˆ[™[ÜT›İÖ×HJKš[™[ÜJNÂˆBˆ\ÙQY™™Xİ
+  function updateOption(index: number, patch: Partial<PackOption>) {
+    setDraft((current) => ({
+      ...current,
+      packOptions: current.packOptions.map((option, i) => i === index ? { ...option, ...patch } : option),
+    }));
+  }
 
+  async function save() {
+    setBusy(true);
+    onError("");
+    try {
+      let photo = draft.photo;
+      if (photoFile) {
+        const form = new FormData();
+        form.append("file", photoFile);
+        const upload = await fetch("/api/photo", { method: "POST", body: form });
+        const data = await upload.json() as { url?: string; error?: string };
+        if (!upload.ok || !data.url) throw new Error(data.error || "ì‚¬ì§„ ì—…ë¡œë“œì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
+        photo = data.url;
+      }
+      await jsonPost("/api/admin/products", {
+        action: creating ? "create" : "update",
+        product: { ...draft, unit: normalizeStoredUnit(draft.unit), photo },
+      });
+      await onSaved();
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "ìƒí’ˆ ì €ì¥ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
-HOˆÈ›ÚYØY
+  async function remove() {
+    if (creating || !window.confirm(`â€˜${draft.name}â€™ ìƒí’ˆì„ ì‚­ì œí• ê¹Œìš”?`)) return;
+    setBusy(true);
+    try {
+      await jsonPost("/api/admin/products", { action: "delete", id: draft.id });
+      await onSaved();
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "ìƒí’ˆ ì‚­ì œì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
-NÈK×JNÂˆ\Ş[˜È[˜İ[ÛˆY\İ
-›İÎˆ[™[ÜT›İÊHÂˆÛÛœİ™^HÚ[™İËœ›Û\
-	Ü›İËœ›ÙXİ˜[Y_HÈ	Ü›İË›Ü[Û“X™[H;f!;'«;'«:¬è	Ü›İËœ]X[]_W» â;'«:¬è;"&:çâXİš[™Ê›İËœ]X[]JJNÂˆYˆ
-™^OOH[
-H™]\›ÂˆHÂˆÛ‘\œ›ÜŠˆŠNÂˆ]ØZ]œÛÛ”Üİ
-‹Ø\KØYZ[‹Ú[™[ÜH‹È›ÙXİYˆ›İËœ›ÙXİYÜ[Û“X™[ˆ›İË›Ü[Û“X™[]X[]Nˆ[X™\Š™^
-K›İNˆº­ :é«;'¤;'«:¬è;(l;(%HˆJNÂˆ]ØZ]ØY
+  return (
+    <div className="editor-backdrop" onMouseDown={(e) => { if (e.currentTarget === e.target && !busy) onClose(); }}>
+      <section className="product-editor" role="dialog" aria-modal="true">
+        <div className="editor-head">
+          <div><p>{creating ? "ìƒˆ ìƒí’ˆ" : "ìƒí’ˆ ìˆ˜ì •"}</p><h2>{draft.name || "ìƒí’ˆ ì •ë³´ ì…ë ¥"}</h2></div>
+          <button type="button" onClick={onClose} disabled={busy}>Ã—</button>
+        </div>
+        <div className="editor-grid">
+          <label>ìƒí’ˆëª…<input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
+          <label>ê·œê²©
+            <span className="unit-input-wrap">
+              <input
+                inputMode="decimal"
+                value={unitInputValue(draft.unit)}
+                onChange={(e) => setDraft({ ...draft, unit: kgUnitFromInput(e.target.value) })}
+                placeholder="ì˜ˆ: 5 / 0.5"
+              />
+              <b>kg</b>
+            </span>
+            <small className="field-help">ìˆ«ìë§Œ ì…ë ¥í•˜ë©´ kgê°€ ìë™ìœ¼ë¡œ ë¶™ìŠµë‹ˆë‹¤. 500gì€ 0.5ë¡œ ì…ë ¥í•˜ì„¸ìš”.</small>
+          </label>
+          <label>ì¹´í…Œê³ ë¦¬
+            <select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value, sub: categories[e.target.value]?.[0] ?? "" })}>
+              {categoryNames.map((name) => <option key={name}>{name}</option>)}
+            </select>
+          </label>
+          <label>ì„¸ë¶€ ì¹´í…Œê³ ë¦¬
+            <select value={draft.sub} onChange={(e) => setDraft({ ...draft, sub: e.target.value })}>
+              {(categories[draft.category] ?? []).map((name) => <option key={name}>{name}</option>)}
+            </select>
+          </label>
+          <label>ê³¼ì„¸ êµ¬ë¶„
+            <select value={draft.taxType ?? "taxable"} onChange={(e) => setDraft({ ...draft, taxType: e.target.value === "exempt" ? "exempt" : "taxable" })}>
+              <option value="taxable">ê³¼ì„¸</option><option value="exempt">ë©´ì„¸(ë¹„ê³¼ì„¸)</option>
+            </select>
+          </label>
+          <label>ì°½ê³  ìœ„ì¹˜<input value={draft.warehouseZone ?? ""} onChange={(e) => setDraft({ ...draft, warehouseZone: e.target.value })} placeholder="ì˜ˆ: ëƒ‰ë™ì‹í’ˆì°½ê³  / ëƒ‰ë™ìˆ˜ì‚°ì°½ê³ " /></label>
+          <label className="editor-photo">ìƒí’ˆ ì‚¬ì§„
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
+            <small>JPGÂ·PNGÂ·WebP, ìµœëŒ€ 5MB</small>
+          </label>
+          <label className="soldout-check"><input type="checkbox" checked={draft.soldout} onChange={(e) => setDraft({ ...draft, soldout: e.target.checked })} /> í’ˆì ˆë¡œ í‘œì‹œ</label>
+        </div>
 
-NÂˆHØ]Ú
-™X\ÛÛŠHÈÛ‘\œ›ÜŠ™X\ÛÛˆ[œİ[˜Ù[Ùˆ\œ›ÜˆÈ™X\ÛÛ‹›Y\ÜØYÙHˆ»'«:¬è;(l;(%{%ä;"é;c*;e¢;"­zââ:âéˆŠNÈBˆBˆÛÛœİ™YYHH]Y\Kš[J
-KÓİÙ\Ø\ÙJ
-NÂˆÛÛœİš\ÚX›HH›İÜË™š[\Š
-ŠHOˆ[™YYH	Ü‹œ›ÙXİ˜[Y_H	Ü‹˜Ø]YÛÜ_H	Ü‹Ø\™Zİ\ÙV›Û™_XÓİÙ\Ø\ÙJ
-Kš[˜ÛY\Ê™YYJJNÂˆ™]\›ˆ
-ˆÙXİ[ÛˆÛ\ÜÓ˜[YOH˜YZ[‹\ÙXİ[ÛˆÜË\ÙXİ[Ûˆ‚ˆ]ˆÛ\ÜÓ˜[YOH˜YZ[‹\ÙXİ[Û‹ZXY]»'«:¬èÚ»c$:éé:âê;'!:ìá;f!;'«:¬è:éo;fe{'n;ef:¬è;(l;(%{ejzââ:âéˆ;-§:¬è;fe{(%H;"ç;'¤:ãæH;,*:¬$:ä*zââ:âéÜÙ]Ù]‚ˆ[œ]Û\ÜÓ˜[YOH›ÜË\ÙX\˜ÚˆXÙZÛ\H» à{d¢0­û.m;ac:¬è:é«0­û,/z¬è;'!;.f:¬ ; âHˆ˜[YO^Ü]Y\_HÛÚ[™ÙO^ÊJHOˆÙ]]Y\JK\™Ù]˜[YJ_HÏ‚ˆ]ˆÛ\ÜÓ˜[YOHš[™[ÜKYÜšYİš\ÚX›KœÛXÙJLŒ
-K›X\
+        <div className="option-editor">
+          <div className="option-head">
+            <strong>íŒë§¤ ë‹¨ìœ„ì™€ ê°€ê²©</strong>
+            <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "ë°•ìŠ¤", price: null, priceA: null, priceB: null, step: 1 }] })}>+ ë‹¨ìœ„ ì¶”ê°€</button>
+          </div>
+          {draft.packOptions.map((option, index) => (
+            <div className="option-row" key={index}>
+              <label>ë‹¨ìœ„<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} /></label>
+              <label>ê¸°ë³¸ê°€ê²©<input inputMode="numeric" value={option.price ?? ""} placeholder="ê°€ê²© ë¬¸ì˜" onChange={(e) => updateOption(index, { price: e.target.value === "" ? null : Number(e.target.value) })} /></label>
+              <label>Aê·¸ë£¹ ê°€ê²©<input inputMode="numeric" value={option.priceA ?? ""} placeholder="ê¸°ë³¸ê°€ ì‚¬ìš©" onChange={(e) => updateOption(index, { priceA: e.target.value === "" ? null : Number(e.target.value) })} /></label>
+              <label>Bê·¸ë£¹ ê°€ê²©<input inputMode="numeric" value={option.priceB ?? ""} placeholder="ê¸°ë³¸ê°€ ì‚¬ìš©" onChange={(e) => updateOption(index, { priceB: e.target.value === "" ? null : Number(e.target.value) })} /></label>
+              <label>ìˆ˜ëŸ‰ ê°„ê²©<input inputMode="decimal" value={option.step} onChange={(e) => updateOption(index, { step: Number(e.target.value || 1) })} /></label>
+              <button type="button" onClick={() => setDraft({ ...draft, packOptions: draft.packOptions.filter((_, i) => i !== index) })}>ì‚­ì œ</button>
+            </div>
+          ))}
+        </div>
 
-›İÊHOˆ]Ûˆ\OH˜]ÛˆˆÛ\ÜÓ˜[YOHš[™[ÜKXØ\™ˆÙ^O^Ø	Ü›İËœ›ÙXİYKIÜ›İË›Ü[Û“X™[XHÛÛXÚÏ^Ê
-HOˆ›ÚYY\İ
-›İÊ_OÜ[Ü›İËØ\™Zİ\ÙV›Û™H»'!;.f:ëî;)à;(%HŸOÜÜ[İ›Û™ÏÜ›İËœ›ÙXİ˜[Y_OÜİ›Û™ÏÛX[Ü›İË›Ü[Û“X™[OÜÛX[ˆÛ\ÜÓ˜[YO^Ü›İËœ]X[]HÈœ™YˆˆˆŸOÜ›İËœ]X[]_OØØ]ÛŠ_OÙ]‚ˆÜÙXİ[Û‚ˆ
-NÂŸB
+        <div className="editor-actions">
+          {!creating && <button type="button" className="danger" onClick={remove} disabled={busy}>ìƒí’ˆ ì‚­ì œ</button>}
+          <span />
+          <button type="button" onClick={onClose} disabled={busy}>ì·¨ì†Œ</button>
+          <button type="button" className="admin-primary" onClick={save} disabled={busy}>{busy ? "ì €ì¥ ì¤‘" : "ì €ì¥"}</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function makeNewProduct(store: StoreData): Product {
+  const category = Object.keys(store.categories)[0] ?? "";
+  return {
+    id: "",
+    name: "",
+    category,
+    sub: store.categories[category]?.[0] ?? "",
+    unit: "",
+    price: 0,
+    soldout: false,
+    photo: "",
+    taxType: "taxable",
+    warehouseZone: "",
+    packOptions: [{ label: "ë°•ìŠ¤", price: null, priceA: null, priceB: null, step: 1 }, { label: "ë´‰ì§€", price: null, priceA: null, priceB: null, step: 1 }],
+  };
+}
+
+function displayPrice(product: Product) {
+  const prices = product.packOptions.map((option) => option.price).filter((price): price is number => price !== null);
+  if (!prices.length) return "ê°€ê²© ë¬¸ì˜";
+  return `${new Intl.NumberFormat("ko-KR").format(Math.min(...prices))}ì›`;
+}
+
+type AdminCustomer = {
+  id: string; code: string; name: string; phone: string; businessNumber: string; address: string;
+  storePhone: string; region: string; priceGroup: string; active: boolean; receivable: number; lastOrderAt: string | null;
+};
+
+type AdminOrderItem = {
+  id: number; productId: string; productName: string; unit: string; optionLabel: string;
+  quantity: number; unitPrice: number; taxType: string; warehouseZone: string;
+};
+
+type AdminOrder = {
+  id: string; customerId: string; customerCode: string; customerName: string; source: string; status: string;
+  region: string; total: number; note: string; createdAt: string; printedAt: string | null; shippedAt: string | null;
+  items: AdminOrderItem[];
+};
+
+type InventoryRow = { productId: string; productName: string; category: string; warehouseZone: string; optionLabel: string; quantity: number };
+
+function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
+  const [customers, setCustomers] = useState<AdminCustomer[]>([]);
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [region, setRegion] = useState("");
+  const [storePhone, setStorePhone] = useState("");
+  const [businessNumber, setBusinessNumber] = useState("");
+  const [address, setAddress] = useState("");
+  const [priceGroup, setPriceGroup] = useState("A");
+  const [pin, setPin] = useState("");
+  const [query, setQuery] = useState("");
+
+  async function load() {
+    const response = await fetch("/api/admin/customers", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = await response.json() as { customers: AdminCustomer[] };
+    setCustomers(data.customers);
+  }
+  useEffect(() => { void load(); }, []);
+
+  async function create() {
+    try {
+      onError("");
+      await jsonPost("/api/admin/customers", { action: "create", code, name, region, storePhone, businessNumber, address, priceGroup, pin });
+      setCode(""); setName(""); setRegion(""); setStorePhone(""); setBusinessNumber(""); setAddress(""); setPin("");
+      await load();
+    } catch (reason) { onError(reason instanceof Error ? reason.message : "ê±°ë˜ì²˜ ì¶”ê°€ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤."); }
+  }
+
+  async function action(body: Record<string, unknown>) {
+    try { onError(""); await jsonPost("/api/admin/customers", body); await load(); }
+    catch (reason) { onError(reason instanceof Error ? reason.message : "ê±°ë˜ì²˜ ì‘ì—…ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤."); }
+  }
+
+  const needle = query.trim().toLowerCase();
+  const visible = customers.filter((c) => !needle || `${c.code} ${c.name} ${c.region}`.toLowerCase().includes(needle));
+  const totalReceivable = customers.reduce((sum, c) => sum + c.receivable, 0);
+
+  return (
+    <section className="admin-section ops-section">
+      <div className="admin-section-head">
+        <div><h2>ê±°ë˜ì²˜ Â· ë¯¸ìˆ˜ê¸ˆ</h2><p>ê±°ë˜ì²˜ ë¡œê·¸ì¸, ì§€ì—­, ê°€ê²©ê·¸ë£¹, ë¯¸ìˆ˜ê¸ˆê³¼ ì…ê¸ˆì„ ê´€ë¦¬í•©ë‹ˆë‹¤.</p></div>
+        <div className="ops-metric"><b>{customers.length}</b><span>ê±°ë˜ì²˜</span><b>{new Intl.NumberFormat("ko-KR").format(totalReceivable)}ì›</b><span>ì´ ë¯¸ìˆ˜</span></div>
+      </div>
+      <div className="customer-create-grid">
+        <input placeholder="ê±°ë˜ì²˜ë²ˆí˜¸ ì˜ˆ: 8-18" value={code} onChange={(e) => setCode(e.target.value)} />
+        <input placeholder="ê±°ë˜ì²˜ëª…" value={name} onChange={(e) => setName(e.target.value)} />
+        <input placeholder="ì§€ì—­ ì˜ˆ: 1ë‹¨ì§€" value={region} onChange={(e) => setRegion(e.target.value)} />
+        <input placeholder="ê°€ê²Œ ì „í™”ë²ˆí˜¸" value={storePhone} onChange={(e) => setStorePhone(e.target.value)} />
+        <input placeholder="ì‚¬ì—…ìë²ˆí˜¸" value={businessNumber} onChange={(e) => setBusinessNumber(e.target.value)} />
+        <input placeholder="ê°€ê²Œ ì£¼ì†Œ" value={address} onChange={(e) => setAddress(e.target.value)} />
+        <select value={priceGroup} onChange={(e) => setPriceGroup(e.target.value)}><option value="A">ê°€ê²© Aê·¸ë£¹</option><option value="B">ê°€ê²© Bê·¸ë£¹</option></select>
+        <input placeholder="ìµœì´ˆ ì¸ì¦ë²ˆí˜¸ 6ìë¦¬" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} />
+        <button className="admin-primary" type="button" onClick={() => void create()} disabled={!code.trim() || !name.trim() || pin.length !== 6}>+ ê±°ë˜ì²˜ ì¶”ê°€</button>
+      </div>
+      <input className="ops-search" placeholder="ê±°ë˜ì²˜ë²ˆí˜¸Â·ìƒí˜¸Â·ì§€ì—­ ê²€ìƒ‰" value={query} onChange={(e) => setQuery(e.target.value)} />
+      <div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>ê±°ë˜ì²˜</th><th>ì§€ì—­</th><th>ê·¸ë£¹</th><th>ë¯¸ìˆ˜ê¸ˆ</th><th>ê´€ë¦¬</th></tr></thead><tbody>
+        {visible.map((c) => <tr key={c.id} className={!c.active ? "row-disabled" : ""}>
+          <td><b>{c.code}</b><span>{c.name}</span></td><td>{c.region || "ë¯¸ì§€ì •"}</td><td>{c.priceGroup}</td><td className={c.receivable > 0 ? "money-warn" : ""}>{new Intl.NumberFormat("ko-KR").format(c.receivable)}ì›</td>
+          <td><div className="row-actions">
+            <button type="button" onClick={() => { const amount = window.prompt(`${c.name} ì…ê¸ˆì•¡`); if (amount && Number(amount) > 0) void action({ action: "payment", id: c.id, amount: Number(amount), method: "bank" }); }}>ì…ê¸ˆ</button>
+            <button type="button" onClick={() => { const month = window.prompt("ì¶œë ¥í•  ê±°ë˜ì›” (YYYY-MM)", new Date().toISOString().slice(0,7)); if (month) window.open(`/api/admin/print-ledger?customerId=${encodeURIComponent(c.id)}&month=${encodeURIComponent(month)}`, "_blank"); }}>ì›ì¥</button>
+            <button type="button" onClick={() => {
+              const name = window.prompt("ê±°ë˜ì²˜ëª…", c.name); if (!name) return;
+              const region = window.prompt("ë°°ì†¡ì§€ì—­", c.region) ?? c.region;
+              const storePhone = window.prompt("ê°€ê²Œ ì „í™”ë²ˆí˜¸", c.storePhone) ?? c.storePhone;
+              const businessNumber = window.prompt("ì‚¬ì—…ìë²ˆí˜¸", c.businessNumber) ?? c.businessNumber;
+              const address = window.prompt("ê°€ê²Œ ì£¼ì†Œ", c.address) ?? c.address;
+              const priceGroup = window.prompt("ê°€ê²©ê·¸ë£¹ A ë˜ëŠ” B", c.priceGroup) === "B" ? "B" : "A";
+              void action({ action: "update", id: c.id, code: c.code, name, region, storePhone, businessNumber, address, phone: c.phone, priceGroup });
+            }}>ì •ë³´ìˆ˜ì •</button>
+            <button type="button" onClick={() => { const next = window.prompt("ìƒˆ 6ìë¦¬ ì¸ì¦ë²ˆí˜¸", String(Math.floor(100000 + Math.random() * 900000))); if (next) void action({ action: "reset-pin", id: c.id, pin: next }); }}>PIN</button>
+            <button type="button" onClick={() => void action({ action: "logout-all", id: c.id })}>ë¡œê·¸ì¸ì´ˆê¸°í™”</button>
+            <button type="button" onClick={() => void action({ action: "toggle", id: c.id, active: !c.active })}>{c.active ? "ì¤‘ì§€" : "ì‚¬ìš©"}</button>
+          </div></td>
+        </tr>)}
+      </tbody></table></div>
+    </section>
+  );
+}
+
+function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: string) => void }) {
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [customers, setCustomers] = useState<AdminCustomer[]>([]);
+  const [customerId, setCustomerId] = useState("");
+  const [productId, setProductId] = useState(store.products[0]?.id ?? "");
+  const product = store.products.find((p) => p.id === productId) ?? store.products[0];
+  const [optionLabel, setOptionLabel] = useState(product?.packOptions[0]?.label ?? "");
+  const [qty, setQty] = useState(1);
+  const [manualItems, setManualItems] = useState<Array<{ productId: string; productName: string; optionLabel: string; quantity: number }>>([]);
+  const [source, setSource] = useState("phone");
+
+  async function load() {
+    const [or, cr] = await Promise.all([
+      fetch("/api/admin/orders", { cache: "no-store" }),
+      fetch("/api/admin/customers", { cache: "no-store" }),
+    ]);
+    if (or.ok) setOrders(((await or.json()) as { orders: AdminOrder[] }).orders);
+    if (cr.ok) {
+      const list = ((await cr.json()) as { customers: AdminCustomer[] }).customers;
+      setCustomers(list);
+      if (!customerId && list[0]) setCustomerId(list[0].id);
+    }
+  }
+  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const next = store.products.find((p) => p.id === productId);
+    if (next && !next.packOptions.some((o) => o.label === optionLabel)) setOptionLabel(next.packOptions[0]?.label ?? "");
+  }, [productId, optionLabel, store.products]);
+
+  async function action(body: Record<string, unknown>) {
+    try { onError(""); await jsonPost("/api/admin/orders", body); await load(); }
+    catch (reason) { onError(reason instanceof Error ? reason.message : "ì£¼ë¬¸ ì‘ì—…ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤."); }
+  }
+
+  function addManualItem() {
+    if (!product || !optionLabel || qty <= 0) return;
+    setManualItems((current) => [...current, { productId: product.id, productName: product.name, optionLabel, quantity: qty }]);
+  }
+
+  async function createManualOrder() {
+    if (!customerId || !manualItems.length) return;
+    await action({ action: "create-order", customerId, source, items: manualItems.map((i) => ({ productId: i.productId, optionLabel: i.optionLabel, quantity: i.quantity })) });
+    setManualItems([]);
+  }
+
+  const active = orders.filter((o) => o.status === "received" || o.status === "preparing");
+  const regions = Array.from(new Set(active.map((o) => o.region || "ë¯¸ì§€ì •"))).sort();
+
+  return (
+    <section className="admin-section ops-section">
+      <div className="admin-section-head"><div><h2>ì£¼ë¬¸ Â· ì „í‘œì¶œë ¥ Â· ì¶œê³ </h2><p>ì•±/ì „í™”/ë¬¸ì ì£¼ë¬¸ì„ í•œ ê³³ì—ì„œ ì²˜ë¦¬í•˜ê³  ì§€ì—­ë³„ ì‹ ê·œë¶„ë§Œ ì¶œë ¥í•©ë‹ˆë‹¤.</p></div><div className="ops-metric"><b>{active.length}</b><span>ì¶œê³ ëŒ€ê¸°</span><b>{active.filter((o) => !o.printedAt).length}</b><span>ë¯¸ì¶œë ¥</span></div></div>
+
+      <div className="region-cards">
+        {regions.map((region) => {
+          const rows = active.filter((o) => (o.region || "ë¯¸ì§€ì •") === region);
+          const unprinted = rows.filter((o) => !o.printedAt).length;
+          return <div className="region-card" key={region}><div><strong>{region}</strong><span>ì£¼ë¬¸ {rows.length}ê±´ Â· ì‹ ê·œ {unprinted}ê±´</span></div><div>
+            <button type="button" disabled={!unprinted} onClick={() => window.open(`/api/admin/print-orders?region=${encodeURIComponent(region)}&unprinted=1`, "_blank")}>ì‹ ê·œë¶„ ì¶œë ¥</button>
+            <button type="button" disabled={!unprinted} onClick={() => { if (window.confirm(`${region} ì‹ ê·œ ì£¼ë¬¸ì„ ì¶œë ¥ì™„ë£Œë¡œ í‘œì‹œí• ê¹Œìš”?`)) void action({ action: "mark-region-printed", region }); }}>ì¶œë ¥ì™„ë£Œ</button>
+          </div></div>;
+        })}
+        {!regions.length && <p className="ops-empty">í˜„ì¬ ì¶œê³ ëŒ€ê¸° ì£¼ë¬¸ì´ ì—†ìŠµë‹ˆë‹¤.</p>}
+      </div>
+
+      <div className="manual-order-box">
+        <div><h3>ì „í™”Â·ë¬¸ì ì£¼ë¬¸ ëŒ€ì‹  ì…ë ¥</h3><p>ì§ì›ì´ ì´ í™”ë©´ì—ì„œ ì…ë ¥í•˜ë©´ ì•± ì£¼ë¬¸ê³¼ ë™ì¼í•˜ê²Œ ì¬ê³ Â·ë¯¸ìˆ˜Â·ì „í‘œ íë¦„ì— ë“¤ì–´ê°‘ë‹ˆë‹¤.</p></div>
+        <div className="manual-order-controls">
+          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>{customers.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.code} Â· {c.name}</option>)}</select>
+          <select value={source} onChange={(e) => setSource(e.target.value)}><option value="phone">ì „í™”ë°œì£¼</option><option value="sms">ë¬¸ìë°œì£¼</option><option value="admin">ì§ì ‘ì…ë ¥</option></select>
+          <select value={productId} onChange={(e) => setProductId(e.target.value)}>{store.products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+          <select value={optionLabel} onChange={(e) => setOptionLabel(e.target.value)}>{(product?.packOptions ?? []).map((o) => <option key={o.label}>{o.label}</option>)}</select>
+          <input type="number" min="0.001" step="0.001" value={qty} onChange={(e) => setQty(Number(e.target.value || 0))} />
+          <button type="button" onClick={addManualItem}>í’ˆëª© ì¶”ê°€</button>
+        </div>
+        {manualItems.length > 0 && <div className="manual-items">{manualItems.map((item, index) => <span key={`${item.productId}-${index}`}>{item.productName} {item.quantity}{item.optionLabel}<button type="button" onClick={() => setManualItems((x) => x.filter((_, i) => i !== index))}>Ã—</button></span>)}</div>}
+        <button className="admin-primary" type="button" disabled={!customerId || !manualItems.length} onClick={() => void createManualOrder()}>ì´ ì£¼ë¬¸ ì ‘ìˆ˜</button>
+      </div>
+
+      <div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>ì£¼ë¬¸</th><th>ì§€ì—­</th><th>í’ˆëª©</th><th>ê¸ˆì•¡</th><th>ìƒíƒœ/ì²˜ë¦¬</th></tr></thead><tbody>
+        {orders.slice(0, 80).map((o) => <tr key={o.id}>
+          <td><b>{o.customerCode} Â· {o.customerName}</b><span>{o.createdAt} Â· {o.source}</span></td><td>{o.region || "ë¯¸ì§€ì •"}</td>
+          <td><div className="order-item-lines">{o.items.map((i) => <button type="button" key={i.id} title="ë‹¨ê°€ìˆ˜ì •" onClick={() => { const next = window.prompt(`${i.productName} ë‹¨ê°€`, String(i.unitPrice)); if (next !== null && Number(next) >= 0) void action({ action: "update-price", id: o.id, itemId: i.id, unitPrice: Number(next) }); }}>{i.productName} {i.quantity}{i.optionLabel} Â· {new Intl.NumberFormat("ko-KR").format(i.unitPrice)}ì›</button>)}</div></td>
+          <td>{new Intl.NumberFormat("ko-KR").format(o.total)}ì›</td>
+          <td><div className="row-actions"><span>{o.status === "shipped" ? "ì¶œê³ ì™„ë£Œ" : o.status === "cancelled" ? "ì·¨ì†Œ" : o.printedAt ? "ì¶œë ¥ì™„ë£Œ" : "ì ‘ìˆ˜"}</span>{o.status !== "shipped" && o.status !== "cancelled" && <><button type="button" onClick={() => { if (window.confirm(`${o.customerName} ì£¼ë¬¸ì„ ì¶œê³ í™•ì •í• ê¹Œìš”? ì¬ê³ ì™€ ë¯¸ìˆ˜ê¸ˆì´ ë°˜ì˜ë©ë‹ˆë‹¤.`)) void action({ action: "ship", id: o.id }); }}>ì¶œê³ í™•ì •</button><button type="button" onClick={() => { if (window.confirm("ì´ ì£¼ë¬¸ì„ ì·¨ì†Œí• ê¹Œìš”?")) void action({ action: "cancel", id: o.id }); }}>ì·¨ì†Œ</button></>}</div></td>
+        </tr>)}
+      </tbody></table></div>
+    </section>
+  );
+}
+
+function InventoryOpsPanel({ onError }: { onError: (value: string) => void }) {
+  const [rows, setRows] = useState<InventoryRow[]>([]);
+  const [query, setQuery] = useState("");
+  async function load() {
+    const response = await fetch("/api/admin/inventory", { cache: "no-store" });
+    if (!response.ok) return;
+    setRows(((await response.json()) as { inventory: InventoryRow[] }).inventory);
+  }
+  useEffect(() => { void load(); }, []);
+  async function adjust(row: InventoryRow) {
+    const next = window.prompt(`${row.productName} / ${row.optionLabel} í˜„ì¬ ì¬ê³  ${row.quantity}\nìƒˆ ì¬ê³  ìˆ˜ëŸ‰`, String(row.quantity));
+    if (next === null) return;
+    try {
+      onError("");
+      await jsonPost("/api/admin/inventory", { productId: row.productId, optionLabel: row.optionLabel, quantity: Number(next), note: "ê´€ë¦¬ì ì¬ê³ ì¡°ì •" });
+      await load();
+    } catch (reason) { onError(reason instanceof Error ? reason.message : "ì¬ê³  ì¡°ì •ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤."); }
+  }
+  const needle = query.trim().toLowerCase();
+  const visible = rows.filter((r) => !needle || `${r.productName} ${r.category} ${r.warehouseZone}`.toLowerCase().includes(needle));
+  return (
+    <section className="admin-section ops-section">
+      <div className="admin-section-head"><div><h2>ì¬ê³ </h2><p>íŒë§¤ë‹¨ìœ„ë³„ í˜„ì¬ê³ ë¥¼ í™•ì¸í•˜ê³  ì¡°ì •í•©ë‹ˆë‹¤. ì¶œê³ í™•ì • ì‹œ ìë™ ì°¨ê°ë©ë‹ˆë‹¤.</p></div></div>
+      <input className="ops-search" placeholder="ìƒí’ˆÂ·ì¹´í…Œê³ ë¦¬Â·ì°½ê³ ìœ„ì¹˜ ê²€ìƒ‰" value={query} onChange={(e) => setQuery(e.target.value)} />
+      <div className="inventory-grid">{visible.slice(0, 120).map((row) => <button type="button" className="inventory-card" key={`${row.productId}-${row.optionLabel}`} onClick={() => void adjust(row)}><span>{row.warehouseZone || "ìœ„ì¹˜ ë¯¸ì§€ì •"}</span><strong>{row.productName}</strong><small>{row.optionLabel}</small><b className={row.quantity < 0 ? "red" : ""}>{row.quantity}</b></button>)}</div>
+    </section>
+  );
+}

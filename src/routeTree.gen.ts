@@ -23,4 +23,534 @@ import { Route as ApiAdminLedgerRouteImport } from './routes/api/admin/ledger'
 import { Route as ApiAdminLoginRouteImport } from './routes/api/admin/login'
 import { Route as ApiAdminLogoutRouteImport } from './routes/api/admin/logout'
 import { Route as ApiAdminOrdersRouteImport } from './routes/api/admin/orders'
-import { Route as ApiAdminPrintLedgerRouteImport } from './ëÞ¼r«²ÚîÆ­yÚÞ®éðŠØay§‚·©þÖ¢•ú+~ée¢ëiº×5&÷WFP¢rö’öFÖ–âö–çfVçF÷'’s¢G—Vöb”FÖ–ä–çfVçF÷'•&÷WFP¢rö’öFÖ–âöÆVFvW"s¢G—Vöb”FÖ–äÆVFvW%&÷WFP¢rö’öFÖ–âöÆöv–âs¢G—Vöb”FÖ–äÆöv–å&÷WFP¢rö’öFÖ–âöÆöv÷WBs¢G—Vöb”FÖ–äÆöv÷WE&÷WFP¢rö’öFÖ–âö÷&FW'2s¢G—Vöb”FÖ–ä÷&FW'5&÷WFP¢rö’öFÖ–â÷&–çBÖÆVFvW"s¢G—Vöb”FÖ–å&–çDÆVFvW%&÷WFP¢rö’öFÖ–â÷&–çBÖ÷&FW'2s¢G—Vöb”FÖ–å&–çD÷&FW'5&÷WFP¢rö’öFÖ–â÷&öGV7G2s¢G—Vöb”FÖ–å&öGV7G5&÷WFP¢rö’öFÖ–â÷6WGF–æw2s¢G—Vöb”FÖ–å6WGF–æw5&÷WFP¢rö’öFÖ–â÷6WGWs¢G—Vöb”FÖ–å6WGW&÷WFP¢rö’öFÖ–â÷7FGW2s¢G—Vöb”FÖ–å7FGW5&÷WFP¢rö’ö7W7FöÖW"öF6†&ö&Bs¢G—Vöb”7W7FöÖW$F6†&ö&E&÷WFP¢rö’ö7W7FöÖW"öÆöv–âs¢G—Vöb”7W7FöÖW$Æöv–å&÷WFP¢rö’ö7W7FöÖW"öÆöv÷WBs¢G—Vöb”7W7FöÖW$Æöv÷WE&÷WFP¢rö’ö7W7FöÖW"÷7FGW2s¢G—Vöb”7W7FöÖW%7FGW5&÷WFP§Ð¦W‡÷'B–çFW&f6Rf–ÆU&÷WFW4'•Fò°¢ròs¢G—Vöb–æFW…&÷WFP¢röFÖ–âs¢G—VöbFÖ–å&÷WFP¢r÷&ö&÷G2çG‡Bs¢G—Vöb&ö&÷G4F÷GG‡E&÷WFP¢r÷6—FVÖç†ÖÂs¢G—Vöb6—FVÖF÷G†ÖÅ&÷WFP¢rö’ö÷&FW'2s¢G—Vöb”÷&FW'5&÷WFP¢rö’÷†÷Fòs¢G—Vöb•†÷Fõ&÷WFP¢rö’÷7F÷&Rs¢G—Vöb•7F÷&U&÷WFP¢rö’öFÖ–âö6FVv÷&–W2s¢G—Vöb”FÖ–ä6FVv÷&–W5&÷WFP¢rö’öFÖ–âö7W7FöÖW'2s¢G—Vöb”FÖ–ä7W7FöÖW'5&÷WFP¢rö’öFÖ–âö–çfVçF÷'’s¢G—Vöb”FÖ–ä–çfVçF÷'•&÷WFP¢rö’öFÖ–âöÆVFvW"s¢G—Vöb”FÖ–äÆVFvW%&÷WFP¢rö’öFÖ–âöÆöv–âs¢G—Vöb”FÖ–äÆöv–å&÷WFP¢rö’öFÖ–âöÆöv÷WBs¢G—Vöb”FÖ–äÆöv÷WE&÷WFP¢rö’öFÖ–âö÷&FW'2s¢G—Vöb”FÖ–ä÷&FW'5&÷WFP¢rö’öFÖ–â÷&–çBÖÆVFvW"s¢G—Vöb”FÖ–å&–çDÆVFvW%&÷WFP¢rö’öFÖ–â÷&–çBÖ÷&FW'2s¢G—Vöb”FÖ–å&–çD÷&FW'5&÷WFP¢rö’öFÖ–â÷&öGV7G2s¢G—Vöb”FÖ–å&öGV7G5&÷WFP¢rö’öFÖ–â÷6WGF–æw2s¢G—Vöb”FÖ–å6WGF–æw5&÷WFP¢rö’öFÖ–â÷6WGWs¢G—Vöb”FÖ–å6WGW&÷WFP¢rö’öFÖ–â÷7FGW2s¢G—Vöb”FÖ–å7FGW5&÷WFP¢rö’ö7W7FöÖW"öF6†&ö&Bs¢G—Vöb”7W7FöÖW$F6†&ö&E&÷WFP¢rö’ö7W7FöÖW"öÆöv–âs¢G—Vöb”7W7FöÖW$Æöv–å&÷WFP¢rö’ö7W7FöÖW"öÆöv÷WBs¢G—Vöb”7W7FöÖW$Æöv÷WE&÷WFP¢rö’ö7W7FöÖW"÷7FGW2s¢G—Vöb”7W7FöÖW%7FGW5&÷WFP§Ð¦W‡÷'B–çFW&f6Rf–ÆU&÷WFW4'”–B°¢õ÷&ö÷Eõó¢G—Vöb&ö÷E&÷WFT–×÷'@¢ròs¢G—Vöb–æFW…&÷WFP¢röFÖ–âs¢G—VöbFÖ–å&÷WFP¢r÷&ö&÷G2çG‡Bs¢G—Vöb&ö&÷G4F÷GG‡E&÷WFP¢r÷6—FVÖç†ÖÂs¢G—Vöb6—FVÖF÷G†ÖÅ&÷WFP¢rö’ö÷&FW'2s¢G—Vöb”÷&FW'5&÷WFP¢rö’÷†÷Fòs¢G—Vöb•†÷Fõ&÷WFP¢rö’÷7F÷&Rs¢G—Vöb•7F÷&U&÷WFP¢rö’öFÖ–âö6FVv÷&–W2s¢G—Vöb”FÖ–ä6FVv÷&–W5&÷WFP¢rö’öFÖ–âö7W7FöÖW'2s¢G—Vöb”FÖ–ä7W7FöÖW'5&÷WFP¢rö’öFÖ–âö–çfVçF÷'’s¢G—Vöb”FÖ–ä–çfVçF÷'•&÷WFP¢rö’öFÖ–âöÆVFvW"s¢G—Vöb”FÖ–äÆVFvW%&÷WFP¢rö’öFÖ–âöÆöv–âs¢G—Vöb”FÖ–äÆöv–å&÷WFP¢rö’öFÖ–âöÆöv÷WBs¢G—Vöb”FÖ–äÆöv÷WE&÷WFP¢rö’öFÖ–âö÷&FW'2s¢G—Vöb”FÖ–ä÷&FW'5&÷WFP¢rö’öFÖ–â÷&–çBÖÆVFvW"s¢G—Vöb”FÖ–å&–çDÆVFvW%&÷WFP¢rö’öFÖ–â÷&–çBÖ÷&FW'2s¢G—Vöb”FÖ–å&–çD÷&FW'5&÷WFP¢rö’öFÖ–â÷&öGV7G2s¢G—Vöb”FÖ–å&öGV7G5&÷WFP¢rö’öFÖ–â÷6WGF–æw2s¢G—Vöb”FÖ–å6WGF–æw5&÷WFP¢rö’öFÖ–â÷6WGWs¢G—Vöb”FÖ–å6WGW&÷WFP¢rö’öFÖ–â÷7FGW2s¢G—Vöb”FÖ–å7FGW5&÷WFP¢rö’ö7W7FöÖW"öF6†&ö&Bs¢G—Vöb”7W7FöÖW$F6†&ö&E&÷WFP¢rö’ö7W7FöÖW"öÆöv–âs¢G—Vöb”7W7FöÖW$Æöv–å&÷WFP¢rö’ö7W7FöÖW"öÆöv÷WBs¢G—Vöb”7W7FöÖW$Æöv÷WE&÷WFP¢rö’ö7W7FöÖW"÷7FGW2s¢G—Vöb”7W7FöÖW%7FGW5&÷WFP§Ð¦W‡÷'B–çFW&f6Rf–ÆU&÷WFUG—W2°¢f–ÆU&÷WFW4'”gVÆÅFƒ¢f–ÆU&÷WFW4'”gVÆÅF€¢gVÆÅF‡3 ¢Âròp¢ÂröFÖ–âp¢Âr÷&ö&÷G2çG‡Bp¢Âr÷6—FVÖç†ÖÂp¢Ârö’ö÷&FW'2p¢Ârö’÷†÷Fòp¢Ârö’÷7F÷&Rp¢Ârö’öFÖ–âö6FVv÷&–W2p¢Ârö’öFÖ–âö7W7FöÖW'2p¢Ârö’öFÖ–âö–çfVçF÷'’p¢Ârö’öFÖ–âöÆVFvW"p¢Ârö’öFÖ–âöÆöv–âp¢Ârö’öFÖ–âöÆöv÷WBp¢Ârö’öFÖ–âö÷&FW'2p¢Ârö’öFÖ–â÷&–çBÖÆVFvW"p¢Ârö’öFÖ–â÷&–çBÖ÷&FW'2p¢Ârö’öFÖ–â÷&öGV7G2p¢Ârö’öFÖ–â÷6WGF–æw2p¢Ârö’öFÖ–â÷6WGWp¢Ârö’öFÖ–â÷7FGW2p¢Ârö’ö7W7FöÖW"öF6†&ö&Bp¢Ârö’ö7W7FöÖW"öÆöv–âp¢Ârö’ö7W7FöÖW"öÆöv÷WBp¢Ârö’ö7W7FöÖW"÷7FGW2p¢f–ÆU&÷WFW4'•Fó¢f–ÆU&÷WFW4'•Fð¢Fó ¢Âròp¢ÂröFÖ–âp¢Âr÷&ö&÷G2çG‡Bp¢Âr÷6—FVÖç†ÖÂp¢Ârö’ö÷&FW'2p¢Ârö’÷†÷Fòp¢Ârö’÷7F÷&Rp¢Ârö’öFÖ–âö6FVv÷&–W2p¢Ârö’öFÖ–âö7W7FöÖW'2p¢Ârö’öFÖ–âö–çfVçF÷'’p¢Ârö’öFÖ–âöÆVFvW"p¢Ârö’öFÖ–âöÆöv–âp¢Ârö’öFÖ–âöÆöv÷WBp¢Ârö’öFÖ–âö÷&FW'2p¢Ârö’öFÖ–â÷&–çBÖÆVFvW"p¢Ârö’öFÖ–â÷&–çBÖ÷&FW'2p¢Ârö’öFÖ–â÷&öGV7G2p¢Ârö’öFÖ–â÷6WGF–æw2p¢Ârö’öFÖ–â÷6WGWp¢Ârö’öFÖ–â÷7FGW2p¢Ârö’ö7W7FöÖW"öF6†&ö&Bp¢Ârö’ö7W7FöÖW"öÆöv–âp¢Ârö’ö7W7FöÖW"öÆöv÷WBp¢Ârö’ö7W7FöÖW"÷7FGW2p¢–C ¢Âuõ÷&ö÷Eõòp¢Âròp¢ÂröFÖ–âp¢Âr÷&ö&÷G2çG‡Bp¢Âr÷6—FVÖç†ÖÂp¢Ârö’ö÷&FW'2p¢Ârö’÷†÷Fòp¢Ârö’÷7F÷&Rp¢Ârö’öFÖ–âö6FVv÷&–W2p¢Ârö’öFÖ–âö7W7FöÖW'2p¢Ârö’öFÖ–âö–çfVçF÷'’p¢Ârö’öFÖ–âöÆVFvW"p¢Ârö’öFÖ–âöÆöv–âp¢Ârö’öFÖ–âöÆöv÷WBp¢Ârö’öFÖ–âö÷&FW'2p¢Ârö’öFÖ–â÷&–çBÖÆVFvW"p¢Ârö’öFÖ–â÷&–çBÖ÷&FW'2p¢Ârö’öFÖ–â÷&öGV7G2p¢Ârö’öFÖ–â÷6WGF–æw2p¢Ârö’öFÖ–â÷6WGWp¢Ârö’öFÖ–â÷7FGW2p¢Ârö’ö7W7FöÖW"öF6†&ö&Bp¢Ârö’ö7W7FöÖW"öÆöv–âp¢Ârö’ö7W7FöÖW"öÆöv÷WBp¢Ârö’ö7W7FöÖW"÷7FGW2p¢f–ÆU&÷WFW4'”–C¢f–ÆU&÷WFW4'”–@§Ð¦W‡÷'B–çFW&f6R&ö÷E&÷WFT6†–ÆG&Vâ°¢–æFW…&÷WFS¢G—Vöb–æFW…&÷WFP¢FÖ–å&÷WFS¢G—VöbFÖ–å&÷WFP¢&ö&÷G4F÷GG‡E&÷WFS¢G—Vöb&ö&÷G4F÷GG‡E&÷WFP¢6—FVÖF÷G†ÖÅ&÷WFS¢G—Vöb6—FVÖF÷G†ÖÅ&÷WFP¢”÷&FW'5&÷WFS¢G—Vöb”÷&FW'5&÷WFP¢•†÷Fõ&÷WFS¢G—Vöb•†÷Fõ&÷WFP¢•7F÷&U&÷WFS¢G—Vöb•7F÷&U&÷WFP¢”FÖ–ä6FVv÷&–W5&÷WFS¢G—Vöb”FÖ–ä6FVv÷&–W5&÷WFP¢”FÖ–ä7W7FöÖW'5&÷WFS¢G—Vöb”FÖ–ä7W7FöÖW'5&÷WFP¢”FÖ–ä–çfVçF÷'•&÷WFS¢G—Vöb”FÖ–ä–çfVçF÷'•&÷WFP¢”FÖ–äÆVFvW%&÷WFS¢G—Vöb”FÖ–äÆVFvW%&÷WFP¢”FÖ–äÆöv–å&÷WFS¢G—Vöb”FÖ–äÆöv–å&÷WFP¢”FÖ–äÆöv÷WE&÷WFS¢G—Vöb”FÖ–äÆöv÷WE&÷WFP¢”FÖ–ä÷&FW'5&÷WFS¢G—Vöb”FÖ–ä÷&FW'5&÷WFP¢”FÖ–å&–çDÆVFvW%&÷WFS¢G—Vöb”FÖ–å&–çDÆVFvW%&÷WFP¢”FÖ–å&–çD÷&FW'5&÷WFS¢G—Vöb”FÖ–å&–çD÷&FW'5&÷WFP¢”FÖ–å&öGV7G5&÷WFS¢G—Vöb”FÖ–å&öGV7G5&÷WFP¢”FÖ–å6WGF–æw5&÷WFS¢G—Vöb”FÖ–å6WGF–æw5&÷WFP¢”FÖ–å6WGW&÷WFS¢G—Vöb”FÖ–å6WGW&÷WFP¢”FÖ–å7FGW5&÷WFS¢G—Vöb”FÖ–å7FGW5&÷WFP¢”7W7FöÖW$F6†&ö&E&÷WFS¢G—Vöb”7W7FöÖW$F6†&ö&E&÷WFP¢”7W7FöÖW$Æöv–å&÷WFS¢G—Vöb”7W7FöÖW$Æöv–å&÷WFP¢”7W7FöÖW$Æöv÷WE&÷WFS¢G—Vöb”7W7FöÖW$Æöv÷WE&÷WFP¢”7W7FöÖW%7FGW5&÷WFS¢G—Vöb”7W7FöÖW%7FGW5&÷WFP§Ð ¦FV6Æ&RÖöGVÆRtFç7F6²÷&V7B×&÷WFW"r°¢–çFW&f6Rf–ÆU&÷WFW4'•F‚°¢ròs¢°¢–C¢ròp¢Fƒ¢ròp¢gVÆÅFƒ¢ròp¢&TÆöFW%&÷WFS¢G—Vöb–æFW…&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢röFÖ–âs¢°¢–C¢röFÖ–âp¢Fƒ¢röFÖ–âp¢gVÆÅFƒ¢röFÖ–âp¢&TÆöFW%&÷WFS¢G—VöbFÖ–å&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢r÷&ö&÷G2çG‡Bs¢°¢–C¢r÷&ö&÷G2çG‡Bp¢Fƒ¢r÷&ö&÷G2çG‡Bp¢gVÆÅFƒ¢r÷&ö&÷G2çG‡Bp¢&TÆöFW%&÷WFS¢G—Vöb&ö&÷G4F÷GG‡E&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢r÷6—FVÖç†ÖÂs¢°¢–C¢r÷6—FVÖç†ÖÂp¢Fƒ¢r÷6—FVÖç†ÖÂp¢gVÆÅFƒ¢r÷6—FVÖç†ÖÂp¢&TÆöFW%&÷WFS¢G—Vöb6—FVÖF÷G†ÖÅ&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’ö÷&FW'2s¢°¢–C¢rö’ö÷&FW'2p¢Fƒ¢rö’ö÷&FW'2p¢gVÆÅFƒ¢rö’ö÷&FW'2p¢&TÆöFW%&÷WFS¢G—Vöb”÷&FW'5&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’÷†÷Fòs¢°¢–C¢rö’÷†÷Fòp¢Fƒ¢rö’÷†÷Fòp¢gVÆÅFƒ¢rö’÷†÷Fòp¢&TÆöFW%&÷WFS¢G—Vöb•†÷Fõ&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’÷7F÷&Rs¢°¢–C¢rö’÷7F÷&Rp¢Fƒ¢rö’÷7F÷&Rp¢gVÆÅFƒ¢rö’÷7F÷&Rp¢&TÆöFW%&÷WFS¢G—Vöb•7F÷&U&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–âö6FVv÷&–W2s¢°¢–C¢rö’öFÖ–âö6FVv÷&–W2p¢Fƒ¢rö’öFÖ–âö6FVv÷&–W2p¢gVÆÅFƒ¢rö’öFÖ–âö6FVv÷&–W2p¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–ä6FVv÷&–W5&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–âö7W7FöÖW'2s¢°¢–C¢rö’öFÖ–âö7W7FöÖW'2p¢Fƒ¢rö’öFÖ–âö7W7FöÖW'2p¢gVÆÅFƒ¢rö’öFÖ–âö7W7FöÖW'2p¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–ä7W7FöÖW'5&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–âö–çfVçF÷'’s¢°¢–C¢rö’öFÖ–âö–çfVçF÷'’p¢Fƒ¢rö’öFÖ–âö–çfVçF÷'’p¢gVÆÅFƒ¢rö’öFÖ–âö–çfVçF÷'’p¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–ä–çfVçF÷'•&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–âöÆVFvW"s¢°¢–C¢rö’öFÖ–âöÆVFvW"p¢Fƒ¢rö’öFÖ–âöÆVFvW"p¢gVÆÅFƒ¢rö’öFÖ–âöÆVFvW"p¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–äÆVFvW%&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–âöÆöv–âs¢°¢–C¢rö’öFÖ–âöÆöv–âp¢Fƒ¢rö’öFÖ–âöÆöv–âp¢gVÆÅFƒ¢rö’öFÖ–âöÆöv–âp¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–äÆöv–å&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–âöÆöv÷WBs¢°¢–C¢rö’öFÖ–âöÆöv÷WBp¢Fƒ¢rö’öFÖ–âöÆöv÷WBp¢gVÆÅFƒ¢rö’öFÖ–âöÆöv÷WBp¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–äÆöv÷WE&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–âö÷&FW'2s¢°¢–C¢rö’öFÖ–âö÷&FW'2p¢Fƒ¢rö’öFÖ–âö÷&FW'2p¢gVÆÅFƒ¢rö’öFÖ–âö÷&FW'2p¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–ä÷&FW'5&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–â÷&–çBÖÆVFvW"s¢°¢–C¢rö’öFÖ–â÷&–çBÖÆVFvW"p¢Fƒ¢rö’öFÖ–â÷&–çBÖÆVFvW"p¢gVÆÅFƒ¢rö’öFÖ–â÷&–çBÖÆVFvW"p¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–å&–çDÆVFvW%&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–â÷&–çBÖ÷&FW'2s¢°¢–C¢rö’öFÖ–â÷&–çBÖ÷&FW'2p¢Fƒ¢rö’öFÖ–â÷&–çBÖ÷&FW'2p¢gVÆÅFƒ¢rö’öFÖ–â÷&–çBÖ÷&FW'2p¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–å&–çD÷&FW'5&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–â÷&öGV7G2s¢°¢–C¢rö’öFÖ–â÷&öGV7G2p¢Fƒ¢rö’öFÖ–â÷&öGV7G2p¢gVÆÅFƒ¢rö’öFÖ–â÷&öGV7G2p¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–å&öGV7G5&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–â÷6WGF–æw2s¢°¢–C¢rö’öFÖ–â÷6WGF–æw2p¢Fƒ¢rö’öFÖ–â÷6WGF–æw2p¢gVÆÅFƒ¢rö’öFÖ–â÷6WGF–æw2p¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–å6WGF–æw5&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–â÷6WGWs¢°¢–C¢rö’öFÖ–â÷6WGWp¢Fƒ¢rö’öFÖ–â÷6WGWp¢gVÆÅFƒ¢rö’öFÖ–â÷6WGWp¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–å6WGW&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’öFÖ–â÷7FGW2s¢°¢–C¢rö’öFÖ–â÷7FGW2p¢Fƒ¢rö’öFÖ–â÷7FGW2p¢gVÆÅFƒ¢rö’öFÖ–â÷7FGW2p¢&TÆöFW%&÷WFS¢G—Vöb”FÖ–å7FGW5&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’ö7W7FöÖW"öF6†&ö&Bs¢°¢–C¢rö’ö7W7FöÖW"öF6†&ö&Bp¢Fƒ¢rö’ö7W7FöÖW"öF6†&ö&Bp¢gVÆÅFƒ¢rö’ö7W7FöÖW"öF6†&ö&Bp¢&TÆöFW%&÷WFS¢G—Vöb”7W7FöÖW$F6†&ö&E&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’ö7W7FöÖW"öÆöv–âs¢°¢–C¢rö’ö7W7FöÖW"öÆöv–âp¢Fƒ¢rö’ö7W7FöÖW"öÆöv–âp¢gVÆÅFƒ¢rö’ö7W7FöÖW"öÆöv–âp¢&TÆöFW%&÷WFS¢G—Vöb”7W7FöÖW$Æöv–å&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’ö7W7FöÖW"öÆöv÷WBs¢°¢–C¢rö’ö7W7FöÖW"öÆöv÷WBp¢Fƒ¢rö’ö7W7FöÖW"öÆöv÷WBp¢gVÆÅFƒ¢rö’ö7W7FöÖW"öÆöv÷WBp¢&TÆöFW%&÷WFS¢G—Vöb”7W7FöÖW$Æöv÷WE&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢rö’ö7W7FöÖW"÷7FGW2s¢°¢–C¢rö’ö7W7FöÖW"÷7FGW2p¢Fƒ¢rö’ö7W7FöÖW"÷7FGW2p¢gVÆÅFƒ¢rö’ö7W7FöÖW"÷7FGW2p¢&TÆöFW%&÷WFS¢G—Vöb”7W7FöÖW%7FGW5&÷WFT–×÷'@¢&VçE&÷WFS¢G—Vöb&ö÷E&÷WFT–×÷'@¢Ð¢Ð§Ð ¦6öç7B&ö÷E&÷WFT6†–ÆG&Vã¢&ö÷E&÷WFT6†–ÆG&VâÒ°¢–æFW…&÷WFS¢–æFW…&÷WFRÀ¢FÖ–å&÷WFS¢FÖ–å&÷WFRÀ¢&ö&÷G4F÷GG‡E&÷WFS¢&ö&÷G4F÷GG‡E&÷WFRÀ¢6—FVÖF÷G†ÖÅ&÷WFS¢6—FVÖF÷G†ÖÅ&÷WFRÀ¢”÷&FW'5&÷WFS¢”÷&FW'5&÷WFRÀ¢•†÷Fõ&÷WFS¢•†÷Fõ&÷WFRÀ¢•7F÷&U&÷WFS¢•7F÷&U&÷WFRÀ¢”FÖ–ä6FVv÷&–W5&÷WFS¢”FÖ–ä6FVv÷&–W5&÷WFRÀ¢”FÖ–ä7W7FöÖW'5&÷WFS¢”FÖ–ä7W7FöÖW'5&÷WFRÀ¢”FÖ–ä–çfVçF÷'•&÷WFS¢”FÖ–ä–çfVçF÷'•&÷WFRÀ¢”FÖ–äÆVFvW%&÷WFS¢”FÖ–äÆVFvW%&÷WFRÀ¢”FÖ–äÆöv–å&÷WFS¢”FÖ–äÆöv–å&÷WFRÀ¢”FÖ–äÆöv÷WE&÷WFS¢”FÖ–äÆöv÷WE&÷WFRÀ¢”FÖ–ä÷&FW'5&÷WFS¢”FÖ–ä÷&FW'5&÷WFRÀ¢”FÖ–å&–çDÆVFvW%&÷WFS¢”FÖ–å&–çDÆVFvW%&÷WFRÀ¢”FÖ–å&–çD÷&FW'5&÷WFS¢”FÖ–å&–çD÷&FW'5&÷WFRÀ¢”FÖ–å&öGV7G5&÷WFS¢”FÖ–å&öGV7G5&÷WFRÀ¢”FÖ–å6WGF–æw5&÷WFS¢”FÖ–å6WGF–æw5&÷WFRÀ¢”FÖ–å6WGW&÷WFS¢”FÖ–å6WGW&÷WFRÀ¢”FÖ–å7FGW5&÷WFS¢”FÖ–å7FGW5&÷WFRÀ¢”7W7FöÖW$F6†&ö&E&÷WFS¢”7W7FöÖW$F6†&ö&E&÷WFRÀ¢”7W7FöÖW$Æöv–å&÷WFS¢”7W7FöÖW$Æöv–å&÷WFRÀ¢”7W7FöÖW$Æöv÷WE&÷WFS¢”7W7FöÖW$Æöv÷WE&÷WFRÀ¢”7W7FöÖW%7FGW5&÷WFS¢”7W7FöÖW%7FGW5&÷WFRÀ§Ð¦W‡÷'B6öç7B&÷WFUG&VRÒ&ö÷E&÷WFT–×÷'@¢åöFDf–ÆT6†–ÆG&Vâ‡&ö÷E&÷WFT6†–ÆG&Vâ¢åöFDf–ÆUG—W3Äf–ÆU&÷WFUG—W3â‚ ¦–×÷'BG—R²vWE&÷WFW"Òg&öÒrâ÷&÷WFW"çG7‚p¦–×÷'BG—R²7F'D–ç7Fæ6RÒg&öÒrâ÷7F'BçG2p¦FV6Æ&RÖöGVÆRtFç7F6²÷&V7B×7F'Br°¢–çFW&f6R&Vv—7FW"°¢77#¢G'VP¢&÷WFW#¢v—FVCÅ&WGW&åG—SÇG—VöbvWE&÷WFW#ãà¢6öæf–s¢v—FVCÅ&WGW&åG—SÇG—Vöb7F'D–ç7Fæ6RævWD÷F–öç3ãà¢Ð§Ð
+import { Route as ApiAdminPrintLedgerRouteImport } from './routes/api/admin/print-ledger'
+import { Route as ApiAdminPrintOrdersRouteImport } from './routes/api/admin/print-orders'
+import { Route as ApiAdminProductsRouteImport } from './routes/api/admin/products'
+import { Route as ApiAdminSettingsRouteImport } from './routes/api/admin/settings'
+import { Route as ApiAdminSetupRouteImport } from './routes/api/admin/setup'
+import { Route as ApiAdminStatusRouteImport } from './routes/api/admin/status'
+import { Route as ApiCustomerDashboardRouteImport } from './routes/api/customer/dashboard'
+import { Route as ApiCustomerLoginRouteImport } from './routes/api/customer/login'
+import { Route as ApiCustomerLogoutRouteImport } from './routes/api/customer/logout'
+import { Route as ApiCustomerStatusRouteImport } from './routes/api/customer/status'
+
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOrdersRoute = ApiOrdersRouteImport.update({
+  id: '/api/orders',
+  path: '/api/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPhotoRoute = ApiPhotoRouteImport.update({
+  id: '/api/photo',
+  path: '/api/photo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStoreRoute = ApiStoreRouteImport.update({
+  id: '/api/store',
+  path: '/api/store',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminCategoriesRoute = ApiAdminCategoriesRouteImport.update({
+  id: '/api/admin/categories',
+  path: '/api/admin/categories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminCustomersRoute = ApiAdminCustomersRouteImport.update({
+  id: '/api/admin/customers',
+  path: '/api/admin/customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminInventoryRoute = ApiAdminInventoryRouteImport.update({
+  id: '/api/admin/inventory',
+  path: '/api/admin/inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminLedgerRoute = ApiAdminLedgerRouteImport.update({
+  id: '/api/admin/ledger',
+  path: '/api/admin/ledger',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminLoginRoute = ApiAdminLoginRouteImport.update({
+  id: '/api/admin/login',
+  path: '/api/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminLogoutRoute = ApiAdminLogoutRouteImport.update({
+  id: '/api/admin/logout',
+  path: '/api/admin/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminOrdersRoute = ApiAdminOrdersRouteImport.update({
+  id: '/api/admin/orders',
+  path: '/api/admin/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminPrintLedgerRoute = ApiAdminPrintLedgerRouteImport.update({
+  id: '/api/admin/print-ledger',
+  path: '/api/admin/print-ledger',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminPrintOrdersRoute = ApiAdminPrintOrdersRouteImport.update({
+  id: '/api/admin/print-orders',
+  path: '/api/admin/print-orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminProductsRoute = ApiAdminProductsRouteImport.update({
+  id: '/api/admin/products',
+  path: '/api/admin/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminSettingsRoute = ApiAdminSettingsRouteImport.update({
+  id: '/api/admin/settings',
+  path: '/api/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminSetupRoute = ApiAdminSetupRouteImport.update({
+  id: '/api/admin/setup',
+  path: '/api/admin/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminStatusRoute = ApiAdminStatusRouteImport.update({
+  id: '/api/admin/status',
+  path: '/api/admin/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCustomerDashboardRoute = ApiCustomerDashboardRouteImport.update({
+  id: '/api/customer/dashboard',
+  path: '/api/customer/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCustomerLoginRoute = ApiCustomerLoginRouteImport.update({
+  id: '/api/customer/login',
+  path: '/api/customer/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCustomerLogoutRoute = ApiCustomerLogoutRouteImport.update({
+  id: '/api/customer/logout',
+  path: '/api/customer/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCustomerStatusRoute = ApiCustomerStatusRouteImport.update({
+  id: '/api/customer/status',
+  path: '/api/customer/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+
+export interface FileRoutesByFullPath {
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/orders': typeof ApiOrdersRoute
+  '/api/photo': typeof ApiPhotoRoute
+  '/api/store': typeof ApiStoreRoute
+  '/api/admin/categories': typeof ApiAdminCategoriesRoute
+  '/api/admin/customers': typeof ApiAdminCustomersRoute
+  '/api/admin/inventory': typeof ApiAdminInventoryRoute
+  '/api/admin/ledger': typeof ApiAdminLedgerRoute
+  '/api/admin/login': typeof ApiAdminLoginRoute
+  '/api/admin/logout': typeof ApiAdminLogoutRoute
+  '/api/admin/orders': typeof ApiAdminOrdersRoute
+  '/api/admin/print-ledger': typeof ApiAdminPrintLedgerRoute
+  '/api/admin/print-orders': typeof ApiAdminPrintOrdersRoute
+  '/api/admin/products': typeof ApiAdminProductsRoute
+  '/api/admin/settings': typeof ApiAdminSettingsRoute
+  '/api/admin/setup': typeof ApiAdminSetupRoute
+  '/api/admin/status': typeof ApiAdminStatusRoute
+  '/api/customer/dashboard': typeof ApiCustomerDashboardRoute
+  '/api/customer/login': typeof ApiCustomerLoginRoute
+  '/api/customer/logout': typeof ApiCustomerLogoutRoute
+  '/api/customer/status': typeof ApiCustomerStatusRoute
+}
+export interface FileRoutesByTo {
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/orders': typeof ApiOrdersRoute
+  '/api/photo': typeof ApiPhotoRoute
+  '/api/store': typeof ApiStoreRoute
+  '/api/admin/categories': typeof ApiAdminCategoriesRoute
+  '/api/admin/customers': typeof ApiAdminCustomersRoute
+  '/api/admin/inventory': typeof ApiAdminInventoryRoute
+  '/api/admin/ledger': typeof ApiAdminLedgerRoute
+  '/api/admin/login': typeof ApiAdminLoginRoute
+  '/api/admin/logout': typeof ApiAdminLogoutRoute
+  '/api/admin/orders': typeof ApiAdminOrdersRoute
+  '/api/admin/print-ledger': typeof ApiAdminPrintLedgerRoute
+  '/api/admin/print-orders': typeof ApiAdminPrintOrdersRoute
+  '/api/admin/products': typeof ApiAdminProductsRoute
+  '/api/admin/settings': typeof ApiAdminSettingsRoute
+  '/api/admin/setup': typeof ApiAdminSetupRoute
+  '/api/admin/status': typeof ApiAdminStatusRoute
+  '/api/customer/dashboard': typeof ApiCustomerDashboardRoute
+  '/api/customer/login': typeof ApiCustomerLoginRoute
+  '/api/customer/logout': typeof ApiCustomerLogoutRoute
+  '/api/customer/status': typeof ApiCustomerStatusRoute
+}
+export interface FileRoutesById {
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/orders': typeof ApiOrdersRoute
+  '/api/photo': typeof ApiPhotoRoute
+  '/api/store': typeof ApiStoreRoute
+  '/api/admin/categories': typeof ApiAdminCategoriesRoute
+  '/api/admin/customers': typeof ApiAdminCustomersRoute
+  '/api/admin/inventory': typeof ApiAdminInventoryRoute
+  '/api/admin/ledger': typeof ApiAdminLedgerRoute
+  '/api/admin/login': typeof ApiAdminLoginRoute
+  '/api/admin/logout': typeof ApiAdminLogoutRoute
+  '/api/admin/orders': typeof ApiAdminOrdersRoute
+  '/api/admin/print-ledger': typeof ApiAdminPrintLedgerRoute
+  '/api/admin/print-orders': typeof ApiAdminPrintOrdersRoute
+  '/api/admin/products': typeof ApiAdminProductsRoute
+  '/api/admin/settings': typeof ApiAdminSettingsRoute
+  '/api/admin/setup': typeof ApiAdminSetupRoute
+  '/api/admin/status': typeof ApiAdminStatusRoute
+  '/api/customer/dashboard': typeof ApiCustomerDashboardRoute
+  '/api/customer/login': typeof ApiCustomerLoginRoute
+  '/api/customer/logout': typeof ApiCustomerLogoutRoute
+  '/api/customer/status': typeof ApiCustomerStatusRoute
+}
+export interface FileRouteTypes {
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/api/orders'
+    | '/api/photo'
+    | '/api/store'
+    | '/api/admin/categories'
+    | '/api/admin/customers'
+    | '/api/admin/inventory'
+    | '/api/admin/ledger'
+    | '/api/admin/login'
+    | '/api/admin/logout'
+    | '/api/admin/orders'
+    | '/api/admin/print-ledger'
+    | '/api/admin/print-orders'
+    | '/api/admin/products'
+    | '/api/admin/settings'
+    | '/api/admin/setup'
+    | '/api/admin/status'
+    | '/api/customer/dashboard'
+    | '/api/customer/login'
+    | '/api/customer/logout'
+    | '/api/customer/status'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/admin'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/api/orders'
+    | '/api/photo'
+    | '/api/store'
+    | '/api/admin/categories'
+    | '/api/admin/customers'
+    | '/api/admin/inventory'
+    | '/api/admin/ledger'
+    | '/api/admin/login'
+    | '/api/admin/logout'
+    | '/api/admin/orders'
+    | '/api/admin/print-ledger'
+    | '/api/admin/print-orders'
+    | '/api/admin/products'
+    | '/api/admin/settings'
+    | '/api/admin/setup'
+    | '/api/admin/status'
+    | '/api/customer/dashboard'
+    | '/api/customer/login'
+    | '/api/customer/logout'
+    | '/api/customer/status'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/api/orders'
+    | '/api/photo'
+    | '/api/store'
+    | '/api/admin/categories'
+    | '/api/admin/customers'
+    | '/api/admin/inventory'
+    | '/api/admin/ledger'
+    | '/api/admin/login'
+    | '/api/admin/logout'
+    | '/api/admin/orders'
+    | '/api/admin/print-ledger'
+    | '/api/admin/print-orders'
+    | '/api/admin/products'
+    | '/api/admin/settings'
+    | '/api/admin/setup'
+    | '/api/admin/status'
+    | '/api/customer/dashboard'
+    | '/api/customer/login'
+    | '/api/customer/logout'
+    | '/api/customer/status'
+  fileRoutesById: FileRoutesById
+}
+export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiOrdersRoute: typeof ApiOrdersRoute
+  ApiPhotoRoute: typeof ApiPhotoRoute
+  ApiStoreRoute: typeof ApiStoreRoute
+  ApiAdminCategoriesRoute: typeof ApiAdminCategoriesRoute
+  ApiAdminCustomersRoute: typeof ApiAdminCustomersRoute
+  ApiAdminInventoryRoute: typeof ApiAdminInventoryRoute
+  ApiAdminLedgerRoute: typeof ApiAdminLedgerRoute
+  ApiAdminLoginRoute: typeof ApiAdminLoginRoute
+  ApiAdminLogoutRoute: typeof ApiAdminLogoutRoute
+  ApiAdminOrdersRoute: typeof ApiAdminOrdersRoute
+  ApiAdminPrintLedgerRoute: typeof ApiAdminPrintLedgerRoute
+  ApiAdminPrintOrdersRoute: typeof ApiAdminPrintOrdersRoute
+  ApiAdminProductsRoute: typeof ApiAdminProductsRoute
+  ApiAdminSettingsRoute: typeof ApiAdminSettingsRoute
+  ApiAdminSetupRoute: typeof ApiAdminSetupRoute
+  ApiAdminStatusRoute: typeof ApiAdminStatusRoute
+  ApiCustomerDashboardRoute: typeof ApiCustomerDashboardRoute
+  ApiCustomerLoginRoute: typeof ApiCustomerLoginRoute
+  ApiCustomerLogoutRoute: typeof ApiCustomerLogoutRoute
+  ApiCustomerStatusRoute: typeof ApiCustomerStatusRoute
+}
+
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/orders': {
+      id: '/api/orders'
+      path: '/api/orders'
+      fullPath: '/api/orders'
+      preLoaderRoute: typeof ApiOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/photo': {
+      id: '/api/photo'
+      path: '/api/photo'
+      fullPath: '/api/photo'
+      preLoaderRoute: typeof ApiPhotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/store': {
+      id: '/api/store'
+      path: '/api/store'
+      fullPath: '/api/store'
+      preLoaderRoute: typeof ApiStoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/categories': {
+      id: '/api/admin/categories'
+      path: '/api/admin/categories'
+      fullPath: '/api/admin/categories'
+      preLoaderRoute: typeof ApiAdminCategoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/customers': {
+      id: '/api/admin/customers'
+      path: '/api/admin/customers'
+      fullPath: '/api/admin/customers'
+      preLoaderRoute: typeof ApiAdminCustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/inventory': {
+      id: '/api/admin/inventory'
+      path: '/api/admin/inventory'
+      fullPath: '/api/admin/inventory'
+      preLoaderRoute: typeof ApiAdminInventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/ledger': {
+      id: '/api/admin/ledger'
+      path: '/api/admin/ledger'
+      fullPath: '/api/admin/ledger'
+      preLoaderRoute: typeof ApiAdminLedgerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/login': {
+      id: '/api/admin/login'
+      path: '/api/admin/login'
+      fullPath: '/api/admin/login'
+      preLoaderRoute: typeof ApiAdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/logout': {
+      id: '/api/admin/logout'
+      path: '/api/admin/logout'
+      fullPath: '/api/admin/logout'
+      preLoaderRoute: typeof ApiAdminLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/orders': {
+      id: '/api/admin/orders'
+      path: '/api/admin/orders'
+      fullPath: '/api/admin/orders'
+      preLoaderRoute: typeof ApiAdminOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/print-ledger': {
+      id: '/api/admin/print-ledger'
+      path: '/api/admin/print-ledger'
+      fullPath: '/api/admin/print-ledger'
+      preLoaderRoute: typeof ApiAdminPrintLedgerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/print-orders': {
+      id: '/api/admin/print-orders'
+      path: '/api/admin/print-orders'
+      fullPath: '/api/admin/print-orders'
+      preLoaderRoute: typeof ApiAdminPrintOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/products': {
+      id: '/api/admin/products'
+      path: '/api/admin/products'
+      fullPath: '/api/admin/products'
+      preLoaderRoute: typeof ApiAdminProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/settings': {
+      id: '/api/admin/settings'
+      path: '/api/admin/settings'
+      fullPath: '/api/admin/settings'
+      preLoaderRoute: typeof ApiAdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/setup': {
+      id: '/api/admin/setup'
+      path: '/api/admin/setup'
+      fullPath: '/api/admin/setup'
+      preLoaderRoute: typeof ApiAdminSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/status': {
+      id: '/api/admin/status'
+      path: '/api/admin/status'
+      fullPath: '/api/admin/status'
+      preLoaderRoute: typeof ApiAdminStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/customer/dashboard': {
+      id: '/api/customer/dashboard'
+      path: '/api/customer/dashboard'
+      fullPath: '/api/customer/dashboard'
+      preLoaderRoute: typeof ApiCustomerDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/customer/login': {
+      id: '/api/customer/login'
+      path: '/api/customer/login'
+      fullPath: '/api/customer/login'
+      preLoaderRoute: typeof ApiCustomerLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/customer/logout': {
+      id: '/api/customer/logout'
+      path: '/api/customer/logout'
+      fullPath: '/api/customer/logout'
+      preLoaderRoute: typeof ApiCustomerLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/customer/status': {
+      id: '/api/customer/status'
+      path: '/api/customer/status'
+      fullPath: '/api/customer/status'
+      preLoaderRoute: typeof ApiCustomerStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+  }
+}
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiOrdersRoute: ApiOrdersRoute,
+  ApiPhotoRoute: ApiPhotoRoute,
+  ApiStoreRoute: ApiStoreRoute,
+  ApiAdminCategoriesRoute: ApiAdminCategoriesRoute,
+  ApiAdminCustomersRoute: ApiAdminCustomersRoute,
+  ApiAdminInventoryRoute: ApiAdminInventoryRoute,
+  ApiAdminLedgerRoute: ApiAdminLedgerRoute,
+  ApiAdminLoginRoute: ApiAdminLoginRoute,
+  ApiAdminLogoutRoute: ApiAdminLogoutRoute,
+  ApiAdminOrdersRoute: ApiAdminOrdersRoute,
+  ApiAdminPrintLedgerRoute: ApiAdminPrintLedgerRoute,
+  ApiAdminPrintOrdersRoute: ApiAdminPrintOrdersRoute,
+  ApiAdminProductsRoute: ApiAdminProductsRoute,
+  ApiAdminSettingsRoute: ApiAdminSettingsRoute,
+  ApiAdminSetupRoute: ApiAdminSetupRoute,
+  ApiAdminStatusRoute: ApiAdminStatusRoute,
+  ApiCustomerDashboardRoute: ApiCustomerDashboardRoute,
+  ApiCustomerLoginRoute: ApiCustomerLoginRoute,
+  ApiCustomerLogoutRoute: ApiCustomerLogoutRoute,
+  ApiCustomerStatusRoute: ApiCustomerStatusRoute,
+}
+export const routeTree = rootRouteImport
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
