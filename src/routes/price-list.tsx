@@ -1,0 +1,194 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
+
+export const Route = createFileRoute("/price-list")({
+  head: () => ({
+    meta: [
+      { title: "부자유통 단가표" },
+      { name: "description", content: "부자유통 취급상품의 규격, 단가, 구성, 인분 정보를 확인할 수 있는 실시간 단가표입니다." },
+    ],
+  }),
+  component: PriceListPage,
+});
+
+type Viewer =
+  | { type: "public"; name: string; priceGroup: null }
+  | { type: "customer"; name: string; customerName: string; priceGroup: "A" | "B" }
+  | { type: "driver" | "admin"; name: string; priceGroup: null };
+
+type PriceOption = { label: string; price: number | null; priceA?: number | null; priceB?: number | null };
+type PriceProduct = {
+  id: string;
+  name: string;
+  category: string;
+  sub: string;
+  unit: string;
+  photo: string;
+  soldout: boolean;
+  description: string;
+  servingsPerUnit: string;
+  boxContents: string;
+  servingsPerBox: string;
+  storageMethod: string;
+  priceDisplayMode: "fixed" | "market" | "inquiry";
+  isPromo: boolean;
+  packOptions: PriceOption[];
+};
+type PriceData = { viewer: Viewer; promoCategory: string; version: number; updatedLabel: string; products: PriceProduct[]; error?: string };
+
+function won(value: number | null | undefined) {
+  return value == null ? "가격문의" : `${new Intl.NumberFormat("ko-KR").format(Math.round(value))}원`;
+}
+function priceLabel(product: PriceProduct, option: PriceOption) {
+  if (product.priceDisplayMode === "market") return "싯가";
+  if (product.priceDisplayMode === "inquiry") return "가격문의";
+  return won(option.price);
+}
+
+function PriceListPage() {
+  const [data, setData] = useState<PriceData | null>(null);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("전체");
+  const [compact, setCompact] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function load() {
+    try {
+      const response = await fetch("/api/price-list", { cache: "no-store" });
+      const json = await response.json() as PriceData;
+      if (!response.ok) throw new Error(json.error || "단가표를 불러오지 못했습니다.");
+      setData(json);
+      setError("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "단가표를 불러오지 못했습니다.");
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(), 10000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const categories = useMemo(() => {
+    if (!data) return [] as string[];
+    return Array.from(new Set(data.products.map((product) => product.category)));
+  }, [data]);
+
+  const visible = useMemo(() => {
+    if (!data) return [] as PriceProduct[];
+    const needle = query.trim().toLowerCase().replace(/\s+/g, "");
+    return data.products.filter((product) => {
+      if (category !== "전체" && product.category !== category) return false;
+      if (!needle) return true;
+      return `${product.name}${product.category}${product.sub}${product.unit}${product.description}`
+        .toLowerCase().replace(/\s+/g, "").includes(needle);
+    });
+  }, [data, query, category]);
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      window.prompt("아래 주소를 복사해 주세요.", window.location.href);
+    }
+  }
+
+  const internal = data?.viewer.type === "admin" || data?.viewer.type === "driver";
+
+  return <div className="price-list-page">
+    <header className="price-list-header">
+      <div className="price-list-header-inner">
+        <a href="/" className="price-list-logo"><img src={BUJA_LOGO_DATA} alt="부자유통" /></a>
+        <div className="price-list-header-actions">
+          <button type="button" onClick={copyLink}>{copied ? "링크 복사됨" : "공유 링크 복사"}</button>
+          <button type="button" onClick={() => history.back()}>돌아가기</button>
+        </div>
+      </div>
+    </header>
+
+    <main className="price-list-main">
+      <section className="price-list-hero">
+        <div>
+          <p>BUJA FOOD PRODUCT CATALOG</p>
+          <h1>부자유통 단가표</h1>
+          <span>상품사진 · 규격 · 판매단위 · 단가 · 인분 · 박스구성을 한눈에 확인할 수 있습니다.</span>
+        </div>
+        <div className="price-live-box">
+          <b>● 실시간 연동</b>
+          <span>관리자 상품정보를 수정하면 단가표도 함께 변경됩니다.</span>
+          {data && <small>상품 {data.products.length}개 · 데이터 버전 {data.version}</small>}
+        </div>
+      </section>
+
+      {data?.viewer.type === "public" && <p className="price-list-notice">신규 거래처 참고용 기본 단가입니다. 실제 거래조건에 따라 적용 단가는 달라질 수 있습니다.</p>}
+      {data?.viewer.type === "customer" && <p className="price-list-notice customer">현재 <b>{data.viewer.customerName}</b>에 적용되는 {data.viewer.priceGroup}그룹 단가를 표시합니다.</p>}
+      {internal && <p className="price-list-notice internal"><b>{data?.viewer.name}</b> 직원 화면입니다. 고정가격 상품은 기본가와 A/B 그룹 가격을 함께 확인할 수 있습니다.</p>}
+      {error && <p className="price-list-error">{error}</p>}
+
+      <section className="price-list-tools">
+        <label className="price-search"><span>⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="품목명 · 카테고리 · 규격 검색" /></label>
+        <div className="price-view-toggle">
+          <button type="button" className={!compact ? "selected" : ""} onClick={() => setCompact(false)}>사진형</button>
+          <button type="button" className={compact ? "selected" : ""} onClick={() => setCompact(true)}>간단표</button>
+        </div>
+      </section>
+
+      <nav className="price-category-nav">
+        {["전체", ...categories].map((name) => <button type="button" key={name} className={category === name ? "selected" : ""} onClick={() => setCategory(name)}>{name}{data?.promoCategory === name ? " 🚨" : ""}</button>)}
+      </nav>
+
+      {!data ? <div className="price-list-loading">단가표를 불러오는 중입니다.</div> : compact ? (
+        <section className="price-table-wrap">
+          <table className="price-table">
+            <thead><tr><th>품목</th><th>규격</th><th>판매단위 / 가격</th><th>구성·인분</th><th>보관</th></tr></thead>
+            <tbody>
+              {visible.map((product) => <tr key={product.id} className={product.soldout ? "soldout" : ""}>
+                <td><b>{product.name}</b><span>{product.category}{product.sub ? ` · ${product.sub}` : ""}{product.isPromo ? " · 🚨행사" : ""}</span></td>
+                <td>{product.unit || "-"}</td>
+                <td>{product.packOptions.map((option) => <div className="price-table-option" key={option.label}><span>{option.label}</span><b>{priceLabel(product, option)}</b>{internal && product.priceDisplayMode === "fixed" && <small>A {won(option.priceA ?? option.price)} · B {won(option.priceB ?? option.price)}</small>}</div>)}</td>
+                <td><span>{product.servingsPerUnit || ""}</span><span>{product.boxContents || ""}</span><span>{product.servingsPerBox || ""}</span>{!product.servingsPerUnit && !product.boxContents && !product.servingsPerBox ? "-" : ""}</td>
+                <td>{product.storageMethod || "-"}</td>
+              </tr>)}
+            </tbody>
+          </table>
+        </section>
+      ) : (
+        <section className="price-card-grid">
+          {visible.map((product) => <article className={`price-card ${product.soldout ? "soldout" : ""}`} key={product.id}>
+            <div className="price-card-image">
+              {product.photo ? <img src={product.photo} alt={product.name} /> : <img className="placeholder" src={BUJA_MARK_DATA} alt="" />}
+              {product.isPromo && <span className="price-promo-badge">🚨 행사</span>}
+              {product.soldout && <span className="price-soldout-badge">품절</span>}
+              {product.priceDisplayMode === "market" && <span className="price-market-badge">싯가</span>}
+            </div>
+            <div className="price-card-body">
+              <div className="price-card-title"><div><p>{product.category}{product.sub ? ` · ${product.sub}` : ""}</p><h2>{product.name}</h2></div>{product.storageMethod && <span>{product.storageMethod}</span>}</div>
+              <div className="price-spec"><span>규격</span><b>{product.unit || "미지정"}</b></div>
+              <div className="price-option-list">
+                {product.packOptions.map((option) => <div key={option.label} className="price-option-row">
+                  <span>{option.label}</span>
+                  <strong>{priceLabel(product, option)}</strong>
+                  {internal && product.priceDisplayMode === "fixed" && <small>기본 {won(option.price)} · A {won(option.priceA ?? option.price)} · B {won(option.priceB ?? option.price)}</small>}
+                </div>)}
+              </div>
+              {(product.servingsPerUnit || product.boxContents || product.servingsPerBox) && <dl className="price-info-list">
+                {product.servingsPerUnit && <div><dt>1단위 기준</dt><dd>{product.servingsPerUnit}</dd></div>}
+                {product.boxContents && <div><dt>1박스 입수</dt><dd>{product.boxContents}</dd></div>}
+                {product.servingsPerBox && <div><dt>1박스 기준</dt><dd>{product.servingsPerBox}</dd></div>}
+              </dl>}
+              {product.description && <p className="price-description">{product.description}</p>}
+            </div>
+          </article>)}
+        </section>
+      )}
+
+      {data && visible.length === 0 && <div className="price-list-empty">조건에 맞는 상품이 없습니다.</div>}
+      <footer className="price-list-footer"><b>부자유통</b><span>관리자 상품관리와 연결된 실시간 상품·단가표</span></footer>
+    </main>
+  </div>;
+}
