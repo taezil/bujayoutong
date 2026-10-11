@@ -22,6 +22,13 @@ export type Product = {
   photo: string;
   taxType?: "taxable" | "exempt";
   warehouseZone?: string;
+  description?: string;
+  servingsPerUnit?: string;
+  boxContents?: string;
+  servingsPerBox?: string;
+  storageMethod?: string;
+  priceListVisible?: boolean;
+  priceDisplayMode?: "fixed" | "market" | "inquiry";
   packOptions: PackOption[];
 };
 
@@ -127,6 +134,13 @@ export async function ensureDatabase(database: D1Database = db()) {
   if (!erpReady) await database.exec(erpMigrationSql);
   await ensureColumn(database, "products", "tax_type", "TEXT NOT NULL DEFAULT 'taxable'");
   await ensureColumn(database, "products", "warehouse_zone", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "products", "description", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "products", "servings_per_unit", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "products", "box_contents", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "products", "servings_per_box", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "products", "storage_method", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "products", "price_list_visible", "INTEGER NOT NULL DEFAULT 1");
+  await ensureColumn(database, "products", "price_display_mode", "TEXT NOT NULL DEFAULT 'fixed'");
   await ensureColumn(database, "pack_options", "price_a", "INTEGER");
   await ensureColumn(database, "pack_options", "price_b", "INTEGER");
   await ensureOperationsSchema(database);
@@ -176,7 +190,7 @@ export async function readStore(priceGroup?: "A" | "B"): Promise<StoreData> {
   const [categoryRows, subRows, productRows, optionRows, settingsRows] = await Promise.all([
     database.prepare("SELECT name, sort_order, is_promo FROM categories ORDER BY sort_order, name").all(),
     database.prepare("SELECT category_name, name, sort_order FROM subcategories ORDER BY category_name, sort_order, name").all(),
-    database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone FROM products ORDER BY sort_order, name").all(),
+    database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone, description, servings_per_unit, box_contents, servings_per_box, storage_method, price_list_visible, price_display_mode FROM products ORDER BY sort_order, name").all(),
     database.prepare("SELECT product_id, label, price, price_a, price_b, step, sort_order FROM pack_options ORDER BY product_id, sort_order, id").all(),
     database.prepare("SELECT key, value FROM app_settings").all(),
   ]);
@@ -222,6 +236,13 @@ export async function readStore(priceGroup?: "A" | "B"): Promise<StoreData> {
     photo: String(row.photo ?? ""),
     taxType: String(row.tax_type ?? "taxable") === "exempt" ? "exempt" : "taxable",
     warehouseZone: String(row.warehouse_zone ?? ""),
+    description: String(row.description ?? ""),
+    servingsPerUnit: String(row.servings_per_unit ?? ""),
+    boxContents: String(row.box_contents ?? ""),
+    servingsPerBox: String(row.servings_per_box ?? ""),
+    storageMethod: String(row.storage_method ?? ""),
+    priceListVisible: Number(row.price_list_visible ?? 1) === 1,
+    priceDisplayMode: String(row.price_display_mode ?? "fixed") === "market" ? "market" : String(row.price_display_mode ?? "fixed") === "inquiry" ? "inquiry" : "fixed",
     packOptions: optionsByProduct.get(String(row.id)) ?? [],
   }));
 
