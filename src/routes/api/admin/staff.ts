@@ -21,6 +21,18 @@ export const Route = createFileRoute("/api/admin/staff")({
         const current=await getStaff(request); const actor=current?staffActor(current):{type:"admin" as const,id:"legacy-admin",name:"관리자"};
         const row=await db().prepare("SELECT display_name,role FROM staff_users WHERE id=?").bind(id).first<{display_name:string;role:string}>();
         if(!row) throw new Error("직원을 찾을 수 없습니다.");
+        if(action==="update-username"){
+          const username=cleanText(body.username,40).toLowerCase();
+          if(!/^[a-z0-9._-]{2,40}$/.test(username)) throw new Error("아이디는 영문 소문자·숫자·점·밑줄·하이픈으로 2~40자 입력해 주세요.");
+          const duplicate=await db().prepare("SELECT id FROM staff_users WHERE username=? AND id<>? LIMIT 1").bind(username,id).first();
+          if(duplicate) throw new Error("이미 사용 중인 아이디입니다.");
+          await db().batch([
+            db().prepare("UPDATE staff_users SET username=?,updated_at=datetime('now') WHERE id=?").bind(username,id),
+            db().prepare("DELETE FROM staff_sessions WHERE staff_id=?").bind(id),
+          ]);
+          await writeAudit({actor,action:"staff_username_update",entityType:"staff",entityId:id,summary:`${row.display_name} 로그인 아이디 변경 → ${username}`});
+          return Response.json({ok:true});
+        }
         if(action==="reset-pin"){
           const pin=cleanText(body.pin,6); await resetStaffPin(id,pin);
           await writeAudit({actor,action:"staff_pin_reset",entityType:"staff",entityId:id,summary:`${row.display_name} 로그인 PIN 초기화`});
