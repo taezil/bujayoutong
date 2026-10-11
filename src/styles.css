@@ -409,3 +409,229 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     flex-basis: min(78vw, 282px);
   }
 }
+
+
+/* Buja Distribution brand refresh */
+:root {
+  --blue: #0b6a39;
+  --blue-strong: #07502b;
+  --sky: #f2f7f1;
+  --ink: #202720;
+  --muted: #69746c;
+  --line: #e1e7e0;
+  --soft: #f7f8f4;
+  --red: #f13a20;
+  --radius: 16px;
+  color: var(--ink);
+  background: #fcfcf9;
+}
+
+html, body { background: #fcfcf9; }
+body { color: var(--ink); }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline-color: rgba(11,106,57,.24);
+}
+
+.topbar {
+  height: 88px;
+  background: rgba(255,255,252,.96);
+  border-bottom-color: #e7ebe4;
+  box-shadow: 0 4px 22px rgba(28,52,33,.035);
+}
+.topbar-inner { height: 88px; }
+.brand-lockup { gap: 0; }
+.brand-lockup img {
+  width: 172px;
+  height: auto;
+  max-height: 72px;
+  object-fit: contain;
+  border-radius: 0;
+}
+.topbar-note {
+  color: #657168;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+
+.promo-showcase {
+  padding: 38px 0 34px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(241,58,32,.065), transparent 34%),
+    radial-gradient(circle at 92% 12%, rgba(11,106,57,.055), transparent 34%),
+    #fffdf9;
+  border-top: 0;
+  border-bottom: 1px solid #ece9df;
+}
+.promo-heading { margin-bottom: 20px; }
+.promo-heading p {
+  color: #0b6a39;
+  font-size: 12px;
+  letter-spacing: .05em;
+}
+.promo-heading h1,
+.promo-heading h2 {
+  margin: 0;
+  color: #242924;
+  font-size: clamp(28px,3vw,38px);
+  line-height: 1.14;
+  letter-spacing: -.045em;
+}
+.promo-heading span {
+  color: #6d756e;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.promo-controls button {
+  border-color: #d8ded7;
+  background: #fff;
+  color: #0b6a39;
+  box-shadow: 0 4px 14px rgba(30,60,37,.05);
+}
+.promo-controls button:hover { background: #eef7f0; border-color: #a7c9b2; }
+
+.promo-track {
+  gap: 16px;
+  padding-bottom: 8px;
+  scroll-behavior: auto;
+}
+.promo-slide-card {
+  flex-basis: clamp(238px, 22vw, 286px);
+  border-color: #e4e8e1;
+  box-shadow: 0 9px 26px rgba(41,55,43,.055);
+}
+.product-card {
+  border-color: #e2e7e0;
+  border-radius: 16px;
+  box-shadow: 0 5px 20px rgba(41,55,43,.045);
+}
+.product-card:hover {
+  border-color: #b6cdbb;
+  box-shadow: 0 12px 30px rgba(36,70,44,.085);
+}
+.product-card.promo-card { border-color: #f0c5bd; }
+.product-image { background: #f6f7f3; }
+.image-placeholder {
+  background: linear-gradient(145deg,#fafbf7,#f0f4ed);
+}
+.image-placeholder img {
+  width: 84px;
+  height: 84px;
+  border-radius: 18px;
+  object-fit: contain;
+  opacity: .92;
+}
+.event-badge { background: #f13a20; }
+.product-meta { color: #788078; }
+.product-unit { color: #59645c; }
+.price-line strong { color: #1e2820; }
+.order-strip {
+  background: #f0f7f1;
+  color: #075b31;
+  border-top-color: #e0e7df;
+}
+.order-strip:hover:not(:disabled) { background: #0b6a39; color: #fff; }
+
+.category-zone {
+  background: #f3f7f1;
+  border-color: #e1e9df;
+}
+.category-rail button, .subcategory-rail button {
+  border-color: #d7dfd5;
+  color: #38443a;
+  box-shadow: 0 2px 8px rgba(31,60,37,.025);
+}
+.category-rail button:hover, .subcategory-rail button:hover { border-color: #6ba17c; }
+.category-chip.selected {
+  background: #0b6a39;
+  border-color: #0b6a39;
+}
+.category-chip.promo {
+  border-color: #f2bbb1;
+  color: #c72f18;
+  background: #fff6f2;
+}
+.category-chip.promo.selected {
+  background: #f13a20;
+  border-color: #f13a20;
+}
+.subcategory-rail button.selected {
+  background: #e6f2e8;
+  border-color: #a8c9af;
+  color: #075b31;
+}
+.catalogue-section { padding-top: 42px; }
+.catalogue-head h2 { color: #242a24; }
+.search-box {
+  border-color: #d7ded5;
+  background: #fff;
+}
+.search-box:focus-within {
+  border-color: #6e9f7b;
+  box-shadow: 0 0 0 3px rgba(11,106,57,.09);
+}
+.footer { background: #f5f7f2; border-top-color: #e0e5de; }
+
+.compose-sms,
+.admin-auth-card button,
+.admin-settings button,
+.inline-add button,
+.admin-primary,
+.editor-actions .admin-primary {
+  background: #0b6a39;
+}
+.compose-sms:hover { background: #07502b; border-color: #07502b; }
+
+.admin-page { background: #f5f7f2; }
+.admin-brandbar {
+  height: 82px;
+  background: #fffefb;
+  border-bottom-color: #e2e7df;
+}
+.admin-brandbar a { min-height: 82px; }
+.admin-brandbar img {
+  width: 168px;
+  height: auto;
+  max-height: 70px;
+  border-radius: 0;
+  object-fit: contain;
+}
+.admin-titlebar p, .editor-head p { color: #0b6a39; }
+.admin-section, .admin-auth-card, .product-editor {
+  border-color: #e0e6de;
+  box-shadow: 0 14px 42px rgba(33,58,38,.055);
+}
+.admin-product-thumb { background: #f1f5ef; }
+.admin-product-thumb img { object-fit: contain; }
+
+.unit-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.unit-input-wrap input { padding-right: 48px !important; }
+.unit-input-wrap b {
+  position: absolute;
+  right: 14px;
+  color: #0b6a39;
+  font-size: 14px;
+  pointer-events: none;
+}
+.field-help {
+  color: #7a837c;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .topbar, .topbar-inner { height: 72px; }
+  .brand-lockup img { width: 142px; max-height: 60px; }
+  .promo-showcase { padding: 28px 0 24px; }
+  .promo-heading h1, .promo-heading h2 { font-size: 27px; }
+  .promo-heading span { max-width: 34ch; }
+  .promo-track { gap: 11px; }
+  .promo-slide-card { flex-basis: min(76vw, 275px); }
+  .admin-brandbar, .admin-brandbar a { min-height: 72px; height: 72px; }
+  .admin-brandbar img { width: 142px; max-height: 60px; }
+}
