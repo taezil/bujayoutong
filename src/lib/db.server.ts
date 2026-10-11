@@ -70,13 +70,19 @@ async function ensureColumn(database: D1Database, table: string, column: string,
   if (!exists) await database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 
+let schemaReady = false;
+
 export async function ensureDatabase(database: D1Database = db()) {
+  if (schemaReady) return;
   const ready = await database
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='products'")
     .first();
   if (!ready) await database.exec(migrationSql);
 
-  await database.exec(erpMigrationSql);
+  const erpReady = await database
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='customers'")
+    .first();
+  if (!erpReady) await database.exec(erpMigrationSql);
   await ensureColumn(database, "products", "tax_type", "TEXT NOT NULL DEFAULT 'taxable'");
   await ensureColumn(database, "products", "warehouse_zone", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn(database, "pack_options", "price_a", "INTEGER");
@@ -94,6 +100,8 @@ export async function ensureDatabase(database: D1Database = db()) {
         .bind("efd90651ff15762beb4a9416f6fc83c8"),
     ]);
   }
+
+  schemaReady = true;
 }
 
 function boolSetting(settings: Record<string, string>, key: string, fallback: boolean) {

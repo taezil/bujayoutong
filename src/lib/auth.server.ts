@@ -161,9 +161,6 @@ export async function getCustomer(request: Request): Promise<CustomerSummary | n
   `).bind(tokenHash).first<Record<string, unknown>>();
   if (!row) return null;
 
-  db().prepare("UPDATE customer_sessions SET last_seen_at = datetime('now'), expires_at = datetime('now', '+5 years') WHERE token_hash = ?")
-    .bind(tokenHash).run().catch(() => undefined);
-
   return {
     id: String(row.id),
     code: String(row.code),
