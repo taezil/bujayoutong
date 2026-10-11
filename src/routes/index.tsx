@@ -205,12 +205,13 @@ function PromoCarousel({
   onOrder: (product: Product) => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const positionRef = useRef(0);
   const interactionTimerRef = useRef<number | null>(null);
   const [paused, setPaused] = useState(false);
-  const repeatCount = Math.max(4, Math.ceil(10 / Math.max(products.length, 1)));
+  const repeatCount = Math.max(6, Math.ceil(14 / Math.max(products.length, 1)));
   const repeatedProducts = Array.from({ length: repeatCount }, () => products).flat();
 
-  function pauseForInteraction(delay = 2400) {
+  function pauseForInteraction(delay = 2200) {
     setPaused(true);
     if (interactionTimerRef.current !== null) window.clearTimeout(interactionTimerRef.current);
     interactionTimerRef.current = window.setTimeout(() => setPaused(false), delay);
@@ -226,49 +227,65 @@ function PromoCarousel({
     if (!track) return;
     const segment = segmentWidth();
     if (!segment) return;
-    if (track.scrollLeft >= segment * 2) track.scrollLeft -= segment;
-    if (track.scrollLeft <= 1) track.scrollLeft += segment;
+
+    let next = track.scrollLeft;
+    while (next >= segment * 2) next -= segment;
+    while (next < segment * 0.55) next += segment;
+
+    positionRef.current = next;
+    if (Math.abs(track.scrollLeft - next) > 1) track.scrollLeft = next;
   }
 
   function scrollByViewport(direction: -1 | 1) {
     const track = trackRef.current;
     if (!track) return;
-    pauseForInteraction(2600);
+    pauseForInteraction(2400);
     track.scrollBy({
       left: direction * Math.max(240, track.clientWidth * 0.72),
       behavior: "smooth",
     });
-    window.setTimeout(normalizeLoopPosition, 600);
+    window.setTimeout(normalizeLoopPosition, 650);
   }
 
   useEffect(() => {
     const track = trackRef.current;
-    if (!track || products.length < 2) return;
-    const placeAtMiddle = () => {
-      const segment = track.scrollWidth / repeatCount;
-      if (segment > 0) track.scrollLeft = segment;
+    if (!track || products.length === 0) return;
+
+    const placeAtLoopStart = () => {
+      const segment = segmentWidth();
+      if (!segment) return;
+      positionRef.current = segment;
+      track.scrollLeft = segment;
     };
-    const frame = window.requestAnimationFrame(placeAtMiddle);
+
+    const frame = window.requestAnimationFrame(placeAtLoopStart);
     return () => window.cancelAnimationFrame(frame);
   }, [products.length, repeatCount]);
 
   useEffect(() => {
     const track = trackRef.current;
-    if (!track || products.length < 2) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!track || products.length === 0) return;
 
     let frame = 0;
     let previous = 0;
-    const pixelsPerSecond = 13;
+    const pixelsPerSecond = 22;
 
     const animate = (time: number) => {
       if (!previous) previous = time;
-      const elapsed = Math.min(time - previous, 60);
+      const elapsed = Math.min(time - previous, 80);
       previous = time;
 
-      if (!paused) {
-        track.scrollLeft += (pixelsPerSecond * elapsed) / 1000;
-        normalizeLoopPosition();
+      const segment = segmentWidth();
+      if (segment > 0) {
+        if (paused) {
+          positionRef.current = track.scrollLeft;
+        } else {
+          let next = positionRef.current + (pixelsPerSecond * elapsed) / 1000;
+          while (next >= segment * 2) next -= segment;
+          while (next < segment * 0.55) next += segment;
+          positionRef.current = next;
+          track.scrollLeft = next;
+        }
       }
 
       frame = window.requestAnimationFrame(animate);
@@ -303,9 +320,12 @@ function PromoCarousel({
           ref={trackRef}
           className="promo-track"
           onPointerDown={() => pauseForInteraction()}
-          onPointerUp={() => pauseForInteraction(1800)}
+          onPointerUp={() => pauseForInteraction(1500)}
           onTouchStart={() => pauseForInteraction()}
           onWheel={() => pauseForInteraction()}
+          onScroll={() => {
+            if (paused && trackRef.current) positionRef.current = trackRef.current.scrollLeft;
+          }}
         >
           {repeatedProducts.map((product, index) => (
             <ProductCard
