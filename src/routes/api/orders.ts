@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getCustomer, validMutationOrigin } from "../../lib/auth.server";
 import { createCustomerOrder, orderAvailability, OrderWarningError, updateCustomerOrder } from "../../lib/orders.server";
 import { db } from "../../lib/db.server";
+import { writeAudit } from "../../lib/audit.server";
 
 function warningResponse(error: unknown) {
   if (error instanceof OrderWarningError) {
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/api/orders")({
         const created = new Date(String(row.created_at).replace(" ", "T") + "Z").getTime();
         if (Date.now() - created > availability.settings.cancelMinutes * 60 * 1000) throw new Error(`주문 후 ${availability.settings.cancelMinutes}분이 지나 앱에서 취소할 수 없습니다.`);
         await db().prepare("UPDATE orders SET status='cancelled',cancelled_at=datetime('now'),updated_at=datetime('now') WHERE id=? AND customer_id=?").bind(id, customer.id).run();
+        await writeAudit({ actor: { type: "customer", id: customer.id, name: customer.loginName || customer.name }, action: "customer_cancel", entityType: "order", entityId: id, summary: `${customer.code} ${customer.name} 주문 취소` });
         return Response.json({ ok: true });
       } catch (error) {
         return Response.json({ error: error instanceof Error ? error.message : "주문 취소에 실패했습니다." }, { status: 400 });
@@ -56,6 +58,14 @@ export const Route = createFileRoute("/api/orders")({
       try {
         const body = await request.json() as { items?: Array<{ productId: string; optionLabel: string; quantity: number }>; note?: string; confirmAnomaly?: boolean };
         const order = await createCustomerOrder(customer, body.items ?? [], String(body.note ?? ""), "app", { confirmAnomaly: body.confirmAnomaly === true });
+        await writeAudit({
+          actor: { type: "customer", id: customer.id, name: customer.loginName || customer.name },
+          action: "customer_order",
+          entityType: "order",
+          entityId: order.id,
+          summary: `🚨 새 발주 · ${customer.code} ${customer.name} · ${order.orderPeriod === "PM" ? "오후발주" : "오전발주"} · 배송 ${order.deliveryDate}`,
+          metadata: { customerId: customer.id, customerCode: customer.code, deliveryDate: order.deliveryDate, orderPeriod: order.orderPeriod },
+        });
         return Response.json({ ok: true, order });
       } catch (error) {
         const warning = warningResponse(error); if (warning) return warning;
