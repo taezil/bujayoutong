@@ -37,6 +37,7 @@ export type CustomerSummary = {
   priceGroup: "A" | "B";
   active: boolean;
   receivable?: number;
+  loginName?: string;
 };
 
 export type OrderSettings = {
@@ -86,6 +87,7 @@ async function ensureOperationsSchema(database: D1Database) {
 
   await database.exec("CREATE TABLE IF NOT EXISTS customer_users (id TEXT PRIMARY KEY, customer_id TEXT NOT NULL, username TEXT NOT NULL, display_name TEXT NOT NULL, auth_salt TEXT NOT NULL, auth_hash TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE, UNIQUE(customer_id, username))");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_users_customer ON customer_users(customer_id, active, display_name)");
+  await ensureColumn(database, "customer_sessions", "customer_user_id", "TEXT NOT NULL DEFAULT ''");
 
   await database.exec("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL DEFAULT 'system', actor_id TEXT NOT NULL DEFAULT '', actor_name TEXT NOT NULL DEFAULT '', action TEXT NOT NULL, entity_type TEXT NOT NULL DEFAULT '', entity_id TEXT NOT NULL DEFAULT '', summary TEXT NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL DEFAULT (datetime('now')))");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC, id DESC)");
