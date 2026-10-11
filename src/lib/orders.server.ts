@@ -24,6 +24,14 @@ function kstTime() {
   return `${parts.find((p) => p.type === "hour")?.value ?? "00"}:${parts.find((p) => p.type === "minute")?.value ?? "00"}`;
 }
 
+export type OrderPeriod = "AM" | "PM";
+export function currentOrderPeriod(): OrderPeriod {
+  return Number(kstTime().slice(0, 2)) < 12 ? "AM" : "PM";
+}
+export function normalizeOrderPeriod(value?: string): OrderPeriod {
+  return value === "PM" ? "PM" : value === "AM" ? "AM" : currentOrderPeriod();
+}
+
 function withinTimeRange(now: string, open: string, close: string) {
   if (open <= close) return now >= open && now <= close;
   return now >= open || now <= close;
@@ -153,7 +161,7 @@ export async function createCustomerOrder(
   items: OrderRequestItem[],
   note = "",
   source = "app",
-  options: { deliveryDate?: string; staff?: StaffSession | null; confirmAnomaly?: boolean } = {},
+  options: { deliveryDate?: string; staff?: StaffSession | null; confirmAnomaly?: boolean; orderPeriod?: string } = {},
 ) {
   await ensureDatabase();
   if (source === "app") {
@@ -165,6 +173,7 @@ export async function createCustomerOrder(
   if (warnings.length && !options.confirmAnomaly) throw new OrderWarningError(warnings);
 
   const deliveryDate = normalizeDeliveryDate(options.deliveryDate);
+  const orderPeriod = normalizeOrderPeriod(options.orderPeriod);
   const priorPrinted = await db().prepare(`
     SELECT id FROM orders WHERE customer_id=? AND delivery_date=? AND printed_at IS NOT NULL AND status!='cancelled' LIMIT 1
   `).bind(customer.id, deliveryDate).first();
@@ -173,9 +182,9 @@ export async function createCustomerOrder(
   const total = Math.round(prepared.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
   const staff = options.staff ?? null;
   await db().batch([
-    db().prepare(`INSERT INTO orders(id,customer_id,source,status,region_snapshot,total_amount,note,delivery_date,created_by_staff_id,created_by_staff_name,is_additional)
-                  VALUES(?,?,?,'received',?,?,?,?,?,?,?)`)
-      .bind(id, customer.id, source, customer.region || "미지정", total, String(note || "").slice(0, 500), deliveryDate, staff?.id ?? "", staff?.displayName ?? "", isAdditional ? 1 : 0),
+    db().prepare(`INSERT INTO orders(id,customer_id,source,status,region_snapshot,total_amount,note,delivery_date,created_by_staff_id,created_by_staff_name,is_additional,order_period)
+                  VALUES(?,?,?,'received',?,?,?,?,?,?,?,?)`)
+      .bind(id, customer.id, source, customer.region || "미지정", total, String(note || "").slice(0, 500), deliveryDate, staff?.id ?? "", staff?.displayName ?? "", isAdditional ? 1 : 0, orderPeriod),
     ...prepared.map((item) => itemInsert(id, item)),
   ]);
 
@@ -183,11 +192,11 @@ export async function createCustomerOrder(
     const itemText = prepared.slice(0, 4).map((i) => `${i.productName}${i.quantity}${i.optionLabel}`).join(", ");
     await writeAudit({
       actor: staffActor(staff), action: "field_order", entityType: "order", entityId: id,
-      summary: `!현장발주 : ${staff.displayName} ${customer.code} ${itemText}${prepared.length > 4 ? ` 외 ${prepared.length - 4}건` : ""} · 배송 ${deliveryDate}`,
-      metadata: { customerId: customer.id, customerCode: customer.code, deliveryDate, isAdditional },
+      summary: `!현장발주 : ${staff.displayName} ${customer.code} ${itemText}${prepared.length > 4 ? ` 외 ${prepared.length - 4}건` : ""} · ${orderPeriod === "AM" ? "오전발주" : "오후발주"} · 배송 ${deliveryDate}`,
+      metadata: { customerId: customer.id, customerCode: customer.code, deliveryDate, orderPeriod, isAdditional },
     });
   }
-  return { id, total, itemCount: prepared.length, deliveryDate, isAdditional, warnings };
+  return { id, total, itemCount: prepared.length, deliveryDate, orderPeriod, isAdditional, warnings };
 }
 
 export async function updateCustomerOrder(customer: CustomerSummary, orderId: string, items: OrderRequestItem[], note = "", confirmAnomaly = false) {
