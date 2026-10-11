@@ -2,6 +2,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 import { bindings } from "./bindings.server";
 import migrationSql from "../../migrations/0001_init.sql?raw";
 import erpMigrationSql from "../../migrations/0002_erp.sql?raw";
+import operationsMigrationSql from "../../migrations/0003_operations.sql?raw";
 
 export type PackOption = {
   label: string;
@@ -83,6 +84,16 @@ export async function ensureDatabase(database: D1Database = db()) {
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='customers'")
     .first();
   if (!erpReady) await database.exec(erpMigrationSql);
+
+  const operationsReady = await database
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='staff_users'")
+    .first();
+  if (!operationsReady) await database.exec(operationsMigrationSql);
+
+  await ensureColumn(database, "orders", "delivery_date", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "orders", "created_by_staff_id", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "orders", "created_by_staff_name", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "orders", "is_additional", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(database, "products", "tax_type", "TEXT NOT NULL DEFAULT 'taxable'");
   await ensureColumn(database, "products", "warehouse_zone", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn(database, "pack_options", "price_a", "INTEGER");

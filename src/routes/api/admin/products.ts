@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { isAdmin, validMutationOrigin } from "../../../lib/auth.server";
+import { getStaff, isAdmin, validMutationOrigin } from "../../../lib/auth.server";
 import { bumpVersion, db, ensureDatabase } from "../../../lib/db.server";
 import { cleanOptions, cleanPrice, cleanText } from "../../../lib/admin-validation.server";
+import { writeAudit, staffActor } from "../../../lib/audit.server";
 
 type ProductBody = { action?: "create" | "update" | "delete"; product?: Record<string, unknown>; id?: string };
 
@@ -12,6 +13,8 @@ export const Route = createFileRoute("/api/admin/products")({
       await ensureDatabase();
       const body = await request.json() as ProductBody;
       const database = db();
+      const staff = await getStaff(request);
+      const actor = staff ? staffActor(staff) : { type: "admin" as const, id: "legacy-admin", name: "관리자" };
       if (body.action === "delete") {
         const id = cleanText(body.id, 80);
         if (!id) throw new Error("상품 ID가 없습니다.");
@@ -23,6 +26,7 @@ export const Route = createFileRoute("/api/admin/products")({
           database.prepare("DELETE FROM products WHERE id = ?").bind(id),
         ]);
         await bumpVersion(database);
+        await writeAudit({actor,action:"product_delete",entityType:"product",entityId:id,summary:`상품 ${id} 삭제`});
         return Response.json({ ok: true });
       }
 
@@ -65,6 +69,7 @@ export const Route = createFileRoute("/api/admin/products")({
       ).bind(id, option.label, option.price, option.priceA ?? null, option.priceB ?? null, option.step, index));
       if (statements.length) await database.batch(statements);
       await bumpVersion(database);
+      await writeAudit({actor,action:body.action === "create" ? "product_create" : "product_update",entityType:"product",entityId:id,summary:`상품 ${name} ${body.action === "create" ? "추가" : "수정"}`});
       return Response.json({ ok: true, id });
     } catch (error) {
       console.error(error);
