@@ -168,7 +168,6 @@ function AdminPage() {
         {error && <p className="admin-banner-error">{error}</p>}
         <OrderOpsPanel store={store} onError={setError} />
         <CustomerOpsPanel onError={setError} />
-        <StaffOpsPanel onError={setError} />
         <InventoryOpsPanel onError={setError} storeVersion={store.version} />
         <SettingsPanel store={store} onSaved={loadStore} onError={setError} />
         <CategoryPanel store={store} onSaved={loadStore} onError={setError} />
@@ -589,7 +588,7 @@ function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
   const totalReceivable = customers.reduce((sum, c) => sum + c.receivable, 0);
 
   return (
-    <section className="admin-section ops-section">
+    <section className="admin-section ops-section" id="admin-customers">
       <div className="admin-section-head">
         <div><h2>거래처 · 미수금</h2><p>거래처 로그인, 지역, 가격그룹, 미수금과 입금을 관리합니다.</p></div>
         <div className="ops-metric"><b>{customers.length}</b><span>거래처</span><b>{new Intl.NumberFormat("ko-KR").format(totalReceivable)}원</b><span>총 미수</span></div>
@@ -703,7 +702,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
   }
 
   return (
-    <section className="admin-section ops-section">
+    <section className="admin-section ops-section" id="admin-orders">
       <div className="admin-section-head"><div><h2>주문 · 전표출력 · 출고</h2><p>앱/전화/문자 주문을 한 곳에서 처리하고 지역별 신규분만 출력합니다.</p></div><div className="ops-metric"><b>{active.length}</b><span>출고대기</span><b>{active.filter((o) => !o.printedAt).length}</b><span>미출력</span></div></div>
 
       <div className="region-cards">
@@ -797,7 +796,7 @@ function InventoryOpsPanel({ onError, storeVersion }: { onError: (value: string)
     .filter((group) => group.rows.length > 0);
   const productCount = (name: string) => new Set(rows.filter((r) => (r.category || "미분류") === name).map((r) => r.productId)).size;
   return (
-    <section className="admin-section ops-section">
+    <section className="admin-section ops-section" id="admin-inventory">
       <div className="admin-section-head"><div><h2>재고</h2><p>판매단위별 현재고를 확인하고 조정합니다. 출고확정 시 자동 차감됩니다.</p></div></div>
       <input className="ops-search" placeholder="상품·카테고리·창고위치 검색" value={query} onChange={(e) => setQuery(e.target.value)} />
       <div className="inventory-category-tabs">
@@ -852,8 +851,26 @@ function SupplierPanel({ onError }: { onError: (value: string) => void }) {
 function AuditPanel() {
   const [rows, setRows] = useState<AuditRow[]>([]);
   async function load() { const r = await fetch("/api/admin/audit", { cache: "no-store" }); if (r.ok) setRows(((await r.json()) as { logs: AuditRow[] }).logs); }
-  useEffect(() => { void load(); const t = window.setInterval(() => void load(), 30000); return () => window.clearInterval(t); }, []);
-  return <div className="side-panel audit-panel"><div className="side-panel-head"><div><p>② 작업기록</p><h2>최근 이력</h2></div><button type="button" onClick={() => void load()}>↻</button></div><div className="audit-list">{rows.slice(0, 30).map((row) => <article key={row.id}><time>{row.created_at.slice(5, 16)}</time><strong>{row.actor_name || "시스템"}</strong><p>{row.summary}</p></article>)}{!rows.length && <p className="side-empty">아직 작업이력이 없습니다.</p>}</div></div>;
+  useEffect(() => { void load(); const t = window.setInterval(() => void load(), 5000); return () => window.clearInterval(t); }, []);
+  function meta(row: AuditRow) {
+    if (row.action === "field_order" || row.action === "admin_order") return { icon: "🚨", level: "urgent", label: "새 발주", target: "admin-orders" };
+    if (row.action === "return" || row.action === "missing") return { icon: "⚠️", level: "warning", label: row.action === "return" ? "반품" : "미배송", target: "admin-orders" };
+    if (row.action === "ship") return { icon: "📦", level: "normal", label: "출고", target: "admin-orders" };
+    if (row.action === "payment") return { icon: "💰", level: "normal", label: "입금", target: "admin-customers" };
+    if (row.entity_type === "staff") return { icon: "👤", level: "normal", label: "계정", target: "accounts" };
+    if (row.entity_type === "product") return { icon: "🛠️", level: "normal", label: "상품", target: "admin-products" };
+    if (row.entity_type === "customer") return { icon: "🏪", level: "normal", label: "거래처", target: "admin-customers" };
+    if (row.entity_type === "inventory") return { icon: "📦", level: "normal", label: "재고", target: "admin-inventory" };
+    return { icon: "•", level: "normal", label: "작업", target: "" };
+  }
+  function open(row: AuditRow) {
+    const info = meta(row);
+    if (info.target === "accounts") { window.location.href = "/admin/accounts"; return; }
+    const element = info.target ? document.getElementById(info.target) : null;
+    element?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (element) { element.classList.add("audit-target-flash"); window.setTimeout(() => element.classList.remove("audit-target-flash"), 1800); }
+  }
+  return <div className="side-panel audit-panel"><div className="side-panel-head"><div><p>② 실시간 작업기록</p><h2>최근 이력</h2></div><button type="button" onClick={() => void load()}>↻</button></div><div className="audit-list">{rows.slice(0, 30).map((row) => { const info = meta(row); return <button type="button" className={`audit-item ${info.level}`} key={row.id} onClick={() => open(row)}><div className="audit-item-top"><span className="audit-icon">{info.icon}</span><span className="audit-label">{info.label}</span><time>{row.created_at.slice(5, 16)}</time></div><strong>{row.actor_name || "시스템"}</strong><p>{row.summary}</p><small>클릭해서 관련 업무로 이동</small></button>; })}{!rows.length && <p className="side-empty">아직 작업이력이 없습니다.</p>}</div></div>;
 }
 
 function StaffOpsPanel({ onError }: { onError: (value: string) => void }) {
