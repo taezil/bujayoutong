@@ -1224,3 +1224,119 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
   .driver-date-buttons input { width: min(210px, 100%); }
 }
+
+
+/* ===== Session header + final order form layout ===== */
+.session-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.session-actions > span {
+  display: grid;
+  justify-items: end;
+  line-height: 1.15;
+}
+.session-actions b { font-size: 14px; color: #202620; }
+.session-actions small { margin-top: 4px; color: #758078; font-size: 10px; font-weight: 750; }
+.session-actions > button {
+  min-height: 40px;
+  border: 1px solid #d6ded4;
+  border-radius: 10px;
+  padding: 0 13px;
+  background: #fff;
+  color: #3d493f;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+.admin-title-actions { display: flex; align-items: center; gap: 14px; }
+.order-period-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  margin-left: 7px;
+  border: 1px solid #bcd5c1;
+  border-radius: 999px;
+  padding: 0 9px;
+  background: #eef7ef;
+  color: #086038;
+  font-size: 11px;
+  font-weight: 900;
+  vertical-align: middle;
+}
+.manual-order-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+
+.manual-order-controls {
+  grid-template-columns: minmax(220px, 1.4fr) 120px 160px minmax(260px, 1.5fr) 120px 150px 105px;
+  grid-template-areas:
+    "customer source date date date date date"
+    "product product product product unit qty add";
+  align-items: center;
+  row-gap: 10px;
+}
+.manual-customer { grid-area: customer; }
+.manual-source { grid-area: source; }
+.manual-date { grid-area: date; width: 160px; }
+.product-autocomplete { grid-area: product; }
+.manual-unit-select { grid-area: unit; }
+.manual-qty-unit { grid-area: qty; width: 150px; }
+.manual-add-item { grid-area: add; width: 105px; }
+
+.driver-product-line {
+  display: grid;
+  grid-template-columns: 120px 155px 110px minmax(0,1fr);
+  grid-template-areas:
+    "product product product product"
+    "unit qty add .";
+  gap: 8px;
+  margin-top: 22px;
+}
+.driver-product-line > .driver-search-block { grid-area: product; }
+.driver-product-line > select { grid-area: unit; }
+.driver-product-line > .driver-qty { grid-area: qty; }
+.driver-product-line > button { grid-area: add; }
+.driver-section-head h2 { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+
+.accounts-page { min-height: 100dvh; background: #f5f7f2; }
+.accounts-main { width: min(1080px, calc(100% - 28px)); margin: 0 auto; padding: 34px 0 70px; }
+.accounts-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+.accounts-head p { margin: 0; color: #0b6a39; font-size: 11px; font-weight: 900; }
+.accounts-head h1 { margin: 3px 0 0; font-size: 34px; letter-spacing: -.04em; }
+.accounts-head a { border: 1px solid #d5ddd3; border-radius: 10px; padding: 10px 13px; background: #fff; color: #263128; text-decoration: none; font-weight: 850; }
+.accounts-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.account-card { display: flex; justify-content: space-between; gap: 14px; padding: 17px; border: 1px solid #dfe6dc; border-radius: 15px; background: #fff; }
+.account-card.disabled { opacity: .5; }
+.account-card h3 { margin: 6px 0 3px; }
+.account-card p { margin: 0; color: #778079; font-size: 12px; }
+.account-card-actions { display: flex; flex-direction: column; gap: 6px; }
+.account-card-actions button { min-height: 34px; border: 1px solid #d8e0d6; border-radius: 8px; background: #fff; padding: 0 9px; font-size: 11px; font-weight: 800; cursor: pointer; }
+
+@media (max-width: 900px) {
+  .admin-title-actions { align-items: flex-end; flex-direction: column; gap: 8px; }
+  .manual-order-controls {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "customer customer"
+      "source date"
+      "product product"
+      "unit qty"
+      "add add";
+  }
+  .manual-date, .manual-qty-unit, .manual-add-item { width: 100%; }
+  .accounts-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .session-actions b { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .session-actions > button { padding: 0 9px; }
+  .driver-product-line {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "product product"
+      "unit qty"
+      "add add";
+  }
+  .driver-product-line > button { min-height: 45px; }
+  .accounts-head { align-items: flex-start; flex-direction: column; }
+}
