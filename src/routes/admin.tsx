@@ -156,7 +156,14 @@ function AdminPage() {
         <div className="admin-dashboard">
         <div className="admin-titlebar">
           <div><p>부자유통{status.staff ? ` · ${status.staff.displayName}` : ""}</p><h1>통합 관리자</h1><span>상품 {store.products.length}개 · 주문/거래처/재고 통합관리 · 버전 {store.version}</span></div>
-          <div className="admin-top-actions"><a href="/dashboard">대시보드</a><a href="/driver" target="_blank" rel="noreferrer">배송기사 화면</a><a href="/" target="_blank" rel="noreferrer">고객 화면</a><button type="button" onClick={logout}>로그아웃</button></div>
+          <div className="admin-title-actions">
+            <div className="admin-top-actions">
+              <a href="/dashboard">대시보드</a>
+              <button type="button" onClick={() => { document.getElementById("admin-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); window.setTimeout(() => setEditing("new"), 250); }}>상품추가</button>
+              <a href="/admin/accounts">계정관리</a>
+            </div>
+            <div className="session-actions"><span><b>{status.staff?.displayName || "관리자"}</b><small>관리자</small></span><button type="button" onClick={logout}>로그아웃</button></div>
+          </div>
         </div>
         {error && <p className="admin-banner-error">{error}</p>}
         <OrderOpsPanel store={store} onError={setError} />
@@ -165,7 +172,7 @@ function AdminPage() {
         <InventoryOpsPanel onError={setError} storeVersion={store.version} />
         <SettingsPanel store={store} onSaved={loadStore} onError={setError} />
         <CategoryPanel store={store} onSaved={loadStore} onError={setError} />
-        <section className="admin-section">
+        <section className="admin-section" id="admin-products">
           <div className="admin-section-head">
             <div><h2>상품</h2><p>상품은 계속 추가·수정·삭제할 수 있습니다.</p></div>
             <button type="button" className="admin-primary" onClick={() => setEditing("new")}>+ 새 상품 추가</button>
@@ -712,7 +719,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
       </div>
 
       <div className="manual-order-box">
-        <div><h3>전화·문자 주문 대신 입력</h3><p>직원이 이 화면에서 입력하면 앱 주문과 동일하게 재고·미수·전표 흐름에 들어갑니다.</p></div>
+        <div className="manual-order-title"><div><h3>전화·문자 주문 대신 입력</h3><p>직원이 이 화면에서 입력하면 앱 주문과 동일하게 재고·미수·전표 흐름에 들어갑니다.</p></div><span className="order-period-chip">{orderPeriod(new Date().toISOString().replace("T"," ").replace("Z",""))}</span></div>
         <div className="manual-order-controls">
           <select className="manual-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>{customers.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
           <select className="manual-source" value={source} onChange={(e) => setSource(e.target.value)}><option value="phone">전화발주</option><option value="sms">문자발주</option><option value="admin">직접입력</option></select>
