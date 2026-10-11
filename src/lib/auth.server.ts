@@ -200,23 +200,37 @@ export async function makeCustomerPinCredential(pin: string) {
   return { salt, hash };
 }
 
-export async function loginCustomer(code: string, pin: string) {
+export async function loginCustomer(code: string, pin: string, username = "") {
   await ensureDatabase();
   const normalized = normalizeCustomerCode(code);
   if (!normalized || !/^\d{6}$/.test(pin)) throw new Error("거래처번호와 인증번호를 확인해 주세요.");
   const customer = await db().prepare(
     "SELECT id, auth_salt, auth_hash, active FROM customers WHERE upper(code) = upper(?) LIMIT 1",
   ).bind(normalized).first<{ id: string; auth_salt: string; auth_hash: string; active: number }>();
-  if (!customer || customer.active !== 1 || !customer.auth_hash) throw new Error("거래처번호와 인증번호를 확인해 주세요.");
-  const hash = await derivePassword(pin, customer.auth_salt);
-  if (hash !== customer.auth_hash) throw new Error("거래처번호와 인증번호를 확인해 주세요.");
+  if (!customer || customer.active !== 1) throw new Error("거래처번호와 인증번호를 확인해 주세요.");
+
+  let customerUserId = "";
+  const employeeUsername = username.trim().toLowerCase();
+  if (employeeUsername) {
+    const user = await db().prepare(
+      "SELECT id,auth_salt,auth_hash,active FROM customer_users WHERE customer_id=? AND lower(username)=lower(?) LIMIT 1",
+    ).bind(customer.id, employeeUsername).first<{ id: string; auth_salt: string; auth_hash: string; active: number }>();
+    if (!user || user.active !== 1) throw new Error("거래처 직원 아이디와 PIN을 확인해 주세요.");
+    const hash = await derivePassword(pin, user.auth_salt);
+    if (hash !== user.auth_hash) throw new Error("거래처 직원 아이디와 PIN을 확인해 주세요.");
+    customerUserId = user.id;
+  } else {
+    if (!customer.auth_hash) throw new Error("거래처번호와 인증번호를 확인해 주세요.");
+    const hash = await derivePassword(pin, customer.auth_salt);
+    if (hash !== customer.auth_hash) throw new Error("거래처번호와 인증번호를 확인해 주세요.");
+  }
 
   const token = randomHex(32);
   const tokenHash = await sha256(token);
   await db().batch([
     db().prepare("DELETE FROM customer_sessions WHERE expires_at <= datetime('now')"),
-    db().prepare("INSERT INTO customer_sessions (token_hash, customer_id, expires_at) VALUES (?, ?, datetime('now', '+5 years'))")
-      .bind(tokenHash, customer.id),
+    db().prepare("INSERT INTO customer_sessions (token_hash, customer_id, customer_user_id, expires_at) VALUES (?, ?, ?, datetime('now', '+5 years'))")
+      .bind(tokenHash, customer.id, customerUserId),
   ]);
   return token;
 }
@@ -228,10 +242,11 @@ export async function getCustomer(request: Request): Promise<CustomerSummary | n
   const tokenHash = await sha256(token);
   const row = await db().prepare(`
     SELECT c.id, c.code, c.name, c.phone, c.business_number, c.address, c.store_phone,
-           c.region, c.price_group, c.active,
+           c.region, c.price_group, c.active, COALESCE(u.display_name,'') AS login_name,
            COALESCE((SELECT SUM(amount) FROM receivable_ledger r WHERE r.customer_id = c.id), 0) AS receivable
     FROM customer_sessions s
     JOIN customers c ON c.id = s.customer_id
+    LEFT JOIN customer_users u ON u.id = s.customer_user_id AND u.active=1
     WHERE s.token_hash = ? AND s.expires_at > datetime('now') AND c.active = 1
     LIMIT 1
   `).bind(tokenHash).first<Record<string, unknown>>();
@@ -249,6 +264,7 @@ export async function getCustomer(request: Request): Promise<CustomerSummary | n
     priceGroup: String(row.price_group ?? "A") === "B" ? "B" : "A",
     active: Number(row.active ?? 0) === 1,
     receivable: Number(row.receivable ?? 0),
+    loginName: String(row.login_name ?? ""),
   };
 }
 
