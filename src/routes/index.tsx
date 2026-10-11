@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { readStore } from "../lib/db.server";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
+import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
 
 const getStore = createServerFn({ method: "GET" }).handler(async () => readStore());
 
@@ -27,7 +28,6 @@ function StorePage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Product | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const heroRef = useRef<HTMLDivElement>(null);
 
   async function refreshStore() {
     try {
@@ -70,58 +70,18 @@ function StorePage() {
     setSub("전체");
   }
 
-  function revealHero(event: React.PointerEvent<HTMLDivElement>) {
-    const el = heroRef.current;
-    if (!el) return;
-    const box = el.getBoundingClientRect();
-    const x = ((event.clientX - box.left) / box.width) * 100;
-    const y = ((event.clientY - box.top) / box.height) * 100;
-    el.style.setProperty("--rx", `${x}%`);
-    el.style.setProperty("--ry", `${y}%`);
-  }
-
   return (
     <div className="site-shell">
       <header className="topbar">
         <div className="wrap topbar-inner">
           <a href="/" className="brand-lockup" aria-label="부자유통 홈">
-            <img src="/assets/brand-icon.svg" alt="" />
-            <strong>부자유통</strong>
+            <img src={BUJA_LOGO_DATA} alt="부자유통" />
           </a>
-          <span className="topbar-note">식자재 상품목록</span>
+          <span className="topbar-note">거래처 전용 식자재 주문</span>
         </div>
       </header>
 
       <main>
-        <section className="wrap hero-section">
-          <div className="hero-copy">
-            <p className="hero-kicker">거래처 전용 식자재 주문</p>
-            <h1>우리 식당 식자재 장보기</h1>
-            <p>상품을 고르고 수량을 선택하면 문자 주문 내용이 자동으로 작성됩니다.</p>
-            <button
-              className="hero-find"
-              type="button"
-              onClick={() => {
-                searchRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                window.setTimeout(() => searchRef.current?.focus(), 350);
-              }}
-            >
-              상품 찾기 <span aria-hidden="true">↓</span>
-            </button>
-          </div>
-          <div
-            ref={heroRef}
-            className="hero-visual"
-            onPointerMove={revealHero}
-            onPointerLeave={() => {
-              heroRef.current?.style.setProperty("--rx", "55%");
-              heroRef.current?.style.setProperty("--ry", "45%");
-            }}
-          >
-            <img className="hero-base" src="/assets/hero.svg" alt="부자유통 식자재 유통 이미지" />
-            <img className="hero-lit" src="/assets/hero.svg" alt="" aria-hidden="true" />
-          </div>
-        </section>
 
         {promoProducts.length > 0 && (
           <PromoCarousel
@@ -202,7 +162,7 @@ function StorePage() {
             </div>
           ) : (
             <div className="empty-state">
-              <img src="/assets/brand-icon.svg" alt="" />
+              <img src={BUJA_MARK_DATA} alt="" />
               <strong>조건에 맞는 상품이 없습니다.</strong>
               <button type="button" onClick={() => { setQuery(""); setCategory("전체"); setSub("전체"); }}>전체 상품 보기</button>
             </div>
@@ -245,31 +205,52 @@ function PromoCarousel({
   onOrder: (product: Product) => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const resumeTimerRef = useRef<number | null>(null);
+  const interactionTimerRef = useRef<number | null>(null);
   const [paused, setPaused] = useState(false);
-  const repeatedProducts = products.length > 1 ? [...products, ...products] : products;
+  const repeatCount = Math.max(4, Math.ceil(10 / Math.max(products.length, 1)));
+  const repeatedProducts = Array.from({ length: repeatCount }, () => products).flat();
 
-  function pauseTemporarily() {
+  function pauseForInteraction(delay = 2400) {
     setPaused(true);
-    if (resumeTimerRef.current !== null) window.clearTimeout(resumeTimerRef.current);
-    resumeTimerRef.current = window.setTimeout(() => setPaused(false), 2600);
+    if (interactionTimerRef.current !== null) window.clearTimeout(interactionTimerRef.current);
+    interactionTimerRef.current = window.setTimeout(() => setPaused(false), delay);
+  }
+
+  function segmentWidth() {
+    const track = trackRef.current;
+    return track ? track.scrollWidth / repeatCount : 0;
+  }
+
+  function normalizeLoopPosition() {
+    const track = trackRef.current;
+    if (!track) return;
+    const segment = segmentWidth();
+    if (!segment) return;
+    if (track.scrollLeft >= segment * 2) track.scrollLeft -= segment;
+    if (track.scrollLeft <= 1) track.scrollLeft += segment;
   }
 
   function scrollByViewport(direction: -1 | 1) {
     const track = trackRef.current;
     if (!track) return;
-    pauseTemporarily();
+    pauseForInteraction(2600);
     track.scrollBy({
-      left: direction * Math.max(260, track.clientWidth * 0.72),
+      left: direction * Math.max(240, track.clientWidth * 0.72),
       behavior: "smooth",
     });
+    window.setTimeout(normalizeLoopPosition, 600);
   }
 
   useEffect(() => {
-    return () => {
-      if (resumeTimerRef.current !== null) window.clearTimeout(resumeTimerRef.current);
+    const track = trackRef.current;
+    if (!track || products.length < 2) return;
+    const placeAtMiddle = () => {
+      const segment = track.scrollWidth / repeatCount;
+      if (segment > 0) track.scrollLeft = segment;
     };
-  }, []);
+    const frame = window.requestAnimationFrame(placeAtMiddle);
+    return () => window.cancelAnimationFrame(frame);
+  }, [products.length, repeatCount]);
 
   useEffect(() => {
     const track = trackRef.current;
@@ -278,7 +259,7 @@ function PromoCarousel({
 
     let frame = 0;
     let previous = 0;
-    const pixelsPerSecond = 18;
+    const pixelsPerSecond = 13;
 
     const animate = (time: number) => {
       if (!previous) previous = time;
@@ -287,10 +268,7 @@ function PromoCarousel({
 
       if (!paused) {
         track.scrollLeft += (pixelsPerSecond * elapsed) / 1000;
-        const loopPoint = track.scrollWidth / 2;
-        if (loopPoint > 0 && track.scrollLeft >= loopPoint) {
-          track.scrollLeft -= loopPoint;
-        }
+        normalizeLoopPosition();
       }
 
       frame = window.requestAnimationFrame(animate);
@@ -298,16 +276,22 @@ function PromoCarousel({
 
     frame = window.requestAnimationFrame(animate);
     return () => window.cancelAnimationFrame(frame);
-  }, [paused, products.length]);
+  }, [paused, products.length, repeatCount]);
+
+  useEffect(() => {
+    return () => {
+      if (interactionTimerRef.current !== null) window.clearTimeout(interactionTimerRef.current);
+    };
+  }, []);
 
   return (
     <section className="promo-showcase" aria-labelledby="promo-title">
       <div className="wrap promo-showcase-inner">
         <div className="promo-heading">
           <div>
-            <p>오늘 먼저 확인하세요</p>
-            <h2 id="promo-title">🚨 행사품목</h2>
-            <span>가만히 두면 자동으로 이동하고, 직접 넘겨서 상품을 볼 수도 있습니다.</span>
+            <p>부자유통 오늘의 추천</p>
+            <h1 id="promo-title">🚨 행사품목</h1>
+            <span>행사상품을 바로 확인하고 수량을 선택해 문자로 주문하세요.</span>
           </div>
           <div className="promo-controls" aria-label="행사상품 슬라이드 이동">
             <button type="button" onClick={() => scrollByViewport(-1)} aria-label="이전 행사상품">←</button>
@@ -318,19 +302,10 @@ function PromoCarousel({
         <div
           ref={trackRef}
           className="promo-track"
-          onPointerDown={pauseTemporarily}
-          onTouchStart={pauseTemporarily}
-          onWheel={pauseTemporarily}
-          onMouseEnter={() => setPaused(true)}
-          onMouseLeave={() => {
-            if (resumeTimerRef.current !== null) window.clearTimeout(resumeTimerRef.current);
-            resumeTimerRef.current = window.setTimeout(() => setPaused(false), 900);
-          }}
-          onFocusCapture={() => setPaused(true)}
-          onBlurCapture={() => {
-            if (resumeTimerRef.current !== null) window.clearTimeout(resumeTimerRef.current);
-            resumeTimerRef.current = window.setTimeout(() => setPaused(false), 900);
-          }}
+          onPointerDown={() => pauseForInteraction()}
+          onPointerUp={() => pauseForInteraction(1800)}
+          onTouchStart={() => pauseForInteraction()}
+          onWheel={() => pauseForInteraction()}
         >
           {repeatedProducts.map((product, index) => (
             <ProductCard
@@ -372,7 +347,7 @@ function ProductCard({
           <img src={product.photo} alt={product.name} loading="lazy" />
         ) : (
           <div className="image-placeholder">
-            <img src="/assets/brand-icon.svg" alt="" />
+            <img src={BUJA_MARK_DATA} alt="" />
           </div>
         )}
         {product.category === promoCategory && <span className="event-badge">🚨 긴급 행사 상품</span>}
