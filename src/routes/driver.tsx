@@ -23,6 +23,10 @@ function orderPeriod(value:string){
   const hour=Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Seoul",hour:"2-digit",hourCycle:"h23"}).format(parsed));
   return hour<12?"오전발주":"오후발주";
 }
+function currentOrderPeriod(){
+  const hour=Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Seoul",hour:"2-digit",hourCycle:"h23"}).format(new Date()));
+  return hour<12?"오전발주":"오후발주";
+}
 
 function DriverPage(){
   const [staff,setStaff]=useState<Staff|null>(null);
@@ -86,11 +90,11 @@ function DriverPage(){
   if(loading)return <div className="driver-state">직원 정보를 확인하는 중입니다.</div>;
   if(!staff)return <StaffLogin onLogin={status}/>;
   return <div className="driver-page">
-    <header className="driver-header"><img src={BUJA_LOGO_DATA} alt="부자유통"/><div><b>{staff.displayName}</b><span>배송기사</span><button type="button" onClick={logout}>로그아웃</button></div></header>
+    <header className="driver-header"><img src={BUJA_LOGO_DATA} alt="부자유통"/><div className="session-actions"><span><b>{staff.displayName}</b><small>배송기사</small></span><button type="button" onClick={logout}>로그아웃</button></div></header>
     <main className="driver-main">
       <section className="driver-date-panel"><div><p>배송일</p><h1>{date}</h1></div><div className="driver-date-buttons"><input aria-label="배송일 선택" type="date" value={date} min={localDate(0)} onChange={e=>setDate(e.target.value)}/></div></section>
 
-      <section className="driver-order-form"><div className="driver-section-head"><div><p>식당에서 바로 입력</p><h2>현장발주</h2></div>{customer&&<span>{customer.region} · 가격 {customer.priceGroup}그룹</span>}</div>
+      <section className="driver-order-form"><div className="driver-section-head"><div><p>식당에서 바로 입력</p><h2>현장발주 <span className="order-period-chip">{currentOrderPeriod()}</span></h2></div>{customer&&<span>{customer.region} · 가격 {customer.priceGroup}그룹</span>}</div>
         <div className="driver-search-block"><label>거래처 검색<input value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)} placeholder="거래처번호·상호·지역 검색"/></label>{customerQuery&&<div className="driver-suggestions">{customers.map(c=><button type="button" key={c.id} onClick={()=>{setCustomer(c);setCustomerQuery(`${c.code} · ${c.name}`);}}><strong>{c.code} · {c.name}</strong><span>{c.region} · {c.address}</span></button>)}</div>}</div>
         {customer&&<div className="driver-customer-summary"><b>{customer.code} · {customer.name}</b><span>☎ {customer.storePhone||customer.phone||"전화번호 없음"}</span><span>{customer.address}</span><span className={customer.receivable>0?"warn":""}>미수 {won(customer.receivable)}원</span></div>}
         <div className="driver-product-line"><div className="driver-search-block"><input value={productQuery} onChange={e=>{setProductQuery(e.target.value);setProduct(null);}} placeholder="상품명 입력 예: 등심돈"/>{productQuery&&!product&&<div className="driver-suggestions product">{products.map(p=><button type="button" key={p.id} disabled={p.soldout} onClick={()=>selectProduct(p)}><strong>{p.name}{p.soldout?" · 품절":""}</strong><span>{p.category} · {p.unit}</span></button>)}</div>}</div>
@@ -100,7 +104,7 @@ function DriverPage(){
         </div>
         {cart.length>0&&<div className="driver-cart">{cart.map((x,i)=><div key={`${x.productId}-${x.optionLabel}`}><span><b>{x.productName}</b> {x.quantity}{x.optionLabel}</span><strong>{won(x.unitPrice*x.quantity)}원</strong><button onClick={()=>setCart(c=>c.filter((_,j)=>j!==i))}>×</button></div>)}</div>}
         <label className="driver-note">요청사항<input value={note} onChange={e=>setNote(e.target.value)} placeholder="없으면 비워두세요"/></label>
-        <button className="driver-submit" type="button" disabled={!customer||!cart.length} onClick={()=>void submit(false)}>{date===localDate(0)?"오늘":"선택한 날짜"} 현장발주 등록</button>
+        <button className="driver-submit" type="button" disabled={!customer||!cart.length} onClick={()=>void submit(false)}>{currentOrderPeriod()} · {date===localDate(0)?"오늘":"선택한 날짜"} 현장발주 등록</button>
         {message&&<p className="driver-message">{message}</p>}
       </section>
 
