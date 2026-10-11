@@ -162,6 +162,7 @@ function AdminPage() {
           <div className="admin-title-actions">
             <div className="admin-top-actions">
               <a href="/dashboard">대시보드</a>
+              <a href="/price-list">부자유통 단가표</a>
               <button type="button" onClick={() => { document.getElementById("admin-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); window.setTimeout(() => setEditing("new"), 250); }}>상품추가</button>
               <a href="/admin/accounts">계정관리</a>
             </div>
@@ -477,6 +478,43 @@ function ProductEditor({
           <label className="soldout-check"><input type="checkbox" checked={draft.soldout} onChange={(e) => setDraft({ ...draft, soldout: e.target.checked })} /> 품절로 표시</label>
         </div>
 
+        <div className="price-list-editor">
+          <div className="option-head">
+            <div><strong>부자유통 단가표 정보</strong><small>여기서 수정하면 단가표 화면에도 같은 내용이 바로 반영됩니다.</small></div>
+          </div>
+          <div className="price-list-editor-grid">
+            <label>1단위 기준 인분
+              <input value={draft.servingsPerUnit ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerUnit: e.target.value })} placeholder="예: 1봉 약 8~10인분" />
+            </label>
+            <label>1박스 입수
+              <input value={draft.boxContents ?? ""} onChange={(e) => setDraft({ ...draft, boxContents: e.target.value })} placeholder="예: 10봉 / 20팩" />
+            </label>
+            <label>1박스 기준 인분
+              <input value={draft.servingsPerBox ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerBox: e.target.value })} placeholder="예: 약 80~100인분" />
+            </label>
+            <label>보관방법
+              <select value={draft.storageMethod ?? ""} onChange={(e) => setDraft({ ...draft, storageMethod: e.target.value })}>
+                <option value="">미지정</option>
+                <option value="냉동">냉동</option>
+                <option value="냉장">냉장</option>
+                <option value="상온">상온</option>
+                <option value="실온">실온</option>
+              </select>
+            </label>
+            <label className="price-display-field">가격표시 방식
+              <select value={draft.priceDisplayMode ?? "fixed"} onChange={(e) => setDraft({ ...draft, priceDisplayMode: e.target.value === "market" ? "market" : e.target.value === "inquiry" ? "inquiry" : "fixed" })}>
+                <option value="fixed">고정가격</option>
+                <option value="market">싯가</option>
+                <option value="inquiry">가격문의</option>
+              </select>
+            </label>
+            <label className="price-list-visible-check"><input type="checkbox" checked={draft.priceListVisible !== false} onChange={(e) => setDraft({ ...draft, priceListVisible: e.target.checked })} /> 부자유통 단가표에 공개</label>
+            <label className="product-description-field">상품 설명
+              <textarea value={draft.description ?? ""} onChange={(e) => setDraft({ ...draft, description: e.target.value })} placeholder="상품 특징, 조리용도, 구성 등 신규 거래처가 알아보기 쉽게 적어주세요." rows={4} />
+            </label>
+          </div>
+        </div>
+
         <div className="option-editor">
           <div className="option-head">
             <strong>판매 단위와 가격</strong>
@@ -518,6 +556,13 @@ function makeNewProduct(store: StoreData): Product {
     photo: "",
     taxType: "taxable",
     warehouseZone: "",
+    description: "",
+    servingsPerUnit: "",
+    boxContents: "",
+    servingsPerBox: "",
+    storageMethod: "",
+    priceListVisible: true,
+    priceDisplayMode: "fixed",
     packOptions: [{ label: "박스", price: null, priceA: null, priceB: null, step: 1 }, { label: "봉지", price: null, priceA: null, priceB: null, step: 1 }],
   };
 }
