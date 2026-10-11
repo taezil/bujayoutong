@@ -20,6 +20,7 @@ type Line = {
 function statementCopy(args: {
   copyLabel: "공급자용" | "공급받는자용";
   date: string;
+  periodLabel: string;
   customer: { code: string; name: string; businessNumber: string; address: string; phone: string; receivable: number };
   lines: Line[];
 }) {
@@ -55,7 +56,7 @@ function statementCopy(args: {
     <div class="statement-title">
       <span class="copy-label">${esc(args.copyLabel)}</span>
       <h1>거 래 명 세 표</h1>
-      <span class="date">${esc(args.date)}</span>
+      <span class="date">${esc(args.date)} · ${esc(args.periodLabel)}</span>
     </div>
     <div class="parties">
       <table class="party">
@@ -94,7 +95,7 @@ export const Route = createFileRoute("/api/admin/print-orders")({
     if (!region) return new Response("지역을 선택해 주세요.", { status: 400 });
 
     const orders = await db().prepare(`
-      SELECT o.id,o.customer_id,o.created_at,o.delivery_date,o.is_additional,
+      SELECT o.id,o.customer_id,o.created_at,o.delivery_date,o.is_additional,o.order_period,
              c.code,c.name,c.business_number,c.address,c.store_phone,c.phone,
              COALESCE((SELECT SUM(amount) FROM receivable_ledger r WHERE r.customer_id=c.id),0) AS receivable
       FROM orders o JOIN customers c ON c.id=o.customer_id
@@ -159,7 +160,9 @@ export const Route = createFileRoute("/api/admin/print-orders")({
         code: group.code, name: group.name, businessNumber: group.businessNumber,
         address: group.address, phone: group.phone, receivable: group.receivable,
       };
-      pages += `<article class="page">${statementCopy({copyLabel:"공급자용",date:group.date,customer,lines})}${statementCopy({copyLabel:"공급받는자용",date:group.date,customer,lines})}</article>`;
+      const periods = Array.from(new Set(group.orders.map((row) => String(row.order_period || "AM"))));
+      const periodLabel = periods.length === 1 ? (periods[0] === "PM" ? "오후발주" : "오전발주") : "오전·오후발주";
+      pages += `<article class="page">${statementCopy({copyLabel:"공급자용",date:group.date,periodLabel,customer,lines})}${statementCopy({copyLabel:"공급받는자용",date:group.date,periodLabel,customer,lines})}</article>`;
     }
 
     const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(region)} 거래명세표</title><style>
