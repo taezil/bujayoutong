@@ -10,7 +10,7 @@ export const Route=createFileRoute("/driver")({
 
 type Staff={id:string;username:string;displayName:string;role:"ADMIN"|"DRIVER"};
 type Customer={id:string;code:string;name:string;phone:string;storePhone:string;address:string;region:string;priceGroup:"A"|"B";receivable:number};
-type DriverOrder={id:string;customerId:string;customerCode:string;customerName:string;address:string;storePhone:string;region:string;status:string;total:number;note:string;createdAt:string;deliveryDate:string;isAdditional:boolean;items:Array<{productName:string;optionLabel:string;quantity:number;unitPrice:number}>};
+type DriverOrder={id:string;customerId:string;customerCode:string;customerName:string;address:string;storePhone:string;region:string;status:string;total:number;note:string;createdAt:string;deliveryDate:string;isAdditional:boolean;orderPeriod:"AM"|"PM";items:Array<{productName:string;optionLabel:string;quantity:number;unitPrice:number}>};
 type DriverData={staff:Staff;date:string;customers:Customer[];products:Product[];orders:DriverOrder[]};
 type CartLine={productId:string;productName:string;optionLabel:string;quantity:number;unitPrice:number;step:number};
 
@@ -39,6 +39,7 @@ function DriverPage(){
   const [product,setProduct]=useState<Product|null>(null);
   const [optionLabel,setOptionLabel]=useState("");
   const [qty,setQty]=useState(1);
+  const [orderPeriodValue,setOrderPeriodValue]=useState<"AM"|"PM">(()=>currentOrderPeriod()==="오후발주"?"PM":"AM");
   const [cart,setCart]=useState<CartLine[]>([]);
   const [note,setNote]=useState("");
   const [message,setMessage]=useState("");
@@ -79,7 +80,7 @@ function DriverPage(){
   }
   async function submit(confirmAnomaly=false){
     if(!customer||!cart.length)return;
-    const r=await fetch("/api/driver/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customerId:customer.id,deliveryDate:date,items:cart.map(x=>({productId:x.productId,optionLabel:x.optionLabel,quantity:x.quantity})),note,confirmAnomaly})});
+    const r=await fetch("/api/driver/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customerId:customer.id,deliveryDate:date,orderPeriod:orderPeriodValue,items:cart.map(x=>({productId:x.productId,optionLabel:x.optionLabel,quantity:x.quantity})),note,confirmAnomaly})});
     const j=await r.json() as {error?:string;warning?:boolean;warnings?:Array<{message:string}>;order?:{id:string;isAdditional:boolean}};
     if(r.status===409&&j.warning){const text=(j.warnings??[]).map(x=>`• ${x.message}`).join("\n");if(window.confirm(`⚠ 평소 주문량보다 많습니다.\n\n${text}\n\n그래도 발주할까요?`))return submit(true);return;}
     if(!r.ok||!j.order){setMessage(j.error||"현장발주 접수에 실패했습니다.");return;}
@@ -94,7 +95,13 @@ function DriverPage(){
     <main className="driver-main">
       <section className="driver-date-panel"><div><p>배송일</p><h1>{date}</h1></div><div className="driver-date-buttons"><input aria-label="배송일 선택" type="date" value={date} min={localDate(0)} onChange={e=>setDate(e.target.value)}/></div></section>
 
-      <section className="driver-order-form"><div className="driver-section-head"><div><p>식당에서 바로 입력</p><h2>현장발주 <span className="order-period-chip">{currentOrderPeriod()}</span></h2></div>{customer&&<span>{customer.region} · 가격 {customer.priceGroup}그룹</span>}</div>
+      <section className="driver-order-form"><div className="driver-section-head"><div><p>식당에서 바로 입력</p><h2>현장발주</h2></div>{customer&&<span>{customer.region} · 가격 {customer.priceGroup}그룹</span>}</div>
+        <div className="driver-order-meta">
+          <div className="order-period-toggle" role="group" aria-label="발주 시간대">
+            <button type="button" className={orderPeriodValue==="AM"?"selected":""} onClick={()=>setOrderPeriodValue("AM")}>오전발주</button>
+            <button type="button" className={orderPeriodValue==="PM"?"selected":""} onClick={()=>setOrderPeriodValue("PM")}>오후발주</button>
+          </div>
+        </div>
         <div className="driver-search-block"><label>거래처 검색<input value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)} placeholder="거래처번호·상호·지역 검색"/></label>{customerQuery&&<div className="driver-suggestions">{customers.map(c=><button type="button" key={c.id} onClick={()=>{setCustomer(c);setCustomerQuery(`${c.code} · ${c.name}`);}}><strong>{c.code} · {c.name}</strong><span>{c.region} · {c.address}</span></button>)}</div>}</div>
         {customer&&<div className="driver-customer-summary"><b>{customer.code} · {customer.name}</b><span>☎ {customer.storePhone||customer.phone||"전화번호 없음"}</span><span>{customer.address}</span><span className={customer.receivable>0?"warn":""}>미수 {won(customer.receivable)}원</span></div>}
         <div className="driver-product-line"><div className="driver-search-block"><input value={productQuery} onChange={e=>{setProductQuery(e.target.value);setProduct(null);}} placeholder="상품명 입력 예: 등심돈"/>{productQuery&&!product&&<div className="driver-suggestions product">{products.map(p=><button type="button" key={p.id} disabled={p.soldout} onClick={()=>selectProduct(p)}><strong>{p.name}{p.soldout?" · 품절":""}</strong><span>{p.category} · {p.unit}</span></button>)}</div>}</div>
@@ -104,12 +111,12 @@ function DriverPage(){
         </div>
         {cart.length>0&&<div className="driver-cart">{cart.map((x,i)=><div key={`${x.productId}-${x.optionLabel}`}><span><b>{x.productName}</b> {x.quantity}{x.optionLabel}</span><strong>{won(x.unitPrice*x.quantity)}원</strong><button onClick={()=>setCart(c=>c.filter((_,j)=>j!==i))}>×</button></div>)}</div>}
         <label className="driver-note">요청사항<input value={note} onChange={e=>setNote(e.target.value)} placeholder="없으면 비워두세요"/></label>
-        <button className="driver-submit" type="button" disabled={!customer||!cart.length} onClick={()=>void submit(false)}>{currentOrderPeriod()} · {date===localDate(0)?"오늘":"선택한 날짜"} 현장발주 등록</button>
+        <button className="driver-submit" type="button" disabled={!customer||!cart.length} onClick={()=>void submit(false)}>{orderPeriodValue==="PM"?"오후발주":"오전발주"} · {date===localDate(0)?"오늘":"선택한 날짜"} 현장발주 등록</button>
         {message&&<p className="driver-message">{message}</p>}
       </section>
 
       <section className="driver-orders"><div className="driver-section-head"><div><p>모든 지역</p><h2>{date} 발주목록</h2></div><span>{data?.orders.length??0}건</span></div>
-        {regionGroups.map(([region,orders])=><div className="driver-region" key={region}><h3>{region} <span>{orders.length}건</span></h3>{orders.map(o=><article key={o.id} className={o.isAdditional?"additional":""}><div className="driver-order-title"><div><strong>{o.customerCode} · {o.customerName}</strong>{o.isAdditional&&<em>🚨 추가발주</em>}</div><span>{orderPeriod(o.createdAt)} · {o.status==="shipped"?"출고완료":"발주"}</span></div><p>{o.address} · {o.storePhone}</p><ul>{o.items.map((x,i)=><li key={i}><span>{x.productName}</span><b>{x.quantity}{x.optionLabel}</b><small>{won(x.unitPrice)}원</small></li>)}</ul><div className="driver-order-total">합계 <b>{won(o.total)}원</b></div></article>)}</div>)}
+        {regionGroups.map(([region,orders])=><div className="driver-region" key={region}><h3>{region} <span>{orders.length}건</span></h3>{orders.map(o=><article key={o.id} className={o.isAdditional?"additional":""}><div className="driver-order-title"><div><strong>{o.customerCode} · {o.customerName}</strong>{o.isAdditional&&<em>🚨 추가발주</em>}</div><span>{o.orderPeriod==="PM"?"오후발주":"오전발주"} · {o.status==="shipped"?"출고완료":"발주"}</span></div><p>{o.address} · {o.storePhone}</p><ul>{o.items.map((x,i)=><li key={i}><span>{x.productName}</span><b>{x.quantity}{x.optionLabel}</b><small>{won(x.unitPrice)}원</small></li>)}</ul><div className="driver-order-total">합계 <b>{won(o.total)}원</b></div></article>)}</div>)}
         {!regionGroups.length&&<p className="driver-empty">이 날짜의 발주가 없습니다.</p>}
       </section>
     </main>
