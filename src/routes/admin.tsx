@@ -711,7 +711,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
           const rows = active.filter((o) => (o.region || "미지정") === region);
           const unprinted = rows.filter((o) => !o.printedAt).length;
           return <div className="region-card" key={region}><div><strong>{region}</strong><span>주문 {rows.length}건 · 신규 {unprinted}건</span></div><div>
-            <button type="button" disabled={!unprinted} onClick={() => window.open(`/api/admin/print-orders?region=${encodeURIComponent(region)}&deliveryDate=${encodeURIComponent(deliveryDate)}&unprinted=1`, "_blank")}>신규분 출력</button>
+            <button type="button" disabled={!unprinted} onClick={() => window.open(`/api/admin/print-orders?region=${encodeURIComponent(region)}&deliveryDate=${encodeURIComponent(deliveryDate)}&unprinted=1`, "_blank")}>거래명세표 출력</button>
             <button type="button" disabled={!unprinted} onClick={() => { if (window.confirm(`${region} 신규 주문을 출력완료로 표시할까요?`)) void action({ action: "mark-region-printed", region, deliveryDate }); }}>출력완료</button>
           </div></div>;
         })}
