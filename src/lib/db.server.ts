@@ -77,10 +77,15 @@ async function ensureOperationsSchema(database: D1Database) {
   await ensureColumn(database, "orders", "created_by_staff_id", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn(database, "orders", "created_by_staff_name", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn(database, "orders", "is_additional", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(database, "orders", "order_period", "TEXT NOT NULL DEFAULT 'AM'");
+  await ensureColumn(database, "orders", "load_printed_at", "TEXT NOT NULL DEFAULT ''");
 
   await database.exec("CREATE TABLE IF NOT EXISTS staff_users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('ADMIN','DRIVER')), auth_salt TEXT NOT NULL, auth_hash TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))");
   await database.exec("CREATE TABLE IF NOT EXISTS staff_sessions (token_hash TEXT PRIMARY KEY, staff_id TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), last_seen_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(staff_id) REFERENCES staff_users(id) ON DELETE CASCADE)");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_staff_sessions_staff ON staff_sessions(staff_id, expires_at)");
+
+  await database.exec("CREATE TABLE IF NOT EXISTS customer_users (id TEXT PRIMARY KEY, customer_id TEXT NOT NULL, username TEXT NOT NULL, display_name TEXT NOT NULL, auth_salt TEXT NOT NULL, auth_hash TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE, UNIQUE(customer_id, username))");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_users_customer ON customer_users(customer_id, active, display_name)");
 
   await database.exec("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL DEFAULT 'system', actor_id TEXT NOT NULL DEFAULT '', actor_name TEXT NOT NULL DEFAULT '', action TEXT NOT NULL, entity_type TEXT NOT NULL DEFAULT '', entity_id TEXT NOT NULL DEFAULT '', summary TEXT NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL DEFAULT (datetime('now')))");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC, id DESC)");
