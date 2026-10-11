@@ -14,9 +14,9 @@ export const Route=createFileRoute("/api/driver/order")({server:{handlers:{POST:
   const staff=await getStaff(request); if(!staff) return Response.json({error:"직원 로그인이 필요합니다."},{status:401});
   await ensureDatabase();
   try{
-    const body=await request.json() as {customerId?:string;deliveryDate?:string;items?:Array<{productId:string;optionLabel:string;quantity:number}>;note?:string;confirmAnomaly?:boolean};
+    const body=await request.json() as {customerId?:string;deliveryDate?:string;orderPeriod?:string;items?:Array<{productId:string;optionLabel:string;quantity:number}>;note?:string;confirmAnomaly?:boolean};
     const customer=await customerById(String(body.customerId??'')); if(!customer) throw new Error("거래처를 선택해 주세요.");
-    const order=await createCustomerOrder(customer,body.items??[],String(body.note??''),'driver',{deliveryDate:String(body.deliveryDate??''),staff,confirmAnomaly:body.confirmAnomaly===true});
+    const order=await createCustomerOrder(customer,body.items??[],String(body.note??''),'driver',{deliveryDate:String(body.deliveryDate??''),orderPeriod:String(body.orderPeriod??''),staff,confirmAnomaly:body.confirmAnomaly===true});
     return Response.json({ok:true,order});
   }catch(error){if(error instanceof OrderWarningError)return Response.json({warning:true,error:error.message,warnings:error.warnings},{status:409}); return Response.json({error:error instanceof Error?error.message:"현장발주 접수에 실패했습니다."},{status:400});}
 }}}});
