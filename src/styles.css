@@ -326,3 +326,86 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .hero-base { display: none; }
   .hero-lit { clip-path: none; }
 }
+
+
+/* Homepage priority event-products carousel */
+.promo-showcase {
+  padding: 34px 0 30px;
+  background: linear-gradient(180deg, #fff8f7 0%, #ffffff 100%);
+  border-top: 1px solid #f6d2ce;
+  border-bottom: 1px solid #f6d2ce;
+}
+.promo-showcase-inner { min-width: 0; }
+.promo-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+.promo-heading p {
+  margin: 0 0 5px;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .06em;
+}
+.promo-heading h2 {
+  margin: 0;
+  color: #9e221a;
+  font-size: 29px;
+  line-height: 1.15;
+  letter-spacing: -.045em;
+}
+.promo-heading span {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.promo-controls { display: flex; gap: 8px; flex: 0 0 auto; }
+.promo-controls button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid #efb8b2;
+  border-radius: 50%;
+  background: #fff;
+  color: #b42318;
+  font-size: 19px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.promo-controls button:hover { background: #fff0ee; }
+.promo-track {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding: 2px 2px 12px;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  cursor: grab;
+}
+.promo-track::-webkit-scrollbar { display: none; }
+.promo-track:active { cursor: grabbing; }
+.promo-slide-card {
+  flex: 0 0 clamp(235px, 23vw, 292px);
+  box-shadow: 0 8px 26px rgba(115, 36, 27, .07);
+}
+.promo-slide-card .product-image { aspect-ratio: 16 / 9.5; }
+
+@media (max-width: 720px) {
+  .promo-showcase { padding: 26px 0 23px; }
+  .promo-heading { align-items: center; margin-bottom: 14px; }
+  .promo-heading h2 { font-size: 24px; }
+  .promo-heading span { max-width: 28ch; font-size: 12px; }
+  .promo-controls button { width: 40px; height: 40px; }
+  .promo-track {
+    margin-inline: -12px;
+    padding-inline: 12px;
+    gap: 10px;
+  }
+  .promo-slide-card {
+    flex-basis: min(78vw, 282px);
+  }
+}
