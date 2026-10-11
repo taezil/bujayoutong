@@ -14,10 +14,12 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AdminAccountsRouteImport } from './routes/admin_.accounts'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DriverRouteImport } from './routes/driver'
+import { Route as PriceListRouteImport } from './routes/price-list'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ApiOrdersRouteImport } from './routes/api/orders'
 import { Route as ApiPhotoRouteImport } from './routes/api/photo'
+import { Route as ApiPriceListRouteImport } from './routes/api/price-list'
 import { Route as ApiStoreRouteImport } from './routes/api/store'
 import { Route as ApiAdminAuditRouteImport } from './routes/api/admin/audit'
 import { Route as ApiAdminCategoriesRouteImport } from './routes/api/admin/categories'
@@ -73,6 +75,11 @@ const DriverRoute = DriverRouteImport.update({
   path: '/driver',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PriceListRoute = PriceListRouteImport.update({
+  id: '/price-list',
+  path: '/price-list',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
   id: '/robots.txt',
   path: '/robots.txt',
@@ -91,6 +98,11 @@ const ApiOrdersRoute = ApiOrdersRouteImport.update({
 const ApiPhotoRoute = ApiPhotoRouteImport.update({
   id: '/api/photo',
   path: '/api/photo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPriceListRoute = ApiPriceListRouteImport.update({
+  id: '/api/price-list',
+  path: '/api/price-list',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStoreRoute = ApiStoreRouteImport.update({
@@ -245,10 +257,12 @@ export interface FileRoutesByFullPath {
   '/admin/accounts': typeof AdminAccountsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
+  '/price-list': typeof PriceListRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
+  '/api/price-list': typeof ApiPriceListRoute
   '/api/store': typeof ApiStoreRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
@@ -285,10 +299,12 @@ export interface FileRoutesByTo {
   '/admin/accounts': typeof AdminAccountsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
+  '/price-list': typeof PriceListRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
+  '/api/price-list': typeof ApiPriceListRoute
   '/api/store': typeof ApiStoreRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
@@ -326,10 +342,12 @@ export interface FileRoutesById {
   '/admin/accounts': typeof AdminAccountsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
+  '/price-list': typeof PriceListRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
+  '/api/price-list': typeof ApiPriceListRoute
   '/api/store': typeof ApiStoreRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
@@ -368,10 +386,12 @@ export interface FileRouteTypes {
     | '/admin/accounts'
     | '/dashboard'
     | '/driver'
+    | '/price-list'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/orders'
     | '/api/photo'
+    | '/api/price-list'
     | '/api/store'
     | '/api/admin/audit'
     | '/api/admin/categories'
@@ -408,10 +428,12 @@ export interface FileRouteTypes {
     | '/admin/accounts'
     | '/dashboard'
     | '/driver'
+    | '/price-list'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/orders'
     | '/api/photo'
+    | '/api/price-list'
     | '/api/store'
     | '/api/admin/audit'
     | '/api/admin/categories'
@@ -448,10 +470,12 @@ export interface FileRouteTypes {
     | '/admin/accounts'
     | '/dashboard'
     | '/driver'
+    | '/price-list'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/orders'
     | '/api/photo'
+    | '/api/price-list'
     | '/api/store'
     | '/api/admin/audit'
     | '/api/admin/categories'
@@ -489,10 +513,12 @@ export interface RootRouteChildren {
   AdminAccountsRoute: typeof AdminAccountsRoute
   DashboardRoute: typeof DashboardRoute
   DriverRoute: typeof DriverRoute
+  PriceListRoute: typeof PriceListRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiOrdersRoute: typeof ApiOrdersRoute
   ApiPhotoRoute: typeof ApiPhotoRoute
+  ApiPriceListRoute: typeof ApiPriceListRoute
   ApiStoreRoute: typeof ApiStoreRoute
   ApiAdminAuditRoute: typeof ApiAdminAuditRoute
   ApiAdminCategoriesRoute: typeof ApiAdminCategoriesRoute
@@ -561,6 +587,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DriverRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/price-list': {
+      id: '/price-list'
+      path: '/price-list'
+      fullPath: '/price-list'
+      preLoaderRoute: typeof PriceListRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/robots.txt': {
       id: '/robots.txt'
       path: '/robots.txt'
@@ -587,6 +620,13 @@ declare module '@tanstack/react-router' {
       path: '/api/photo'
       fullPath: '/api/photo'
       preLoaderRoute: typeof ApiPhotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/price-list': {
+      id: '/api/price-list'
+      path: '/api/price-list'
+      fullPath: '/api/price-list'
+      preLoaderRoute: typeof ApiPriceListRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/store': {
@@ -801,10 +841,12 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAccountsRoute: AdminAccountsRoute,
   DashboardRoute: DashboardRoute,
   DriverRoute: DriverRoute,
+  PriceListRoute: PriceListRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiOrdersRoute: ApiOrdersRoute,
   ApiPhotoRoute: ApiPhotoRoute,
+  ApiPriceListRoute: ApiPriceListRoute,
   ApiStoreRoute: ApiStoreRoute,
   ApiAdminAuditRoute: ApiAdminAuditRoute,
   ApiAdminCategoriesRoute: ApiAdminCategoriesRoute,
