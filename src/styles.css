@@ -1099,3 +1099,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .manual-qty-unit { display: flex; align-items: center; min-height: 42px; border: 1px solid #d6ded3; border-radius: 10px; background: #fff; overflow: hidden; }
 .manual-qty-unit input { width: 82px; min-width: 0; min-height: 40px; border: 0 !important; padding: 0 8px !important; }
 .manual-qty-unit b { color: #5c675e; font-size: 11px; }
+
+
+/* Recent audit: employee name and work content use the same typography */
+.audit-list strong,
+.audit-list p {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+}
