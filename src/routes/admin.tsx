@@ -30,6 +30,15 @@ function kstDateLocal(offsetDays = 0) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
+function orderPeriod(value: string) {
+  const parsed = new Date(value.replace(" ", "T") + "Z");
+  if (!Number.isFinite(parsed.getTime())) return "";
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", hourCycle: "h23" }).format(parsed));
+  return hour < 12 ? "오전발주" : "오후발주";
+}
+
+const WAREHOUSE_ZONES = ["미지정", "냉동식품창고", "냉동수산창고", "냉동축산창고", "냉장창고", "김치창고", "건어물창고", "공산품창고", "상온창고"];
+
 function AdminPage() {
   const [status, setStatus] = useState<AdminStatus | null>(null);
   const [store, setStore] = useState<StoreData | null>(null);
@@ -446,7 +455,12 @@ function ProductEditor({
               <option value="taxable">과세</option><option value="exempt">면세(비과세)</option>
             </select>
           </label>
-          <label>창고 위치<input value={draft.warehouseZone ?? ""} onChange={(e) => setDraft({ ...draft, warehouseZone: e.target.value })} placeholder="예: 냉동식품창고 / 냉동수산창고" /></label>
+          <label>창고 위치
+            <select value={draft.warehouseZone || "미지정"} onChange={(e) => setDraft({ ...draft, warehouseZone: e.target.value === "미지정" ? "" : e.target.value })}>
+              {draft.warehouseZone && !WAREHOUSE_ZONES.includes(draft.warehouseZone) && <option value={draft.warehouseZone}>{draft.warehouseZone}</option>}
+              {WAREHOUSE_ZONES.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+            </select>
+          </label>
           <label className="editor-photo">상품 사진
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
             <small>JPG·PNG·WebP, 최대 5MB</small>
@@ -578,8 +592,8 @@ function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
         <input placeholder="거래처명" value={name} onChange={(e) => setName(e.target.value)} />
         <input placeholder="지역 예: 1단지" value={region} onChange={(e) => setRegion(e.target.value)} />
         <input placeholder="가게 전화번호" value={storePhone} onChange={(e) => setStorePhone(e.target.value)} />
-        <input placeholder="사업자번호" value={businessNumber} onChange={(e) => setBusinessNumber(e.target.value)} />
-        <input placeholder="가게 주소" value={address} onChange={(e) => setAddress(e.target.value)} />
+        <input className="customer-business-number" placeholder="사업자번호" value={businessNumber} onChange={(e) => setBusinessNumber(e.target.value)} />
+        <input className="customer-address" placeholder="가게 주소" value={address} onChange={(e) => setAddress(e.target.value)} />
         <select value={priceGroup} onChange={(e) => setPriceGroup(e.target.value)}><option value="A">가격 A그룹</option><option value="B">가격 B그룹</option></select>
         <input placeholder="최초 인증번호 6자리" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} />
         <button className="admin-primary" type="button" onClick={() => void create()} disabled={!code.trim() || !name.trim() || pin.length !== 6}>+ 거래처 추가</button>
@@ -650,7 +664,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
 
   function addManualItem() {
     if (!product || !optionLabel || qty <= 0) return;
-    setManualItems((current) => [...current, { productId: product.id, productName: product.name, optionLabel, quantity: qty }]);
+    setManualItems((current) => [...current, { productId: product.id, productName: product.name, optionLabel, quantity: Math.max(1, Math.round(qty)) }]);
   }
 
   async function createManualOrder(confirmAnomaly = false) {
@@ -726,8 +740,8 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
             )}
           </div>
           <select value={optionLabel} onChange={(e) => setOptionLabel(e.target.value)}>{(product?.packOptions ?? []).map((o) => <option key={o.label}>{o.label}</option>)}</select>
-          <div className="manual-qty-unit"><input type="number" min="0.001" step="0.001" value={qty} onChange={(e) => setQty(Number(e.target.value || 0))} /><b>{optionLabel || "단위"}</b></div>
-          <button type="button" onClick={addManualItem}>품목 추가</button>
+          <div className="manual-qty-unit"><input type="number" min="0" step="1" value={qty} onChange={(e) => setQty(Math.max(0, Math.round(Number(e.target.value || 0))))} /><b>{optionLabel || "단위"}</b></div>
+          <button type="button" className="manual-add-item" onClick={addManualItem}>품목 추가</button>
         </div>
         {manualItems.length > 0 && <div className="manual-items">{manualItems.map((item, index) => <span key={`${item.productId}-${index}`}>{item.productName} {item.quantity}{item.optionLabel}<button type="button" onClick={() => setManualItems((x) => x.filter((_, i) => i !== index))}>×</button></span>)}</div>}
         <button className="admin-primary" type="button" disabled={!customerId || !manualItems.length} onClick={() => void createManualOrder(false)}>이 주문 접수</button>
@@ -735,7 +749,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
 
       <div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>주문</th><th>지역</th><th>품목</th><th>금액</th><th>상태/처리</th></tr></thead><tbody>
         {orders.slice(0, 80).map((o) => <tr key={o.id}>
-          <td><b>{o.customerCode} · {o.customerName} {o.isAdditional && <em className="additional-badge">🚨 추가발주</em>}</b><span>배송 {o.deliveryDate || "미지정"} · {o.createdAt} · {o.createdByStaffName || o.source}</span></td><td>{o.region || "미지정"}</td>
+          <td><b>{o.customerCode} · {o.customerName} {o.isAdditional && <em className="additional-badge">🚨 추가발주</em>}</b><span>배송 {o.deliveryDate || "미지정"} · <strong className="order-period-badge">{orderPeriod(o.createdAt)}</strong> · {o.createdAt} · {o.createdByStaffName || o.source}</span></td><td>{o.region || "미지정"}</td>
           <td><div className="order-item-lines">{o.items.map((i) => <div className="order-item-admin" key={i.id}><button type="button" title={o.status === "shipped" ? "출고완료 품목" : "단가수정"} onClick={() => { if (o.status === "shipped") return; const next = window.prompt(`${i.productName} 단가`, String(i.unitPrice)); if (next !== null && Number(next) >= 0) void action({ action: "update-price", id: o.id, itemId: i.id, unitPrice: Number(next) }); }}>{i.productName} {i.quantity}{i.optionLabel} · {new Intl.NumberFormat("ko-KR").format(i.unitPrice)}원</button>{o.status === "shipped" && <span className="shipment-adjust-buttons"><button type="button" onClick={() => { const q = window.prompt(`${i.productName} 반품 수량 (${i.optionLabel})`, "1"); if (q && Number(q) > 0) void action({ action: "adjust-shipment", id: o.id, itemId: i.id, quantity: Number(q), adjustmentType: "return" }); }}>반품</button><button type="button" onClick={() => { const q = window.prompt(`${i.productName} 미배송 수량 (${i.optionLabel})`, "1"); if (q && Number(q) > 0) void action({ action: "adjust-shipment", id: o.id, itemId: i.id, quantity: Number(q), adjustmentType: "missing" }); }}>미배송</button></span>}</div>)}</div>{o.adjustments?.length > 0 && <div className="adjustment-history">{o.adjustments.map((a) => <span key={a.id}>{a.type === "missing" ? "미배송" : "반품"} {a.quantity} · -{new Intl.NumberFormat("ko-KR").format(a.amount)}원</span>)}</div>}</td>
           <td>{new Intl.NumberFormat("ko-KR").format(o.total)}원</td>
           <td><div className="row-actions"><span>{o.status === "shipped" ? "출고완료" : o.status === "cancelled" ? "취소" : o.printedAt ? "출력완료" : "접수"}</span>{o.status !== "shipped" && o.status !== "cancelled" && <><button type="button" onClick={() => { if (window.confirm(`${o.customerName} 주문을 출고확정할까요? 재고와 미수금이 반영됩니다.`)) void action({ action: "ship", id: o.id }); }}>출고확정</button><button type="button" onClick={() => { if (window.confirm("이 주문을 취소할까요?")) void action({ action: "cancel", id: o.id }); }}>취소</button></>}</div></td>
@@ -840,5 +854,5 @@ function StaffOpsPanel({ onError }: { onError: (value: string) => void }) {
   async function load() { const r = await fetch("/api/admin/staff", { cache: "no-store" }); if (r.ok) setRows(((await r.json()) as { staff: StaffRow[] }).staff); }
   useEffect(() => { void load(); }, []);
   async function action(body: Record<string, unknown>) { try { onError(""); await jsonPost("/api/admin/staff", body); await load(); } catch (reason) { onError(reason instanceof Error ? reason.message : "직원 계정 작업 실패"); } }
-  return <section className="admin-section ops-section"><div className="admin-section-head"><div><h2>직원 계정 · 권한</h2><p>사무실은 전체 관리자, 배송기사는 배송기사 전용 앱을 사용합니다. 모든 계정은 개인별 작업이력이 남습니다.</p></div><div className="ops-metric"><b>{rows.filter((r) => r.role === "ADMIN").length}</b><span>관리자</span><b>{rows.filter((r) => r.role === "DRIVER").length}</b><span>배송기사</span></div></div><div className="staff-account-grid">{rows.map((row) => <article key={row.id} className={!Boolean(row.active) ? "disabled" : ""}><div><span className={`role-${row.role.toLowerCase()}`}>{row.role === "ADMIN" ? "관리자" : "배송기사"}</span><strong>{row.display_name}</strong><small>아이디 {row.username}</small></div><div><button type="button" onClick={() => { const pin = window.prompt(`${row.display_name} 새 6자리 PIN`); if (pin) void action({ action: "reset-pin", id: row.id, pin }); }}>PIN 변경</button><button type="button" onClick={() => void action({ action: "toggle", id: row.id, active: !Boolean(row.active) })}>{Boolean(row.active) ? "계정중지" : "사용"}</button></div></article>)}</div></section>;
+  return <section className="admin-section ops-section"><div className="admin-section-head"><div><h2>직원 계정 · 권한</h2><p>사무실은 전체 관리자, 배송기사는 배송기사 전용 앱을 사용합니다. 아이디와 PIN을 여기서 바로 변경할 수 있습니다.</p></div><div className="ops-metric"><b>{rows.filter((r) => r.role === "ADMIN").length}</b><span>관리자</span><b>{rows.filter((r) => r.role === "DRIVER").length}</b><span>배송기사</span></div></div><div className="staff-account-grid">{rows.map((row) => <article key={row.id} className={!Boolean(row.active) ? "disabled" : ""}><div><span className={`role-${row.role.toLowerCase()}`}>{row.role === "ADMIN" ? "관리자" : "배송기사"}</span><strong>{row.display_name}</strong><small>아이디 {row.username}</small></div><div><button type="button" onClick={() => { const username = window.prompt(`${row.display_name} 새 아이디`, row.username); if (username && username.trim() !== row.username) void action({ action: "update-username", id: row.id, username: username.trim() }); }}>아이디 변경</button><button type="button" onClick={() => { const pin = window.prompt(`${row.display_name} 새 6자리 PIN`); if (pin) void action({ action: "reset-pin", id: row.id, pin }); }}>PIN 변경</button><button type="button" onClick={() => void action({ action: "toggle", id: row.id, active: !Boolean(row.active) })}>{Boolean(row.active) ? "계정중지" : "사용"}</button></div></article>)}</div></section>;
 }
