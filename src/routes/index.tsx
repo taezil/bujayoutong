@@ -237,8 +237,8 @@ function StorePage() {
           <a href="/" className="brand-lockup" aria-label="부자유통 홈">
             <img src={BUJA_LOGO_DATA} alt="부자유통" />
           </a>
-          <div className="customer-head">
-            <span><b>{auth.customer.name}</b><small>{auth.customer.code}</small></span>
+          <div className="session-actions customer-session-actions">
+            <span><b>{auth.customer.name}</b><small>{auth.customer.code} · 거래처</small></span>
             <button type="button" onClick={logoutCustomer}>로그아웃</button>
           </div>
         </div>
