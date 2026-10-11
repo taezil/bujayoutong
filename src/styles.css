@@ -1646,3 +1646,34 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .manual-order-controls .manual-add-item { width: 100%; }
   .manual-submit-row { grid-template-columns: 1fr !important; }
 }
+
+
+/* Live alert unread emphasis */
+.audit-unread-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 5px;
+  border-radius: 999px;
+  background: #d92d20;
+  color: #fff;
+  font-size: 10px;
+  font-style: normal;
+  vertical-align: 2px;
+}
+.audit-item.unread { box-shadow: inset 0 0 0 1px rgba(217,45,32,.12); }
+.audit-item.unread.urgent { animation: auditNewPulse 1.2s ease 2; }
+.audit-new-dot {
+  border-radius: 999px;
+  padding: 2px 5px;
+  background: #d92d20;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .04em;
+}
+@keyframes auditNewPulse {
+  0%,100% { background: #fff8f7; }
+  50% { background: #ffe9e5; }
+}
