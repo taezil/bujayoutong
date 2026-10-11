@@ -3,8 +3,12 @@
   "name": "bujafood-order",
   "main": "dist/server/server.js",
   "compatibility_date": "2026-10-11",
-  "compatibility_flags": ["nodejs_compat"],
-  "observability": { "enabled": true },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "observability": {
+    "enabled": true
+  },
   "assets": {
     "directory": "./dist/client",
     "binding": "ASSETS",
@@ -15,6 +19,12 @@
       "binding": "DB",
       "database_name": "bujafood-db",
       "database_id": "062e1d43-f5cd-48ec-a359-8fb73bf95374"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "STORAGE",
+      "bucket_name": "bujafood-images"
     }
   ]
 }
