@@ -34,419 +34,213 @@ function AdminPage() {
   const [editing, setEditing] = useState<Product | "new" | null>(null);
 
   const loadStore = useCallback(async () => {
-    const response = await fetch("/api/store", { cache: "no-store" });
-    if (!response.ok) throw new Error("ìƒí’ˆ ë°ì´í„°ë¥¼ ë¶ˆëŸ¬ì˜¤ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.");
-    setStore(await response.json() as StoreData);
-  }, []);
+    const response = await fetch("/api/store", { ÛŞ|áÈZ®Ëkºwµçkz»§Â+a…æş
+Ş§ûZŠWè­û¥–‹­¦ë]Û˜[YKÙ]˜[YWHH\ÙTİ]JˆŠNÂˆÛÛœİÜ™YÚ[Û‹Ù]™YÚ[Û—HH\ÙTİ]JˆŠNÂˆÛÛœİÜšXÙQÜ›İ\Ù]šXÙQÜ›İ\HH\ÙTİ]JHŠNÂˆÛÛœİÜ[‹Ù][—HH\ÙTİ]JˆŠNÂˆÛÛœİÜ]Y\KÙ]]Y\WHH\ÙTİ]JˆŠNÂ‚ˆ\Ş[˜È[˜İ[ÛˆØY
 
-  const loadStatus = useCallback(async () => {
-    const response = await fetch("/api/admin/status", { cache: "no-store" });
-    const next = await response.json() as AdminStatus;
-    setStatus(next);
-    if (next.authenticated) await loadStore();
-  }, [loadStore]);
+HÂˆÛÛœİ™\ÜÛœÙHH]ØZ]™]Ú
+‹Ø\KØYZ[‹Øİ\İÛY\œÈ‹ÈØXÚNˆ››Ë\İÜ™HˆJNÂˆYˆ
+\™\ÜÛœÙK›ÚÊH™]\›ÂˆÛÛœİ]HH]ØZ]™\ÜÛœÙKšœÛÛŠ
+H\ÈÈİ\İÛY\œÎˆYZ[İ\İÛY\–×HNÂˆÙ]İ\İÛY\œÊ]K˜İ\İÛY\œÊNÂˆBˆ\ÙQY™™Xİ
 
-  useEffect(() => {
-    void loadStatus().catch((reason) => setError(reason instanceof Error ? reason.message : "ê´€ë¦¬ì í™”ë©´ì„ ë¶ˆëŸ¬ì˜¤ì§€ ëª»í–ˆìŠµë‹ˆë‹¤."));
-  }, [loadStatus]);
 
-  async function setup(event: React.FormEvent) {
-    event.preventDefault();
-    setError("");
-    try {
-      await jsonPost("/api/admin/setup", { key: setupKey, password });
-      setPassword("");
-      setSetupKey("");
-      await loadStatus();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "ì„¤ì •ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
-    }
-  }
+HOˆÈ›ÚYØY
 
-  async function login(event: React.FormEvent) {
-    event.preventDefault();
-    setError("");
-    try {
-      await jsonPost("/api/admin/login", { password });
-      setPassword("");
-      await loadStatus();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "ë¡œê·¸ì¸ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
-    }
-  }
+NÈK×JNÂ‚ˆ\Ş[˜È[˜İ[ÛˆÜ™X]J
+HÂˆHÂˆÛ‘\œ›ÜŠˆŠNÂˆ]ØZ]œÛÛ”Üİ
+‹Ø\KØYZ[‹Øİ\İÛY\œÈ‹ÈXİ[Ûˆ˜Ü™X]H‹ÛÙK˜[YK™YÚ[Û‹šXÙQÜ›İ\[ˆJNÂˆÙ]ÛÙJˆŠNÈÙ]˜[YJˆŠNÈÙ]™YÚ[ÛŠˆŠNÈÙ][ŠˆŠNÂˆ]ØZ]ØY
 
-  async function logout() {
-    await jsonPost("/api/admin/logout", {});
-    setStore(null);
-    setStatus({ setupRequired: false, authenticated: false });
-  }
+NÂˆHØ]Ú
+™X\ÛÛŠHÈÛ‘\œ›ÜŠ™X\ÛÛˆ[œİ[˜Ù[Ùˆ\œ›ÜˆÈ™X\ÛÛ‹›Y\ÜØYÙHˆº¬l:ç¦;,¦;-¥:¬ ;%ä;"é;c*;e¢;"­zââ:âéˆŠNÈBˆB‚ˆ\Ş[˜È[˜İ[ÛˆXİ[ÛŠ›ÙNˆ™XÛÜ™İš[™Ë[šÛ›İÛŠHÂˆHÈÛ‘\œ›ÜŠˆŠNÈ]ØZ]œÛÛ”Üİ
+‹Ø\KØYZ[‹Øİ\İÛY\œÈ‹›ÙJNÈ]ØZ]ØY
 
-  if (!status) return <AdminShell><p className="admin-loading">ê´€ë¦¬ì ì •ë³´ë¥¼ í™•ì¸í•˜ëŠ” ì¤‘ì…ë‹ˆë‹¤.</p></AdminShell>;
+NÈBˆØ]Ú
+™X\ÛÛŠHÈÛ‘\œ›ÜŠ™X\ÛÛˆ[œİ[˜Ù[Ùˆ\œ›ÜˆÈ™X\ÛÛ‹›Y\ÜØYÙHˆº¬l:ç¦;,¦;'¤{%á{%ä;"é;c*;e¢;"­zââ:âéˆŠNÈBˆB‚ˆÛÛœİ™YYHH]Y\Kš[J
+KÓİÙ\Ø\ÙJ
+NÂˆÛÛœİš\ÚX›HHİ\İÛY\œË™š[\Š
+ÊHOˆ[™YYH	ØË˜ÛÙ_H	ØË›˜[Y_H	ØËœ™YÚ[ÛŸXÓİÙ\Ø\ÙJ
+Kš[˜ÛY\Ê™YYJJNÂˆÛÛœİİ[™XÙZ]˜X›HHİ\İÛY\œËœ™YXÙJ
+İ[KÊHOˆİ[H
+ÈËœ™XÙZ]˜X›K
+NÂ‚ˆ™]\›ˆ
+ˆÙXİ[ÛˆÛ\ÜÓ˜[YOH˜YZ[‹\ÙXİ[ÛˆÜË\ÙXİ[Ûˆ‚ˆ]ˆÛ\ÜÓ˜[YOH˜YZ[‹\ÙXİ[Û‹ZXY‚ˆ]º¬l:ç¦;,¦0­È:ëî;"&:®"Úº¬l:ç¦;,¦:èg:­î;'n;)à;%ëK:¬ :¬ªz­î:èîK:ëî;"&:®":¬ï;'¡z®";'a:­ :é«;ejzââ:âéÜÙ]‚ˆ]ˆÛ\ÜÓ˜[YOH›ÜË[Y]šXÈØİ\İÛY\œË›[™İOØÜ[º¬l:ç¦;,¦ÜÜ[Û™]È[“[X™\‘›Ü›X]
+šÛËRÔˆŠK™›Ü›X]
+İ[™XÙZ]˜X›J_{&äØÜ[»-'H:ëî;"&ÜÜ[Ù]‚ˆÙ]‚ˆ]ˆÛ\ÜÓ˜[YOH˜İ\İÛY\‹XÜ™X]KYÜšY‚ˆ[œ]XÙZÛ\Hº¬l:ç¦;,¦:ì¢;f.;&"ˆLNˆ˜[YO^ØÛÙ_HÛÚ[™ÙO^ÊJHOˆÙ]ÛÙJK\™Ù]˜[YJ_HÏ‚ˆ[œ]XÙZÛ\Hº¬l:ç¦;,¦:ê¡Hˆ˜[YO^Û˜[Y_HÛÚ[™ÙO^ÊJHOˆÙ]˜[YJK\™Ù]˜[YJ_HÏ‚ˆ[œ]XÙZÛ\H»)à;%ëH;&"ˆzâê;)àˆ˜[YO^Ü™YÚ[ÛŸHÛÚ[™ÙO^ÊJHOˆÙ]™YÚ[ÛŠK\™Ù]˜[YJ_HÏ‚ˆÙ[Xİ˜[YO^ÜšXÙQÜ›İ\HÛÚ[™ÙO^ÊJHOˆÙ]šXÙQÜ›İ\
+K\™Ù]˜[YJ_OÜ[Ûˆ˜[YOHHº¬ :¬ªHz­î:èîOÛÜ[ÛÜ[Ûˆ˜[YOHˆº¬ :¬ªHº­î:èîOÛÜ[ÛÜÙ[Xİ‚ˆ[œ]XÙZÛ\H»-g;-";'n;)§zì¢;f.»'¤:é«ˆ[œ][ÙOH›[Y\šXÈˆ˜[YO^Ü[ŸHÛÚ[™ÙO^ÊJHOˆÙ][ŠK\™Ù]˜[YKœ™\XÙJ×ÙËˆŠKœÛXÙJŠJ_HÏ‚ˆ]ÛˆÛ\ÜÓ˜[YOH˜YZ[‹\š[X\Hˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆ›ÚYÜ™X]J
+_H\ØX›Y^ÈXÛÙKš[J
+H[˜[YKš[J
+H[‹›[™İOOHŸOŠÈ:¬l:ç¦;,¦;-¥:¬ Ø]Û‚ˆÙ]‚ˆ[œ]Û\ÜÓ˜[YOH›ÜË\ÙX\˜ÚˆXÙZÛ\Hº¬l:ç¦;,¦:ì¢;f.0­û à{f.0­û)à;%ëH:¬ ; âHˆ˜[YO^Ü]Y\_HÛÚ[™ÙO^ÊJHOˆÙ]]Y\JK\™Ù]˜[YJ_HÏ‚ˆ]ˆÛ\ÜÓ˜[YOH›ÜË]X›K]Ü˜\X›HÛ\ÜÓ˜[YOH›ÜË]X›HXYº¬l:ç¦;,¦İ»)à;%ëOİº­î:èîOİºëî;"&:®"İº­ :é«İİİXY›ÙO‚ˆİš\ÚX›K›X\
 
-  if (status.setupRequired) {
-    return (
-      <AdminShell>
-        <div className="admin-auth-card">
-          <h1>ê´€ë¦¬ì ì²« ì„¤ì •</h1>
-          <p>ì²˜ìŒ í•œ ë²ˆë§Œ ì´ˆê¸° ì„¤ì • ì½”ë“œì™€ ìƒˆ ë¹„ë°€ë²ˆí˜¸ë¥¼ ì…ë ¥í•©ë‹ˆë‹¤.</p>
-          <form onSubmit={setup}>
-            <label>ì´ˆê¸° ì„¤ì • ì½”ë“œ<input value={setupKey} onChange={(e) => setSetupKey(e.target.value)} autoComplete="off" /></label>
-            <label>ìƒˆ ë¹„ë°€ë²ˆí˜¸<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} autoComplete="new-password" /></label>
-            {error && <p className="form-error">{error}</p>}
-            <button type="submit">ê´€ë¦¬ì ì„¤ì • ì™„ë£Œ</button>
-          </form>
-        </div>
-      </AdminShell>
-    );
-  }
+ÊHOˆˆÙ^O^ØËšYHÛ\ÜÓ˜[YO^ÈXË˜Xİ]™HÈœ›İËY\ØX›YˆˆˆŸO‚ˆØË˜ÛÙ_OØÜ[ØË›˜[Y_OÜÜ[İØËœ™YÚ[Ûˆºëî;)à;(%HŸOİØËœšXÙQÜ›İ\OİÛ\ÜÓ˜[YO^ØËœ™XÙZ]˜X›HˆÈ›[Û™^K]Ø\›ˆˆˆˆŸOÛ™]È[“[X™\‘›Ü›X]
+šÛËRÔˆŠK™›Ü›X]
+Ëœ™XÙZ]˜X›J_{&äİ‚ˆ]ˆÛ\ÜÓ˜[YOHœ›İËXXİ[ÛœÈ‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆÈÛÛœİ[[İ[HÚ[™İËœ›Û\
+	ØË›˜[Y_H;'¡z®";%hX
+NÈYˆ
+[[İ[	‰ˆ[X™\Š[[İ[
+Hˆ
+H›ÚYXİ[ÛŠÈXİ[Ûˆœ^[Y[‹YˆËšY[[İ[ˆ[X™\Š[[İ[
+KY]Ùˆ˜˜[šÈˆJNÈ_O»'¡z®"Ø]Û‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆÈÛÛœİ™^HÚ[™İËœ›Û\
+» â»'¤:é«;'n;)§zì¢;f.‹İš[™ÊX]™›ÛÜŠL
+ÈX]œ˜[™ÛJ
+H
+ˆL
+JJNÈYˆ
+™^
+H›ÚYXİ[ÛŠÈXİ[Ûˆœ™\Ù]\[ˆ‹YˆËšY[ˆ™^JNÈ_O”SØ]Û‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆ›ÚYXİ[ÛŠÈXİ[Ûˆ›ÙÛİ]X[‹YˆËšYJ_Oºèg:­î;'n;-":®,;feØ]Û‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆ›ÚYXİ[ÛŠÈXİ[ÛˆÙÙÛH‹YˆËšYXİ]™NˆXË˜Xİ]™HJ_OØË˜Xİ]™HÈ»)${)àˆˆ» «;&ªHŸOØ]Û‚ˆÙ]İ‚ˆİŠ_Bˆİ›ÙOİX›OÙ]‚ˆÜÙXİ[Û‚ˆ
+NÂŸB‚™[˜İ[ÛˆÜ™\“ÜÔ[™[
+ÈİÜ™KÛ‘\œ›ÜˆNˆÈİÜ™NˆİÜ™Q]NÈÛ‘\œ›Üˆ
+˜[YNˆİš[™ÊHOˆ›ÚYJHÂˆÛÛœİÛÜ™\œËÙ]Ü™\œ×HH\ÙTİ]OYZ[“Ü™\–×OŠ×JNÂˆÛÛœİØİ\İÛY\œËÙ]İ\İÛY\œ×HH\ÙTİ]OYZ[İ\İÛY\–×OŠ×JNÂˆÛÛœİØİ\İÛY\’YÙ]İ\İÛY\’YHH\ÙTİ]JˆŠNÂˆÛÛœİÜ›ÙXİYÙ]›ÙXİYHH\ÙTİ]JİÜ™Kœ›ÙXİÖÌOËšYÏÈˆŠNÂˆÛÛœİ›ÙXİHİÜ™Kœ›ÙXİË™š[™
 
-  if (!status.authenticated) {
-    return (
-      <AdminShell>
-        <div className="admin-auth-card">
-          <h1>ê´€ë¦¬ì ë¡œê·¸ì¸</h1>
-          <p>ìƒí’ˆ, ê°€ê²©, í’ˆì ˆ, ì‚¬ì§„ê³¼ ì¹´í…Œê³ ë¦¬ë¥¼ ê´€ë¦¬í•©ë‹ˆë‹¤.</p>
-          <form onSubmit={login}>
-            <label>ë¹„ë°€ë²ˆí˜¸<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label>
-            {error && <p className="form-error">{error}</p>}
-            <button type="submit">ë¡œê·¸ì¸</button>
-          </form>
-        </div>
-      </AdminShell>
-    );
-  }
+
+HOˆšYOOH›ÙXİY
+HÏÈİÜ™Kœ›ÙXİÖÌNÂˆÛÛœİÛÜ[Û“X™[Ù]Ü[Û“X™[HH\ÙTİ]J›ÙXİËœXÚÓÜ[ÛœÖÌOË›X™[ÏÈˆŠNÂˆÛÛœİÜ]KÙ]]WHH\ÙTİ]JJNÂˆÛÛœİÛX[X[][\ËÙ]X[X[][\×HH\ÙTİ]O\œ˜^OÈ›ÙXİYˆİš[™ÎÈ›ÙXİ˜[YNˆİš[™ÎÈÜ[Û“X™[ˆİš[™ÎÈ]X[]Nˆ[X™\ˆOŠ×JNÂˆÛÛœİÜÛİ\˜ÙKÙ]Ûİ\˜ÙWHH\ÙTİ]JœÛ™HŠNÂ‚ˆ\Ş[˜È[˜İ[ÛˆØY
 
-  if (!store) return <AdminShell><p className="admin-loading">ìƒí’ˆì„ ë¶ˆëŸ¬ì˜¤ëŠ” ì¤‘ì…ë‹ˆë‹¤.</p></AdminShell>;
+HÂˆÛÛœİÛÜ‹Ü—HH]ØZ]›ÛZ\ÙK˜[
+Âˆ™]Ú
+‹Ø\KØYZ[‹ÛÜ™\œÈ‹ÈØXÚNˆ››Ë\İÜ™HˆJKˆ™]Ú
+‹Ø\KØYZ[‹Øİ\İÛY\œÈ‹ÈØXÚNˆ››Ë\İÜ™HˆJKˆJNÂˆYˆ
+Ü‹›ÚÊHÙ]Ü™\œÊ
 
-  return (
-    <AdminShell>
-      <div className="admin-dashboard">
-        <div className="admin-titlebar">
-          <div><p>ë¶€ììœ í†µ</p><h1>ìƒí’ˆ ê´€ë¦¬ì</h1><span>í˜„ì¬ {store.products.length}ê°œ ìƒí’ˆ Â· ë²„ì „ {store.version}</span></div>
-          <div className="admin-top-actions"><a href="/" target="_blank" rel="noreferrer">ê³ ê° í™”ë©´</a><button type="button" onClick={logout}>ë¡œê·¸ì•„ì›ƒ</button></div>
-        </div>
-        {error && <p className="admin-banner-error">{error}</p>}
-        <SettingsPanel store={store} onSaved={loadStore} onError={setError} />
-        <CategoryPanel store={store} onSaved={loadStore} onError={setError} />
-        <section className="admin-section">
-          <div className="admin-section-head">
-            <div><h2>ìƒí’ˆ</h2><p>ìƒí’ˆì€ ê³„ì† ì¶”ê°€Â·ìˆ˜ì •Â·ì‚­ì œí•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.</p></div>
-            <button type="button" className="admin-primary" onClick={() => setEditing("new")}>+ ìƒˆ ìƒí’ˆ ì¶”ê°€</button>
-          </div>
-          <div className="admin-product-list">
-            {store.products.map((product) => (
-              <div className="admin-product-row" key={product.id}>
-                <div className="admin-product-thumb">{product.photo ? <img src={product.photo} alt="" /> : <img src={BUJA_MARK_DATA} alt="" />}</div>
-                <div className="admin-product-copy"><strong>{product.name}</strong><span>{product.category} Â· {product.sub} Â· {product.unit}</span></div>
-                <div className="admin-product-price">{product.soldout ? <b className="red">í’ˆì ˆ</b> : <b>{displayPrice(product)}</b>}</div>
-                <button type="button" onClick={() => setEditing(product)}>ìˆ˜ì •</button>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-      {editing && (
-        <ProductEditor
-          product={editing === "new" ? makeNewProduct(store) : editing}
-          creating={editing === "new"}
-          categories={store.categories}
-          onClose={() => setEditing(null)}
-          onSaved={async () => { setEditing(null); await loadStore(); }}
-          onError={setError}
-        />
-      )}
-    </AdminShell>
-  );
-}
+]ØZ]Ü‹šœÛÛŠ
+JH\ÈÈÜ™\œÎˆYZ[“Ü™\–×HJK›Ü™\œÊNÂˆYˆ
+Ü‹›ÚÊHÂˆÛÛœİ\İH
 
-function AdminShell({ children }: { children: ReactNode }) {
-  return (
-    <div className="admin-page">
-      <header className="admin-brandbar"><a href="/" aria-label="ë¶€ììœ í†µ í™ˆ"><img src={BUJA_LOGO_DATA} alt="ë¶€ììœ í†µ" /></a></header>
-      <main className="admin-wrap">{children}</main>
-    </div>
-  );
-}
+]ØZ]Ü‹šœÛÛŠ
+JH\ÈÈİ\İÛY\œÎˆYZ[İ\İÛY\–×HJK˜İ\İÛY\œÎÂˆÙ]İ\İÛY\œÊ\İ
+NÂˆYˆ
+Xİ\İÛY\’Y	‰ˆ\İÌJHÙ]İ\İÛY\’Y
+\İÌKšY
+NÂˆBˆBˆ\ÙQY™™Xİ
 
-function SettingsPanel({ store, onSaved, onError }: { store: StoreData; onSaved: () => Promise<void>; onError: (value: string) => void }) {
-  const [sms, setSms] = useState(store.sms);
-  const [promoCategory, setPromoCategory] = useState(store.promoCategory);
-  useEffect(() => { setSms(store.sms); setPromoCategory(store.promoCategory); }, [store]);
 
-  async function save() {
-    try {
-      onError("");
-      await jsonPost("/api/admin/settings", { sms, promoCategory });
-      await onSaved();
-    } catch (reason) {
-      onError(reason instanceof Error ? reason.message : "ì„¤ì • ì €ì¥ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
-    }
-  }
+HOˆÈ›ÚYØY
 
-  return (
-    <section className="admin-section admin-settings">
-      <div><h2>ì£¼ë¬¸ ì„¤ì •</h2><p>ë¬¸ì ì£¼ë¬¸ ìˆ˜ì‹ ë²ˆí˜¸ì™€ í–‰ì‚¬í’ˆëª© ì¹´í…Œê³ ë¦¬ë¥¼ ì§€ì •í•©ë‹ˆë‹¤.</p></div>
-      <label>ë¬¸ì ìˆ˜ì‹ ë²ˆí˜¸<input value={sms} onChange={(e) => setSms(e.target.value)} /></label>
-      <label>í–‰ì‚¬ ì¹´í…Œê³ ë¦¬<select value={promoCategory} onChange={(e) => setPromoCategory(e.target.value)}>{Object.keys(store.categories).map((name) => <option key={name}>{name}</option>)}</select></label>
-      <button type="button" onClick={save}>ì„¤ì • ì €ì¥</button>
-    </section>
-  );
-}
+NÈK×JNÂˆ\ÙQY™™Xİ
 
-function CategoryPanel({ store, onSaved, onError }: { store: StoreData; onSaved: () => Promise<void>; onError: (value: string) => void }) {
-  const [newCategory, setNewCategory] = useState("");
 
-  async function action(body: Record<string, string>) {
-    try {
-      onError("");
-      await jsonPost("/api/admin/categories", body);
-      await onSaved();
-    } catch (reason) {
-      onError(reason instanceof Error ? reason.message : "ì¹´í…Œê³ ë¦¬ ì‘ì—…ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
-    }
-  }
+HOˆÂˆÛÛœİ™^HİÜ™Kœ›ÙXİË™š[™
 
-  return (
-    <section className="admin-section">
-      <div className="admin-section-head">
-        <div><h2>ì¹´í…Œê³ ë¦¬</h2><p>ì¹´í…Œê³ ë¦¬ì™€ ì„¸ë¶€ ë¶„ë¥˜ë„ ê³„ì† ì¶”ê°€Â·ìˆ˜ì •í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.</p></div>
-        <div className="inline-add">
-          <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="ìƒˆ ì¹´í…Œê³ ë¦¬" />
-          <button type="button" onClick={async () => {
-            if (!newCategory.trim()) return;
-            await action({ action: "add-category", name: newCategory });
-            setNewCategory("");
-          }}>ì¶”ê°€</button>
-        </div>
-      </div>
-      <div className="category-admin-grid">
-        {Object.entries(store.categories).map(([category, subs]) => (
-          <div className="category-admin-card" key={category}>
-            <div className="category-admin-title">
-              <strong>{category}{category === store.promoCategory ? " ğŸš¨" : ""}</strong>
-              <div>
-                <button type="button" onClick={() => {
-                  const name = window.prompt("ìƒˆ ì¹´í…Œê³ ë¦¬ëª…", category);
-                  if (name && name !== category) void action({ action: "rename-category", category, name });
-                }}>ì´ë¦„ë³€ê²½</button>
-                <button type="button" onClick={() => {
-                  if (window.confirm(`â€˜${category}â€™ ì¹´í…Œê³ ë¦¬ë¥¼ ì‚­ì œí• ê¹Œìš”? ìƒí’ˆì´ ë“¤ì–´ ìˆìœ¼ë©´ ì‚­ì œë˜ì§€ ì•ŠìŠµë‹ˆë‹¤.`)) {
-                    void action({ action: "delete-category", category });
-                  }
-                }}>ì‚­ì œ</button>
-              </div>
-            </div>
-            <ul>
-              {subs.map((sub) => (
-                <li key={sub}>
-                  <span>{sub}</span>
-                  <div>
-                    <button type="button" onClick={() => {
-                      const name = window.prompt("ìƒˆ ì„¸ë¶€ ì¹´í…Œê³ ë¦¬ëª…", sub);
-                      if (name && name !== sub) void action({ action: "rename-sub", category, sub, name });
-                    }}>ìˆ˜ì •</button>
-                    <button type="button" onClick={() => {
-                      if (window.confirm(`â€˜${sub}â€™ ì„¸ë¶€ ì¹´í…Œê³ ë¦¬ë¥¼ ì‚­ì œí• ê¹Œìš”?`)) void action({ action: "delete-sub", category, sub });
-                    }}>ì‚­ì œ</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <button type="button" className="add-sub" onClick={() => {
-              const name = window.prompt(`â€˜${category}â€™ì— ì¶”ê°€í•  ì„¸ë¶€ ì¹´í…Œê³ ë¦¬ëª…`);
-              if (name) void action({ action: "add-sub", category, name });
-            }}>+ ì„¸ë¶€ ì¹´í…Œê³ ë¦¬ ì¶”ê°€</button>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
+
+HOˆšYOOH›ÙXİY
+NÂˆYˆ
+™^	‰ˆ[™^œXÚÓÜ[ÛœËœÛÛYJ
+ÊHOˆË›X™[OOHÜ[Û“X™[
+JHÙ]Ü[Û“X™[
+™^œXÚÓÜ[ÛœÖÌOË›X™[ÏÈˆŠNÂˆKÜ›ÙXİYÜ[Û“X™[İÜ™Kœ›ÙXİ×JNÂ‚ˆ\Ş[˜È[˜İ[ÛˆXİ[ÛŠ›ÙNˆ™XÛÜ™İš[™Ë[šÛ›İÛŠHÂˆHÈÛ‘\œ›ÜŠˆŠNÈ]ØZ]œÛÛ”Üİ
+‹Ø\KØYZ[‹ÛÜ™\œÈ‹›ÙJNÈ]ØZ]ØY
 
-function sanitizeKgNumber(value: string) {
-  const normalized = value.replace(/,/g, ".").replace(/[^0-9.]/g, "");
-  const [whole = "", ...decimals] = normalized.split(".");
-  return decimals.length ? `${whole}.${decimals.join("")}` : whole;
-}
+NÈBˆØ]Ú
+™X\ÛÛŠHÈÛ‘\œ›ÜŠ™X\ÛÛˆ[œİ[˜Ù[Ùˆ\œ›ÜˆÈ™X\ÛÛ‹›Y\ÜØYÙHˆ»(ï:ë.;'¤{%á{%ä;"é;c*;e¢;"­zââ:âéˆŠNÈBˆB‚ˆ[˜İ[ÛˆYX[X[][J
+HÂˆYˆ
+\›ÙXİ[Ü[Û“X™[]HH
+H™]\›ÂˆÙ]X[X[][\Ê
+İ\œ™[
+HOˆË‹‹˜İ\œ™[È›ÙXİYˆ›ÙXİšY›ÙXİ˜[YNˆ›ÙXİ›˜[YKÜ[Û“X™[]X[]Nˆ]HWJNÂˆB‚ˆ\Ş[˜È[˜İ[ÛˆÜ™X]SX[X[Ü™\Š
+HÂˆYˆ
+Xİ\İÛY\’Y[X[X[][\Ë›[™İ
+H™]\›Âˆ]ØZ]Xİ[ÛŠÈXİ[Ûˆ˜Ü™X]K[Ü™\ˆ‹İ\İÛY\’YÛİ\˜ÙK][\ÎˆX[X[][\Ë›X\
 
-function unitInputValue(unit: string) {
-  const value = unit.trim().toLowerCase();
-  const kg = value.match(/^([0-9]+(?:\.[0-9]+)?)\s*kg$/);
-  if (kg) return kg[1] ?? "";
-  const grams = value.match(/^([0-9]+(?:\.[0-9]+)?)\s*g$/);
-  if (grams) {
-    const converted = Number(grams[1]) / 1000;
-    return Number.isFinite(converted) ? String(converted) : "";
-  }
-  return sanitizeKgNumber(value);
-}
+JHOˆ
+È›ÙXİYˆKœ›ÙXİYÜ[Û“X™[ˆK›Ü[Û“X™[]X[]NˆKœ]X[]HJJHJNÂˆÙ]X[X[][\Ê×JNÂˆB‚ˆÛÛœİXİ]™HHÜ™\œË™š[\Š
+ÊHOˆËœİ]\ÈOOHœ™XÙZ]™YˆËœİ]\ÈOOHœ™\\š[™ÈŠNÂˆÛÛœİ™YÚ[ÛœÈH\œ˜^K™œ›ÛJ™]ÈÙ]
+Xİ]™K›X\
 
-function kgUnitFromInput(value: string) {
-  const cleaned = sanitizeKgNumber(value);
-  return cleaned ? `${cleaned}kg` : "";
-}
+ÊHOˆËœ™YÚ[Ûˆºëî;)à;(%HŠJJKœÛÜ
 
-function normalizeStoredUnit(unit: string) {
-  const value = unit.trim().toLowerCase();
-  if (!value) return "";
-  if (/^[0-9]+(?:\.[0-9]+)?\s*kg$/.test(value)) return `${unitInputValue(value)}kg`;
-  if (/^[0-9]+(?:\.[0-9]+)?\s*g$/.test(value)) return `${unitInputValue(value)}kg`;
-  if (/^[0-9]+(?:\.[0-9]+)?$/.test(value)) return `${value}kg`;
-  return unit.trim();
-}
+NÂ‚ˆ™]\›ˆ
+ˆÙXİ[ÛˆÛ\ÜÓ˜[YOH˜YZ[‹\ÙXİ[ÛˆÜË\ÙXİ[Ûˆ‚ˆ]ˆÛ\ÜÓ˜[YOH˜YZ[‹\ÙXİ[Û‹ZXY]»(ï:ë.0­È;(!;dg;-§:è)H0­È;-§:¬èÚ»%lKû(!;feúë.;'¤;(ï:ë.;'a;eg:¬ìû%ä;!';,¦:é«;ef:¬è;)à;%ëzìá;"è:­ç:í¡:éã;-§:è){ejzââ:âéÜÙ]]ˆÛ\ÜÓ˜[YOH›ÜË[Y]šXÈØXİ]™K›[™İOØÜ[»-§:¬è:ã :®,ÜÜ[ØXİ]™K™š[\Š
+ÊHOˆ[Ëœš[Y]
+K›[™İOØÜ[ºëî;-§:è)OÜÜ[Ù]Ù]‚‚ˆ]ˆÛ\ÜÓ˜[YOHœ™YÚ[Û‹XØ\™È‚ˆÜ™YÚ[ÛœË›X\
 
-function ProductEditor({
-  product,
-  creating,
-  categories,
-  onClose,
-  onSaved,
-  onError,
-}: {
-  product: Product;
-  creating: boolean;
-  categories: Record<string, string[]>;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-  onError: (value: string) => void;
-}) {
-  const [draft, setDraft] = useState<Product>(() => structuredClone(product));
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
-  const categoryNames = Object.keys(categories);
+™YÚ[ÛŠHOˆÂˆÛÛœİ›İÜÈHXİ]™K™š[\Š
+ÊHOˆ
+Ëœ™YÚ[Ûˆºëî;)à;(%HŠHOOH™YÚ[ÛŠNÂˆÛÛœİ[œš[YH›İÜË™š[\Š
+ÊHOˆ[Ëœš[Y]
+K›[™İÂˆ™]\›ˆ]ˆÛ\ÜÓ˜[YOHœ™YÚ[Û‹XØ\™ˆÙ^O^Ü™YÚ[ÛŸO]İ›Û™ÏÜ™YÚ[ÛŸOÜİ›Û™ÏÜ[»(ï:ë.Ü›İÜË›[™İz¬m0­È;"è:­çİ[œš[Yz¬mÜÜ[Ù]]‚ˆ]Ûˆ\OH˜]Ûˆˆ\ØX›Y^È][œš[YHÛÛXÚÏ^Ê
+HOˆÚ[™İË›Ü[ŠØ\KØYZ[‹Üš[[Ü™\œÏÜ™YÚ[ÛIÙ[˜ÛÙUT’PÛÛ\Û™[
+™YÚ[ÛŠ_I[œš[YLX—Ø›[šÈŠ_O»"è:­ç:í¡;-§:è)OØ]Û‚ˆ]Ûˆ\OH˜]Ûˆˆ\ØX›Y^È][œš[YHÛÛXÚÏ^Ê
+HOˆÈYˆ
+Ú[™İË˜ÛÛ™š\›J	Ü™YÚ[ÛŸH;"è:­ç;(ï:ë.;'a;-§:è){&a:èã:èg;dg;"ç;eh:®c;&¥Ø
+JH›ÚYXİ[ÛŠÈXİ[Ûˆ›X\šË\™YÚ[Û‹\š[Y‹™YÚ[ÛˆJNÈ_O»-§:è){&a:èãØ]Û‚ˆÙ]Ù]ÂˆJ_BˆÈ\™YÚ[ÛœË›[™İ	‰ˆÛ\ÜÓ˜[YOH›ÜËY[\H»f!;'«;-§:¬è:ã :®,;(ï:ë.;'m;%á»"­zââ:âéÜŸBˆÙ]‚‚ˆ]ˆÛ\ÜÓ˜[YOH›X[X[[Ü™\‹X›Ş‚ˆ]Ï»(!;fe0­úë.;'¤;(ï:ë.:ã ;"è;'¡zè)OÚÏ»)à{&ä;'m;'m;fe:êm;%ä;!';'¡zè){ef:êm;%lH;(ï:ë.:¬ï:ãæ{'o;ef:¬£;'«:¬è0­úëî;"&0­û(!;dg;gd:é¡;%ä:äé;%­:¬$zââ:âéÜÙ]‚ˆ]ˆÛ\ÜÓ˜[YOH›X[X[[Ü™\‹XÛÛ›ÛÈ‚ˆÙ[Xİ˜[YO^Øİ\İÛY\’YHÛÚ[™ÙO^ÊJHOˆÙ]İ\İÛY\’Y
+K\™Ù]˜[YJ_OØİ\İÛY\œË™š[\Š
+ÊHOˆË˜Xİ]™JK›X\
 
-  useEffect(() => {
-    if (!categories[draft.category]?.includes(draft.sub)) {
-      setDraft((current) => ({ ...current, sub: categories[current.category]?.[0] ?? "" }));
-    }
-  }, [draft.category, draft.sub, categories]);
+ÊHOˆÜ[ÛˆÙ^O^ØËšYH˜[YO^ØËšYOØË˜ÛÙ_H0­ÈØË›˜[Y_OÛÜ[ÛŠ_OÜÙ[Xİ‚ˆÙ[Xİ˜[YO^ÜÛİ\˜Ù_HÛÚ[™ÙO^ÊJHOˆÙ]Ûİ\˜ÙJK\™Ù]˜[YJ_OÜ[Ûˆ˜[YOHœÛ™H»(!;fe:ì';(ïÛÜ[ÛÜ[Ûˆ˜[YOHœÛ\Èºë.;'¤:ì';(ïÛÜ[ÛÜ[Ûˆ˜[YOH˜YZ[ˆ»)à{(${'¡zè)OÛÜ[ÛÜÙ[Xİ‚ˆÙ[Xİ˜[YO^Ü›ÙXİYHÛÚ[™ÙO^ÊJHOˆÙ]›ÙXİY
+K\™Ù]˜[YJ_OÜİÜ™Kœ›ÙXİË›X\
 
-  function updateOption(index: number, patch: Partial<PackOption>) {
-    setDraft((current) => ({
-      ...current,
-      packOptions: current.packOptions.map((option, i) => i === index ? { ...option, ...patch } : option),
-    }));
-  }
+
+HOˆÜ[ÛˆÙ^O^ÜšYH˜[YO^ÜšYOÜ›˜[Y_OÛÜ[ÛŠ_OÜÙ[Xİ‚ˆÙ[Xİ˜[YO^ÛÜ[Û“X™[HÛÚ[™ÙO^ÊJHOˆÙ]Ü[Û“X™[
+K\™Ù]˜[YJ_OÊ›ÙXİËœXÚÓÜ[ÛœÈÏÈ×JK›X\
 
-  async function save() {
-    setBusy(true);
-    onError("");
-    try {
-      let photo = draft.photo;
-      if (photoFile) {
-        const form = new FormData();
-        form.append("file", photoFile);
-        const upload = await fetch("/api/photo", { method: "POST", body: form });
-        const data = await upload.json() as { url?: string; error?: string };
-        if (!upload.ok || !data.url) throw new Error(data.error || "ì‚¬ì§„ ì—…ë¡œë“œì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
-        photo = data.url;
-      }
-      await jsonPost("/api/admin/products", {
-        action: creating ? "create" : "update",
-        product: { ...draft, unit: normalizeStoredUnit(draft.unit), photo },
-      });
-      await onSaved();
-    } catch (reason) {
-      onError(reason instanceof Error ? reason.message : "ìƒí’ˆ ì €ì¥ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
-    } finally {
-      setBusy(false);
-    }
-  }
+ÊHOˆÜ[ÛˆÙ^O^ÛË›X™[OÛË›X™[OÛÜ[ÛŠ_OÜÙ[Xİ‚ˆ[œ]\OH›[X™\ˆˆZ[HŒŒHˆİ\HŒŒHˆ˜[YO^Ü]_HÛÚ[™ÙO^ÊJHOˆÙ]]J[X™\ŠK\™Ù]˜[YH
+J_HÏ‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^ØYX[X[][_O»d¢:êªH;-¥:¬ Ø]Û‚ˆÙ]‚ˆÛX[X[][\Ë›[™İˆ	‰ˆ]ˆÛ\ÜÓ˜[YOH›X[X[Z][\ÈÛX[X[][\Ë›X\
 
-  async function remove() {
-    if (creating || !window.confirm(`â€˜${draft.name}â€™ ìƒí’ˆì„ ì‚­ì œí• ê¹Œìš”?`)) return;
-    setBusy(true);
-    try {
-      await jsonPost("/api/admin/products", { action: "delete", id: draft.id });
-      await onSaved();
-    } catch (reason) {
-      onError(reason instanceof Error ? reason.message : "ìƒí’ˆ ì‚­ì œì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
-    } finally {
-      setBusy(false);
-    }
-  }
+][K[™^
+HOˆÜ[ˆÙ^O^Ø	Ú][Kœ›ÙXİYKIÚ[™^XOÚ][Kœ›ÙXİ˜[Y_HÚ][Kœ]X[]_^Ú][K›Ü[Û“X™[O]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆÙ]X[X[][\Ê
+
+HOˆ™š[\Š
+ËJHOˆHOOH[™^
+J_O°åÏØ]ÛÜÜ[Š_OÙ]ŸBˆ]ÛˆÛ\ÜÓ˜[YOH˜YZ[‹\š[X\Hˆ\OH˜]Ûˆˆ\ØX›Y^ÈXİ\İÛY\’Y[X[X[][\Ë›[™İHÛÛXÚÏ^Ê
+HOˆ›ÚYÜ™X]SX[X[Ü™\Š
+_O»'m;(ï:ë.;(${"&Ø]Û‚ˆÙ]‚‚ˆ]ˆÛ\ÜÓ˜[YOH›ÜË]X›K]Ü˜\X›HÛ\ÜÓ˜[YOH›ÜË]X›HXY»(ï:ë.İ»)à;%ëOİ»d¢:êªOİº®";%hOİ» à{`çû,¦:é«İİİXY›ÙO‚ˆÛÜ™\œËœÛXÙJ
+K›X\
 
-  return (
-    <div className="editor-backdrop" onMouseDown={(e) => { if (e.currentTarget === e.target && !busy) onClose(); }}>
-      <section className="product-editor" role="dialog" aria-modal="true">
-        <div className="editor-head">
-          <div><p>{creating ? "ìƒˆ ìƒí’ˆ" : "ìƒí’ˆ ìˆ˜ì •"}</p><h2>{draft.name || "ìƒí’ˆ ì •ë³´ ì…ë ¥"}</h2></div>
-          <button type="button" onClick={onClose} disabled={busy}>Ã—</button>
-        </div>
-        <div className="editor-grid">
-          <label>ìƒí’ˆëª…<input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
-          <label>ê·œê²©
-            <span className="unit-input-wrap">
-              <input
-                inputMode="decimal"
-                value={unitInputValue(draft.unit)}
-                onChange={(e) => setDraft({ ...draft, unit: kgUnitFromInput(e.target.value) })}
-                placeholder="ì˜ˆ: 5 / 0.5"
-              />
-              <b>kg</b>
-            </span>
-            <small className="field-help">ìˆ«ìë§Œ ì…ë ¥í•˜ë©´ kgê°€ ìë™ìœ¼ë¡œ ë¶™ìŠµë‹ˆë‹¤. 500gì€ 0.5ë¡œ ì…ë ¥í•˜ì„¸ìš”.</small>
-          </label>
-          <label>ì¹´í…Œê³ ë¦¬
-            <select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value, sub: categories[e.target.value]?.[0] ?? "" })}>
-              {categoryNames.map((name) => <option key={name}>{name}</option>)}
-            </select>
-          </label>
-          <label>ì„¸ë¶€ ì¹´í…Œê³ ë¦¬
-            <select value={draft.sub} onChange={(e) => setDraft({ ...draft, sub: e.target.value })}>
-              {(categories[draft.category] ?? []).map((name) => <option key={name}>{name}</option>)}
-            </select>
-          </label>
-          <label className="editor-photo">ìƒí’ˆ ì‚¬ì§„
-            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
-            <small>JPGÂ·PNGÂ·WebP, ìµœëŒ€ 5MB</small>
-          </label>
-          <label className="soldout-check"><input type="checkbox" checked={draft.soldout} onChange={(e) => setDraft({ ...draft, soldout: e.target.checked })} /> í’ˆì ˆë¡œ í‘œì‹œ</label>
-        </div>
+ÊHOˆˆÙ^O^ÛËšYO‚ˆÛË˜İ\İÛY\ÛÙ_H0­ÈÛË˜İ\İÛY\“˜[Y_OØÜ[ÛË˜Ü™X]Y]H0­ÈÛËœÛİ\˜Ù_OÜÜ[İÛËœ™YÚ[Ûˆºëî;)à;(%HŸOİ‚ˆ]ˆÛ\ÜÓ˜[YOH›Ü™\‹Z][K[[™\ÈÛËš][\Ë›X\
 
-        <div className="option-editor">
-          <div className="option-head">
-            <strong>íŒë§¤ ë‹¨ìœ„ì™€ ê°€ê²©</strong>
-            <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "ë°•ìŠ¤", price: null, step: 1 }] })}>+ ë‹¨ìœ„ ì¶”ê°€</button>
-          </div>
-          {draft.packOptions.map((option, index) => (
-            <div className="option-row" key={index}>
-              <label>ë‹¨ìœ„<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} /></label>
-              <label>ê°€ê²©<input inputMode="numeric" value={option.price ?? ""} placeholder="ê°€ê²© ë¬¸ì˜" onChange={(e) => updateOption(index, { price: e.target.value === "" ? null : Number(e.target.value) })} /></label>
-              <label>ìˆ˜ëŸ‰ ê°„ê²©<input inputMode="decimal" value={option.step} onChange={(e) => updateOption(index, { step: Number(e.target.value || 1) })} /></label>
-              <button type="button" onClick={() => setDraft({ ...draft, packOptions: draft.packOptions.filter((_, i) => i !== index) })}>ì‚­ì œ</button>
-            </div>
-          ))}
-        </div>
+JHOˆ]Ûˆ\OH˜]ÛˆˆÙ^O^ÚKšYH]OHºâê:¬ ;"&;(%HˆÛÛXÚÏ^Ê
+HOˆÈÛÛœİ™^HÚ[™İËœ›Û\
+	ÚKœ›ÙXİ˜[Y_H:âê:¬ İš[™ÊK[š]šXÙJJNÈYˆ
+™^OOH[	‰ˆ[X™\Š™^
+HH
+H›ÚYXİ[ÛŠÈXİ[Ûˆ\]K\šXÙH‹YˆËšY][RYˆKšY[š]šXÙNˆ[X™\Š™^
+HJNÈ_OÚKœ›ÙXİ˜[Y_HÚKœ]X[]_^ÚK›Ü[Û“X™[H0­ÈÛ™]È[“[X™\‘›Ü›X]
+šÛËRÔˆŠK™›Ü›X]
+K[š]šXÙJ_{&äØ]ÛŠ_OÙ]İ‚ˆÛ™]È[“[X™\‘›Ü›X]
+šÛËRÔˆŠK™›Ü›X]
+Ëİ[
+_{&äİ‚ˆ]ˆÛ\ÜÓ˜[YOHœ›İËXXİ[ÛœÈÜ[ÛËœİ]\ÈOOHœÚ\YˆÈ»-§:¬è;&a:èãˆˆËœİ]\ÈOOH˜Ø[˜Ù[YˆÈ»-ê;!£ˆˆËœš[Y]È»-§:è){&a:èãˆˆ»(${"&ŸOÜÜ[ÛËœİ]\ÈOOHœÚ\Yˆ	‰ˆËœİ]\ÈOOH˜Ø[˜Ù[Yˆ	‰ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆÈYˆ
+Ú[™İË˜ÛÛ™š\›J	ÛË˜İ\İÛY\“˜[Y_H;(ï:ë.;'a;-§:¬è;fe{(%{eh:®c;&¥È;'«:¬è;&`:ëî;"&:®";'m:ì&;& zä*zââ:âé˜
+JH›ÚYXİ[ÛŠÈXİ[ÛˆœÚ\‹YˆËšYJNÈ_O»-§:¬è;fe{(%OØ]Û]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆÈYˆ
+Ú[™İË˜ÛÛ™š\›J»'m;(ï:ë.;'a;-ê;!£;eh:®c;&¥ÈŠJH›ÚYXİ[ÛŠÈXİ[Ûˆ˜Ø[˜Ù[‹YˆËšYJNÈ_O»-ê;!£Ø]ÛÏŸOÙ]İ‚ˆİŠ_Bˆİ›ÙOİX›OÙ]‚ˆÜÙXİ[Û‚ˆ
+NÂŸB‚™[˜İ[Ûˆ[™[ÜSÜÔ[™[
+ÈÛ‘\œ›ÜˆNˆÈÛ‘\œ›Üˆ
+˜[YNˆİš[™ÊHOˆ›ÚYJHÂˆÛÛœİÜ›İÜËÙ]›İÜ×HH\ÙTİ]O[™[ÜT›İÖ×OŠ×JNÂˆÛÛœİÜ]Y\KÙ]]Y\WHH\ÙTİ]JˆŠNÂˆ\Ş[˜È[˜İ[ÛˆØY
 
-        <div className="editor-actions">
-          {!creating && <button type="button" className="danger" onClick={remove} disabled={busy}>ìƒí’ˆ ì‚­ì œ</button>}
-          <span />
-          <button type="button" onClick={onClose} disabled={busy}>ì·¨ì†Œ</button>
-          <button type="button" className="admin-primary" onClick={save} disabled={busy}>{busy ? "ì €ì¥ ì¤‘" : "ì €ì¥"}</button>
-        </div>
-      </section>
-    </div>
-  );
-}
+HÂˆÛÛœİ™\ÜÛœÙHH]ØZ]™]Ú
+‹Ø\KØYZ[‹Ú[™[ÜH‹ÈØXÚNˆ››Ë\İÜ™HˆJNÂˆYˆ
+\™\ÜÛœÙK›ÚÊH™]\›ÂˆÙ]›İÜÊ
 
-function makeNewProduct(store: StoreData): Product {
-  const category = Object.keys(store.categories)[0] ?? "";
-  return {
-    id: "",
-    name: "",
-    category,
-    sub: store.categories[category]?.[0] ?? "",
-    unit: "",
-    price: 0,
-    soldout: false,
-    photo: "",
-    packOptions: [{ label: "ë°•ìŠ¤", price: null, step: 1 }, { label: "ë´‰ì§€", price: null, step: 1 }],
-  };
-}
+]ØZ]™\ÜÛœÙKšœÛÛŠ
+JH\ÈÈ[™[ÜNˆ[™[ÜT›İÖ×HJKš[™[ÜJNÂˆBˆ\ÙQY™™Xİ
 
-function displayPrice(product: Product) {
-  const prices = product.packOptions.map((option) => option.price).filter((price): price is number => price !== null);
-  if (!prices.length) return "ê°€ê²© ë¬¸ì˜";
-  return `${new Intl.NumberFormat("ko-KR").format(Math.min(...prices))}ì›`;
-}
+
+HOˆÈ›ÚYØY
+
+NÈK×JNÂˆ\Ş[˜È[˜İ[ÛˆY\İ
+›İÎˆ[™[ÜT›İÊHÂˆÛÛœİ™^HÚ[™İËœ›Û\
+	Ü›İËœ›ÙXİ˜[Y_HÈ	Ü›İË›Ü[Û“X™[H;f!;'«;'«:¬è	Ü›İËœ]X[]_W» â;'«:¬è;"&:çâXİš[™Ê›İËœ]X[]JJNÂˆYˆ
+™^OOH[
+H™]\›ÂˆHÂˆÛ‘\œ›ÜŠˆŠNÂˆ]ØZ]œÛÛ”Üİ
+‹Ø\KØYZ[‹Ú[™[ÜH‹È›ÙXİYˆ›İËœ›ÙXİYÜ[Û“X™[ˆ›İË›Ü[Û“X™[]X[]Nˆ[X™\Š™^
+K›İNˆº­ :é«;'¤;'«:¬è;(l;(%HˆJNÂˆ]ØZ]ØY
+
+NÂˆHØ]Ú
+™X\ÛÛŠHÈÛ‘\œ›ÜŠ™X\ÛÛˆ[œİ[˜Ù[Ùˆ\œ›ÜˆÈ™X\ÛÛ‹›Y\ÜØYÙHˆ»'«:¬è;(l;(%{%ä;"é;c*;e¢;"­zââ:âéˆŠNÈBˆBˆÛÛœİ™YYHH]Y\Kš[J
+KÓİÙ\Ø\ÙJ
+NÂˆÛÛœİš\ÚX›HH›İÜË™š[\Š
+ŠHOˆ[™YYH	Ü‹œ›ÙXİ˜[Y_H	Ü‹˜Ø]YÛÜ_H	Ü‹Ø\™Zİ\ÙV›Û™_XÓİÙ\Ø\ÙJ
+Kš[˜ÛY\Ê™YYJJNÂˆ™]\›ˆ
+ˆÙXİ[ÛˆÛ\ÜÓ˜[YOH˜YZ[‹\ÙXİ[ÛˆÜË\ÙXİ[Ûˆ‚ˆ]ˆÛ\ÜÓ˜[YOH˜YZ[‹\ÙXİ[Û‹ZXY]»'«:¬èÚ»c$:éé:âê;'!:ìá;f!;'«:¬è:éo;fe{'n;ef:¬è;(l;(%{ejzââ:âéˆ;-§:¬è;fe{(%H;"ç;'¤:ãæH;,*:¬$:ä*zââ:âéÜÙ]Ù]‚ˆ[œ]Û\ÜÓ˜[YOH›ÜË\ÙX\˜ÚˆXÙZÛ\H» à{d¢0­û.m;ac:¬è:é«0­û,/z¬è;'!;.f:¬ ; âHˆ˜[YO^Ü]Y\_HÛÚ[™ÙO^ÊJHOˆÙ]]Y\JK\™Ù]˜[YJ_HÏ‚ˆ]ˆÛ\ÜÓ˜[YOHš[™[ÜKYÜšYİš\ÚX›KœÛXÙJLŒ
+K›X\
+
+›İÊHOˆ]Ûˆ\OH˜]ÛˆˆÛ\ÜÓ˜[YOHš[™[ÜKXØ\™ˆÙ^O^Ø	Ü›İËœ›ÙXİYKIÜ›İË›Ü[Û“X™[XHÛÛXÚÏ^Ê
+HOˆ›ÚYY\İ
+›İÊ_OÜ[Ü›İËØ\™Zİ\ÙV›Û™H»'!;.f:ëî;)à;(%HŸOÜÜ[İ›Û™ÏÜ›İËœ›ÙXİ˜[Y_OÜİ›Û™ÏÛX[Ü›İË›Ü[Û“X™[OÜÛX[ˆÛ\ÜÓ˜[YO^Ü›İËœ]X[]HÈœ™YˆˆˆŸOÜ›İËœ]X[]_OØØ]ÛŠ_OÙ]‚ˆÜÙXİ[Û‚ˆ
+NÂŸB

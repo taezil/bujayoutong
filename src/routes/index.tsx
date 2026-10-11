@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { readStore } from "../lib/db.server";
-import type { PackOption, Product, StoreData } from "../lib/db.server";
+import type { CustomerSummary, PackOption, Product, StoreData } from "../lib/db.server";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
 
 const getStore = createServerFn({ method: "GET" }).handler(async () => readStore());
@@ -20,6 +20,13 @@ function normalize(value: string) {
   return value.toLocaleLowerCase("ko-KR").replace(/\s+/g, "");
 }
 
+type CustomerStatus = { authenticated: boolean; customer: CustomerSummary | null };
+type DashboardData = {
+  recent: Array<{ id: string; status: string; total: number; createdAt: string; summary: string }>;
+  frequentProductIds: string[];
+  lastOrderItems: Array<{ productId: string; productName: string; optionLabel: string; quantity: number }>;
+};
+
 function StorePage() {
   const initial = Route.useLoaderData() as StoreData;
   const [store, setStore] = useState(initial);
@@ -27,499 +34,234 @@ function StorePage() {
   const [sub, setSub] = useState("ì „ì²´");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Product | null>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
+  const [auth, setAuth] = useState<CustomerStatus | ×yÙÈZ®Ëkºwµçkz»§Â+a…æş
+Ş§ûZŠWè­û¥–‹­¦ë{&a:èã;%b:à­:¬ :ç*:êm;(%{ àH;(${"&:ä':¬ û'¡zââ:âéÜ‚ˆÙ]‚ˆÜÙXİ[Û‚ˆÛXZ[‚‚ˆ›Ûİ\ˆÛ\ÜÓ˜[YOH™›Ûİ\ˆ‚ˆ]ˆÛ\ÜÓ˜[YOHÜ˜\›Ûİ\‹Z[›™\ˆ‚ˆÜ[ºí ;'¤;'(;a­OÜÜ[‚ˆÜ[º¬l:ç¦;,¦;&ªH;"ç{'¤;'«;(ï:ë.ÜÜ[‚ˆÙ]‚ˆÙ›Ûİ\‚‚ˆÜÙ[XİY	‰ˆ
+ˆÜ™\”ÚY]ˆ›ÙXİ^ÜÙ[XİYBˆÛÛÜÙO^Ê
+HOˆÙ]Ù[XİY
+[
+_BˆÛ“Ü™\™Y^Ø\Ş[˜È
+Y
+HOˆÂˆÙ]Ù[XİY
+[
+NÂˆÙ]›İXÙJ;(ï:ë.;'m;(${"&:ä&;%â;"­zââ:âéˆ	ÚYX
+NÂˆ]ØZ]™Yœ™\Ú\Ú›Ø\™
 
-  async function refreshStore() {
-    try {
-      const response = await fetch("/api/store", { cache: "no-store" });
-      if (response.ok) setStore(await response.json() as StoreData);
-    } catch {
-      // Keep the last successfully loaded catalogue on screen.
-    }
-  }
-
-  useEffect(() => {
-    const timer = window.setInterval(refreshStore, 5 * 60 * 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const categoryNames = Object.keys(store.categories);
-  const tabs = [
-    ...(store.promoCategory && categoryNames.includes(store.promoCategory) ? [store.promoCategory] : []),
-    "ì „ì²´",
-    ...categoryNames.filter((name) => name !== store.promoCategory),
-  ];
-
-  const promoProducts = useMemo(
-    () => store.products.filter((product) => product.category === store.promoCategory),
-    [store.products, store.promoCategory],
-  );
-
-  const filtered = useMemo(() => {
-    const needle = normalize(query);
-    return store.products.filter((product) => {
-      if (category !== "ì „ì²´" && product.category !== category) return false;
-      if (category !== "ì „ì²´" && sub !== "ì „ì²´" && product.sub !== sub) return false;
-      if (!needle) return true;
-      return normalize(`${product.name} ${product.category} ${product.sub} ${product.unit}`).includes(needle);
-    });
-  }, [store.products, category, sub, query]);
-
-  function chooseCategory(name: string) {
-    setCategory(name);
-    setSub("ì „ì²´");
-  }
-
-  return (
-    <div className="site-shell">
-      <header className="topbar">
-        <div className="wrap topbar-inner">
-          <a href="/" className="brand-lockup" aria-label="ë¶€ììœ í†µ í™ˆ">
-            <img src={BUJA_LOGO_DATA} alt="ë¶€ììœ í†µ" />
-          </a>
-          <span className="topbar-note">ê±°ë˜ì²˜ ì „ìš© ì‹ìì¬ ì£¼ë¬¸</span>
-        </div>
-      </header>
-
-      <main>
-
-        {promoProducts.length > 0 && (
-          <PromoCarousel
-            products={promoProducts}
-            onOrder={(product) => setSelected(product)}
-          />
-        )}
-
-        <section className="category-zone" aria-label="ìƒí’ˆ ë¶„ë¥˜">
-          <div className="wrap">
-            <nav className="category-rail">
-              {tabs.map((name) => {
-                const promo = name === store.promoCategory;
-                return (
-                  <button
-                    type="button"
-                    key={name}
-                    className={`category-chip ${category === name ? "selected" : ""} ${promo ? "promo" : ""}`}
-                    onClick={() => chooseCategory(name)}
-                    aria-pressed={category === name}
-                  >
-                    {promo ? `ğŸš¨${name}ğŸš¨` : name}
-                  </button>
-                );
-              })}
-            </nav>
-            {category !== "ì „ì²´" && (
-              <div className="subcategory-rail">
-                {["ì „ì²´", ...(store.categories[category] ?? [])].map((name) => (
-                  <button
-                    type="button"
-                    key={name}
-                    className={sub === name ? "selected" : ""}
-                    onClick={() => setSub(name)}
-                    aria-pressed={sub === name}
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="wrap catalogue-section">
-          <div className="catalogue-head">
-            <div>
-              <h2>{category === "ì „ì²´" ? "ì „ì²´ ìƒí’ˆ" : category}</h2>
-              <p>{filtered.length}ê°œ ìƒí’ˆ</p>
-            </div>
-            <label className="search-box">
-              <span aria-hidden="true">âŒ•</span>
-              <span className="sr-only">ìƒí’ˆ ê²€ìƒ‰</span>
-              <input
-                ref={searchRef}
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="ìƒí’ˆëª…Â·ë¶„ë¥˜ ê²€ìƒ‰"
-                autoComplete="off"
-              />
-              {query && (
-                <button type="button" onClick={() => setQuery("")} aria-label="ê²€ìƒ‰ì–´ ì§€ìš°ê¸°">Ã—</button>
-              )}
-            </label>
-          </div>
-
-          {filtered.length ? (
-            <div className="product-grid">
-              {filtered.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  promoCategory={store.promoCategory}
-                  onOrder={() => setSelected(product)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <img src={BUJA_MARK_DATA} alt="" />
-              <strong>ì¡°ê±´ì— ë§ëŠ” ìƒí’ˆì´ ì—†ìŠµë‹ˆë‹¤.</strong>
-              <button type="button" onClick={() => { setQuery(""); setCategory("ì „ì²´"); setSub("ì „ì²´"); }}>ì „ì²´ ìƒí’ˆ ë³´ê¸°</button>
-            </div>
-          )}
-        </section>
-
-        <section className="wrap order-guide">
-          <div className="guide-number">01</div>
-          <div>
-            <h2>ì£¼ë¬¸ì€ ë¬¸ì ì „ì†¡ê¹Œì§€ ëˆŒëŸ¬ì•¼ ì™„ë£Œë©ë‹ˆë‹¤.</h2>
-            <p>ì›¹ì‚¬ì´íŠ¸ê°€ ì£¼ë¬¸ ë‚´ìš©ì„ ë¬¸ì ì‘ì„±ì°½ì— ë„£ì–´ë“œë¦½ë‹ˆë‹¤. ë§ˆì§€ë§‰ ì „ì†¡ ë²„íŠ¼ì€ íœ´ëŒ€í° ë¬¸ì ì•±ì—ì„œ ëˆŒëŸ¬ ì£¼ì„¸ìš”.</p>
-          </div>
-        </section>
-      </main>
-
-      <footer className="footer">
-        <div className="wrap footer-inner">
-          <span>ë¶€ììœ í†µ</span>
-          <span>ê±°ë˜ì²˜ìš© ì‹ìì¬ ì£¼ë¬¸</span>
-        </div>
-      </footer>
-
-      {selected && (
-        <OrderSheet
-          product={selected}
-          sms={store.sms}
-          onClose={() => setSelected(null)}
-        />
-      )}
-    </div>
-  );
-}
+NÂˆÚ[™İËœÙ][Y[İ]
 
 
-function PromoCarousel({
-  products,
-  onOrder,
-}: {
-  products: Product[];
-  onOrder: (product: Product) => void;
-}) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const positionRef = useRef(0);
-  const interactionTimerRef = useRef<number | null>(null);
-  const [paused, setPaused] = useState(false);
-  const repeatCount = Math.max(6, Math.ceil(14 / Math.max(products.length, 1)));
-  const repeatedProducts = Array.from({ length: repeatCount }, () => products).flat();
+HOˆÙ]›İXÙJˆŠKÍL
+NÂˆ_BˆÏ‚ˆ
+_BˆÛ›İXÙH	‰ˆ]ˆÛ\ÜÓ˜[YOHØ\İ[Y\ÜØYÙHÛ›İXÙ_OÙ]ŸBˆÙ]‚ˆ
+NÂŸB‚‚™[˜İ[Ûˆİ\İÛY\“ÙÚ[ŠÈÛ”İXØÙ\ÜÈNˆÈÛ”İXØÙ\ÜÎˆ
 
-  function pauseForInteraction(delay = 2200) {
-    setPaused(true);
-    if (interactionTimerRef.current !== null) window.clearTimeout(interactionTimerRef.current);
-    interactionTimerRef.current = window.setTimeout(() => setPaused(false), delay);
-  }
+HOˆ›ÛZ\ÙO›ÚYˆJHÂˆÛÛœİØÛÙKÙ]ÛÙWHH\ÙTİ]JˆŠNÂˆÛÛœİÜ[‹Ù][—HH\ÙTİ]JˆŠNÂˆÛÛœİÙ\œ›Ü‹Ù]\œ›Ü—HH\ÙTİ]JˆŠNÂˆÛÛœİØ\ŞKÙ]\ŞWHH\ÙTİ]J˜[ÙJNÂ‚ˆ\Ş[˜È[˜İ[ÛˆİX›Z]
+]™[ˆ™XXİ‘›Ü›Q]™[
+HÂˆ]™[œ™]™[Y˜][
 
-  function segmentWidth() {
-    const track = trackRef.current;
-    return track ? track.scrollWidth / repeatCount : 0;
-  }
+NÂˆÙ]\ŞJYJNÈÙ]\œ›ÜŠˆŠNÂˆHÂˆÛÛœİ™\ÜÛœÙHH]ØZ]™]Ú
+‹Ø\KØİ\İÛY\‹ÛÙÚ[ˆ‹ÂˆY]Ùˆ”ÔÕ‹ˆXY\œÎˆÈÛÛ[U\Hˆ˜\XØ][Û‹ÚœÛÛˆˆKˆ›ÙNˆ”ÓÓ‹œİš[™ÚYJÈÛÙK[ˆJKˆJNÂˆÛÛœİ]HH]ØZ]™\ÜÛœÙKšœÛÛŠ
+H\ÈÈ\œ›ÜÎˆİš[™ÈNÂˆYˆ
+\™\ÜÛœÙK›ÚÊH›İÈ™]È\œ›ÜŠ]K™\œ›Üˆºèg:­î;'n;%ä;"é;c*;e¢;"­zââ:âéˆŠNÂˆ]ØZ]Û”İXØÙ\ÜÊ
+NÂˆHØ]Ú
+™X\ÛÛŠHÂˆÙ]\œ›ÜŠ™X\ÛÛˆ[œİ[˜Ù[Ùˆ\œ›ÜˆÈ™X\ÛÛ‹›Y\ÜØYÙHˆºèg:­î;'n;%ä;"é;c*;e¢;"­zââ:âéˆŠNÂˆHš[˜[HÈÙ]\ŞJ˜[ÙJNÈBˆB‚ˆ™]\›ˆ
+ˆ]ˆÛ\ÜÓ˜[YOH˜İ\İÛY\‹[ÙÚ[‹\YÙH‚ˆXY\ˆÛ\ÜÓ˜[YOH›ÙÚ[‹Xœ˜[™[YÈÜ˜Ï^Ğ•RWÓÑÓ×ÑU_H[Hºí ;'¤;'(;a­HˆÏÚXY\‚ˆXZ[ˆÛ\ÜÓ˜[YOH˜İ\İÛY\‹[ÙÚ[‹XØ\™‚ˆ[YÈÜ˜Ï^Ğ•RWÓPT’×ÑU_H[HˆˆÏ‚ˆº¬l:ç¦;,¦;(!;&ªH;(ï:ë.Ü‚ˆO»,¦;'c;eg:ì¢:éã:èg:­î;'n;em;(ï;!.;&¥ÚO‚ˆÜ[»'m;g-:ã ;cì;%ä;!':â¥:âé;'c:í ;a,;'¤:ãæ{'/:èg:èg:­î;'n:ä*zââ:âéÜÜ[‚ˆ›Ü›HÛ”İX›Z]^ÜİX›Z]O‚ˆX™[º¬l:ç¦;,¦:ì¢;f.[œ]˜[YO^ØÛÙ_HÛÚ[™ÙO^ÊJHOˆÙ]ÛÙJK\™Ù]˜[YJ_HXÙZÛ\H»&"ˆLNˆ]]ĞÛÛ\]OH\Ù\›˜[YHˆÏÛX™[‚ˆX™[»-g;-";'n;)§zì¢;f.[œ]˜[YO^Ü[ŸHÛÚ[™ÙO^ÊJHOˆÙ][ŠK\™Ù]˜[YKœ™\XÙJ×ÙËˆŠKœÛXÙJŠJ_HXÙZÛ\H»"*û'¤»'¤:é«ˆ[œ][ÙOH›[Y\šXÈˆ]]ĞÛÛ\]OH˜İ\œ™[\\ÜİÛÜ™ˆÏÛX™[‚ˆÙ\œ›Üˆ	‰ˆÛ\ÜÓ˜[YOH™›Ü›KY\œ›ÜˆÙ\œ›ÜŸOÜŸBˆ]Ûˆ\OHœİX›Z]ˆ\ØX›Y^Ø\ŞHXÛÙKš[J
+H[‹›[™İOOHŸOØ\ŞHÈ»fe{'n;)$K‹‹ˆˆˆºèg:­î;'nŸOØ]Û‚ˆÙ›Ü›O‚ˆÛX[»'n;)§zì¢;f.:éo:êª:ém;"ç:êm:í ;'¤;'(;a­{'/:èg:ë.;'f;em;(ï;!.;&¥ÜÛX[‚ˆÛXZ[‚ˆÙ]‚ˆ
+NÂŸB‚™[˜İ[Ûˆ›Û[ĞØ\›İ\Ù[
+Âˆ›ÙXİËˆÛ“Ü™\‹ŸNˆÂˆ›ÙXİÎˆ›ÙXİ×NÂˆÛ“Ü™\ˆ
+›ÙXİˆ›ÙXİ
+HOˆ›ÚYÂŸJHÂˆÛÛœİ˜XÚÔ™YˆH\ÙT™YS]‘[[Y[Š[
+NÂˆÛÛœİÜÚ][Û”™YˆH\ÙT™YŠ
+NÂˆÛÛœİ[\˜Xİ[Û•[Y\”™YˆH\ÙT™Y[X™\ˆ[Š[
+NÂˆÛÛœİÜ]\ÙYÙ]]\ÙYHH\ÙTİ]J˜[ÙJNÂˆÛÛœİ™\X]Ûİ[HX]›X^
+‹X]˜ÙZ[
+MÈX]›X^
+›ÙXİË›[™İJJJNÂˆÛÛœİ™\X]Y›ÙXİÈH\œ˜^K™œ›ÛJÈ[™İˆ™\X]Ûİ[K
 
-  function normalizeLoopPosition() {
-    const track = trackRef.current;
-    if (!track) return;
-    const segment = segmentWidth();
-    if (!segment) return;
+HOˆ›ÙXİÊK™›]
 
-    let next = track.scrollLeft;
-    while (next >= segment * 2) next -= segment;
-    while (next < segment * 0.55) next += segment;
+NÂ‚ˆ[˜İ[Ûˆ]\ÙQ›Ü’[\˜Xİ[ÛŠ[^HHŒŒ
+HÂˆÙ]]\ÙY
+YJNÂˆYˆ
+[\˜Xİ[Û•[Y\”™Y‹˜İ\œ™[OOH[
+HÚ[™İË˜ÛX\•[Y[İ]
+[\˜Xİ[Û•[Y\”™Y‹˜İ\œ™[
+NÂˆ[\˜Xİ[Û•[Y\”™Y‹˜İ\œ™[HÚ[™İËœÙ][Y[İ]
 
-    positionRef.current = next;
-    if (Math.abs(track.scrollLeft - next) > 1) track.scrollLeft = next;
-  }
 
-  function scrollByViewport(direction: -1 | 1) {
-    const track = trackRef.current;
-    if (!track) return;
-    pauseForInteraction(2400);
-    track.scrollBy({
-      left: direction * Math.max(240, track.clientWidth * 0.72),
-      behavior: "smooth",
-    });
-    window.setTimeout(normalizeLoopPosition, 650);
-  }
+HOˆÙ]]\ÙY
+˜[ÙJK[^JNÂˆB‚ˆ[˜İ[ÛˆÙYÛY[ÚY
 
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track || products.length === 0) return;
+HÂˆÛÛœİ˜XÚÈH˜XÚÔ™Y‹˜İ\œ™[Âˆ™]\›ˆ˜XÚÈÈ˜XÚËœØÜ›ÛÚYÈ™\X]Ûİ[ˆÂˆB‚ˆ[˜İ[Ûˆ›Ü›X[^™SÛÜÜÚ][ÛŠ
+HÂˆÛÛœİ˜XÚÈH˜XÚÔ™Y‹˜İ\œ™[ÂˆYˆ
+]˜XÚÊH™]\›ÂˆÛÛœİÙYÛY[HÙYÛY[ÚY
 
-    const placeAtLoopStart = () => {
-      const segment = segmentWidth();
-      if (!segment) return;
-      positionRef.current = segment;
-      track.scrollLeft = segment;
-    };
+NÂˆYˆ
+\ÙYÛY[
+H™]\›Â‚ˆ]™^H˜XÚËœØÜ›ÛYÂˆÚ[H
+™^HÙYÛY[
+ˆŠH™^OHÙYÛY[ÂˆÚ[H
+™^ÙYÛY[
+ˆMJH™^
+ÏHÙYÛY[Â‚ˆÜÚ][Û”™Y‹˜İ\œ™[H™^ÂˆYˆ
+X]˜XœÊ˜XÚËœØÜ›ÛYH™^
+HˆJH˜XÚËœØÜ›ÛYH™^ÂˆB‚ˆ[˜İ[ÛˆØÜ›ÛUšY]ÜÜ
+\™Xİ[ÛˆLHJHÂˆÛÛœİ˜XÚÈH˜XÚÔ™Y‹˜İ\œ™[ÂˆYˆ
+]˜XÚÊH™]\›Âˆ]\ÙQ›Ü’[\˜Xİ[ÛŠ
+NÂˆ˜XÚËœØÜ›ÛJÂˆYˆ\™Xİ[Ûˆ
+ˆX]›X^
+˜XÚË˜ÛY[ÚY
+ˆÌŠKˆ™Z]š[ÜˆœÛ[Ûİ‹ˆJNÂˆÚ[™İËœÙ][Y[İ]
+›Ü›X[^™SÛÜÜÚ][Û‹L
+NÂˆB‚ˆ\ÙQY™™Xİ
 
-    const frame = window.requestAnimationFrame(placeAtLoopStart);
-    return () => window.cancelAnimationFrame(frame);
-  }, [products.length, repeatCount]);
 
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track || products.length === 0) return;
+HOˆÂˆÛÛœİ˜XÚÈH˜XÚÔ™Y‹˜İ\œ™[ÂˆYˆ
+]˜XÚÈ›ÙXİË›[™İOOH
+H™]\›Â‚ˆÛÛœİXÙP]ÛÜİ\H
 
-    let frame = 0;
-    let previous = 0;
-    const pixelsPerSecond = 22;
+HOˆÂˆÛÛœİÙYÛY[HÙYÛY[ÚY
 
-    const animate = (time: number) => {
-      if (!previous) previous = time;
-      const elapsed = Math.min(time - previous, 80);
-      previous = time;
+NÂˆYˆ
+\ÙYÛY[
+H™]\›ÂˆÜÚ][Û”™Y‹˜İ\œ™[HÙYÛY[Âˆ˜XÚËœØÜ›ÛYHÙYÛY[ÂˆNÂ‚ˆÛÛœİœ˜[YHHÚ[™İËœ™\]Y\İ[š[X][Û‘œ˜[YJXÙP]ÛÜİ\
+NÂˆ™]\›ˆ
 
-      const segment = segmentWidth();
-      if (segment > 0) {
-        if (paused) {
-          positionRef.current = track.scrollLeft;
-        } else {
-          let next = positionRef.current + (pixelsPerSecond * elapsed) / 1000;
-          while (next >= segment * 2) next -= segment;
-          while (next < segment * 0.55) next += segment;
-          positionRef.current = next;
-          track.scrollLeft = next;
-        }
-      }
+HOˆÚ[™İË˜Ø[˜Ù[[š[X][Û‘œ˜[YJœ˜[YJNÂˆKÜ›ÙXİË›[™İ™\X]Ûİ[JNÂ‚ˆ\ÙQY™™Xİ
 
-      frame = window.requestAnimationFrame(animate);
-    };
 
-    frame = window.requestAnimationFrame(animate);
-    return () => window.cancelAnimationFrame(frame);
-  }, [paused, products.length, repeatCount]);
+HOˆÂˆÛÛœİ˜XÚÈH˜XÚÔ™Y‹˜İ\œ™[ÂˆYˆ
+]˜XÚÈ›ÙXİË›[™İOOH
+H™]\›Â‚ˆ]œ˜[YHHÂˆ]™]š[İ\ÈHÂˆÛÛœİ^[Ô\”ÙXÛÛ™HŒÂ‚ˆÛÛœİ[š[X]HH
+[YNˆ[X™\ŠHOˆÂˆYˆ
+\™]š[İ\ÊH™]š[İ\ÈH[YNÂˆÛÛœİ[\ÙYHX]›Z[Š[YHH™]š[İ\Ë
+NÂˆ™]š[İ\ÈH[YNÂ‚ˆÛÛœİÙYÛY[HÙYÛY[ÚY
 
-  useEffect(() => {
-    return () => {
-      if (interactionTimerRef.current !== null) window.clearTimeout(interactionTimerRef.current);
-    };
-  }, []);
+NÂˆYˆ
+ÙYÛY[ˆ
+HÂˆYˆ
+]\ÙY
+HÂˆÜÚ][Û”™Y‹˜İ\œ™[H˜XÚËœØÜ›ÛYÂˆH[ÙHÂˆ]™^HÜÚ][Û”™Y‹˜İ\œ™[
+È
+^[Ô\”ÙXÛÛ™
+ˆ[\ÙY
+HÈLÂˆÚ[H
+™^HÙYÛY[
+ˆŠH™^OHÙYÛY[ÂˆÚ[H
+™^ÙYÛY[
+ˆMJH™^
+ÏHÙYÛY[ÂˆÜÚ][Û”™Y‹˜İ\œ™[H™^Âˆ˜XÚËœØÜ›ÛYH™^ÂˆBˆB‚ˆœ˜[YHHÚ[™İËœ™\]Y\İ[š[X][Û‘œ˜[YJ[š[X]JNÂˆNÂ‚ˆœ˜[YHHÚ[™İËœ™\]Y\İ[š[X][Û‘œ˜[YJ[š[X]JNÂˆ™]\›ˆ
 
-  return (
-    <section className="promo-showcase" aria-labelledby="promo-title">
-      <div className="wrap promo-showcase-inner">
-        <div className="promo-heading">
-          <div>
-            <p>ë¶€ììœ í†µ ì˜¤ëŠ˜ì˜ ì¶”ì²œ</p>
-            <h1 id="promo-title">ğŸš¨ í–‰ì‚¬í’ˆëª©</h1>
-            <span>í–‰ì‚¬ìƒí’ˆì„ ë°”ë¡œ í™•ì¸í•˜ê³  ìˆ˜ëŸ‰ì„ ì„ íƒí•´ ë¬¸ìë¡œ ì£¼ë¬¸í•˜ì„¸ìš”.</span>
-          </div>
-          <div className="promo-controls" aria-label="í–‰ì‚¬ìƒí’ˆ ìŠ¬ë¼ì´ë“œ ì´ë™">
-            <button type="button" onClick={() => scrollByViewport(-1)} aria-label="ì´ì „ í–‰ì‚¬ìƒí’ˆ">â†</button>
-            <button type="button" onClick={() => scrollByViewport(1)} aria-label="ë‹¤ìŒ í–‰ì‚¬ìƒí’ˆ">â†’</button>
-          </div>
-        </div>
+HOˆÚ[™İË˜Ø[˜Ù[[š[X][Û‘œ˜[YJœ˜[YJNÂˆKÜ]\ÙY›ÙXİË›[™İ™\X]Ûİ[JNÂ‚ˆ\ÙQY™™Xİ
 
-        <div
-          ref={trackRef}
-          className="promo-track"
-          onPointerDown={() => pauseForInteraction()}
-          onPointerUp={() => pauseForInteraction(1500)}
-          onTouchStart={() => pauseForInteraction()}
-          onWheel={() => pauseForInteraction()}
-          onScroll={() => {
-            if (paused && trackRef.current) positionRef.current = trackRef.current.scrollLeft;
-          }}
-        >
-          {repeatedProducts.map((product, index) => (
-            <ProductCard
-              key={`${product.id}-promo-${index}`}
-              product={product}
-              promoCategory={product.category}
-              onOrder={() => onOrder(product)}
-              extraClassName="promo-slide-card"
-            />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
-function ProductCard({
-  product,
-  promoCategory,
-  onOrder,
-  extraClassName = "",
-}: {
-  product: Product;
-  promoCategory: string;
-  onOrder: () => void;
-  extraClassName?: string;
-}) {
-  const prices = product.packOptions
-    .filter((option) => option.price !== null)
-    .map((option) => option.price as number);
-  const hasPrice = prices.length > 0;
+HOˆÂˆ™]\›ˆ
 
-  return (
-    <article
-      className={`product-card ${product.category === promoCategory ? "promo-card" : ""} ${product.soldout ? "soldout" : ""} ${extraClassName}`}
-    >
-      <div className="product-image">
-        {product.photo ? (
-          <img src={product.photo} alt={product.name} loading="lazy" />
-        ) : (
-          <div className="image-placeholder">
-            <img src={BUJA_MARK_DATA} alt="" />
-          </div>
-        )}
-        {product.category === promoCategory && <span className="event-badge">ğŸš¨ ê¸´ê¸‰ í–‰ì‚¬ ìƒí’ˆ</span>}
-        {product.soldout && <span className="soldout-badge">í’ˆì ˆ</span>}
-      </div>
-      <div className="product-info">
-        <p className="product-meta">{product.category} Â· {product.sub}</p>
-        <h3>{product.name}</h3>
-        <p className="product-unit">{product.unit || "ê·œê²© ë¬¸ì˜"}</p>
-        <div className="price-line">
-          <strong>{hasPrice ? won(Math.min(...prices)) : "ê°€ê²© ë¬¸ì˜"}</strong>
-          {hasPrice && <span>ì›{product.packOptions.length > 1 ? "ë¶€í„°" : ""}</span>}
-        </div>
-      </div>
-      <button
-        className="order-strip"
-        type="button"
-        disabled={product.soldout}
-        onClick={onOrder}
-      >
-        {product.soldout ? "í’ˆì ˆ" : "ë¬¸ì ì£¼ë¬¸"} <span aria-hidden="true">â†’</span>
-      </button>
-    </article>
-  );
-}
+HOˆÂˆYˆ
+[\˜Xİ[Û•[Y\”™Y‹˜İ\œ™[OOH[
+HÚ[™İË˜ÛX\•[Y[İ]
+[\˜Xİ[Û•[Y\”™Y‹˜İ\œ™[
+NÂˆNÂˆK×JNÂ‚ˆ™]\›ˆ
+ˆÙXİ[ÛˆÛ\ÜÓ˜[YOHœ›Û[Ë\ÚİØØ\ÙHˆ\šXK[X™[YOHœ›Û[Ë]]H‚ˆ]ˆÛ\ÜÓ˜[YOHÜ˜\›Û[Ë\ÚİØØ\ÙKZ[›™\ˆ‚ˆ]ˆÛ\ÜÓ˜[YOHœ›Û[ËZXY[™È‚ˆ]‚ˆºí ;'¤;'(;a­H;&):â¦;'f;-¥;,§Ü‚ˆHYHœ›Û[Ë]]H¼'æª;e¢{ «;d¢:êªOÚO‚ˆÜ[»e¢{ «; à{d¢;'a:ì%:èg;fe{'n;ef:¬è;"&:çâ{'a;!(;`ç{em:ë.;'¤:èg;(ï:ë.;ef;!.;&¥ÜÜ[‚ˆÙ]‚ˆ]ˆÛ\ÜÓ˜[YOHœ›Û[ËXÛÛ›ÛÈˆ\šXK[X™[H»e¢{ «; à{d¢;"«:ço;'m:äç;'m:ãæH‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆØÜ›ÛUšY]ÜÜ
+LJ_H\šXK[X™[H»'m;(!;e¢{ «; à{d¢¸¡¤Ø]Û‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆØÜ›ÛUšY]ÜÜ
+J_H\šXK[X™[Hºâé;'c;e¢{ «; à{d¢¸¡¤Ø]Û‚ˆÙ]‚ˆÙ]‚‚ˆ]‚ˆ™Y^İ˜XÚÔ™YŸBˆÛ\ÜÓ˜[YOHœ›Û[Ë]˜XÚÈ‚ˆÛ”Ú[\‘İÛ^Ê
+HOˆ]\ÙQ›Ü’[\˜Xİ[ÛŠ
+_BˆÛ”Ú[\•\^Ê
+HOˆ]\ÙQ›Ü’[\˜Xİ[ÛŠML
+_BˆÛ•İXÚİ\^Ê
+HOˆ]\ÙQ›Ü’[\˜Xİ[ÛŠ
+_BˆÛ•ÚY[^Ê
+HOˆ]\ÙQ›Ü’[\˜Xİ[ÛŠ
+_BˆÛ”ØÜ›Û^Ê
+HOˆÂˆYˆ
+]\ÙY	‰ˆ˜XÚÔ™Y‹˜İ\œ™[
+HÜÚ][Û”™Y‹˜İ\œ™[H˜XÚÔ™Y‹˜İ\œ™[œØÜ›ÛYÂˆ_Bˆ‚ˆÜ™\X]Y›ÙXİË›X\
 
-function OrderSheet({ product, sms, onClose }: { product: Product; sms: string; onClose: () => void }) {
-  const [quantities, setQuantities] = useState<number[]>(product.packOptions.map(() => 0));
-  const [customer, setCustomer] = useState("");
-  const [message, setMessage] = useState("");
+›ÙXİ[™^
+HOˆ
+ˆ›ÙXİØ\™ˆÙ^O^Ø	Ü›ÙXİšYK\›Û[ËIÚ[™^XBˆ›ÙXİ^Ü›ÙXİBˆ›Û[ĞØ]YÛÜO^Ü›ÙXİ˜Ø]YÛÜ_BˆÛ“Ü™\^Ê
+HOˆÛ“Ü™\Š›ÙXİ
+_Bˆ^˜PÛ\ÜÓ˜[YOHœ›Û[Ë\ÛYKXØ\™‚ˆÏ‚ˆ
+J_BˆÙ]‚ˆÙ]‚ˆÜÙXİ[Û‚ˆ
+NÂŸB‚™[˜İ[Ûˆ›ÙXİØ\™
+Âˆ›ÙXİˆ›Û[ĞØ]YÛÜKˆÛ“Ü™\‹ˆ^˜PÛ\ÜÓ˜[YHHˆ‹ŸNˆÂˆ›ÙXİˆ›ÙXİÂˆ›Û[ĞØ]YÛÜNˆİš[™ÎÂˆÛ“Ü™\ˆ
 
-  useEffect(() => {
-    try {
-      setCustomer(localStorage.getItem("buja-customer") ?? "");
-    } catch {
-      setCustomer("");
-    }
-  }, []);
+HOˆ›ÚYÂˆ^˜PÛ\ÜÓ˜[YOÎˆİš[™ÎÂŸJHÂˆÛÛœİšXÙ\ÈH›ÙXİœXÚÓÜ[ÛœÂˆ™š[\Š
+Ü[ÛŠHOˆÜ[Û‹œšXÙHOOH[
+Bˆ›X\
 
-  const chosen = product.packOptions
-    .map((option, index) => ({ option, qty: quantities[index] ?? 0 }))
-    .filter((row) => row.qty > 0);
-  const total = chosen.reduce((sum, row) => sum + (row.option.price ?? 0) * row.qty, 0);
-  const valid = chosen.length > 0;
+Ü[ÛŠHOˆÜ[Û‹œšXÙH\È[X™\ŠNÂˆÛÛœİ\ÔšXÙHHšXÙ\Ë›[™İˆÂ‚ˆ™]\›ˆ
+ˆ\XÛBˆÛ\ÜÓ˜[YO^Ø›ÙXİXØ\™	Ü›ÙXİ˜Ø]YÛÜHOOH›Û[ĞØ]YÛÜHÈœ›Û[ËXØ\™ˆˆˆŸH	Ü›ÙXİœÛÛİ]ÈœÛÛİ]ˆˆˆŸH	Ù^˜PÛ\ÜÓ˜[Y_XBˆ‚ˆ]ˆÛ\ÜÓ˜[YOHœ›ÙXİZ[XYÙH‚ˆÜ›ÙXİœİÈÈ
+ˆ[YÈÜ˜Ï^Ü›ÙXİœİßH[^Ü›ÙXİ›˜[Y_HØY[™ÏH›^HˆÏ‚ˆ
+Hˆ
+ˆ]ˆÛ\ÜÓ˜[YOHš[XYÙK\XÙZÛ\ˆ‚ˆ[YÈÜ˜Ï^Ğ•RWÓPT’×ÑU_H[HˆˆÏ‚ˆÙ]‚ˆ
+_BˆÜ›ÙXİ˜Ø]YÛÜHOOH›Û[ĞØ]YÛÜH	‰ˆÜ[ˆÛ\ÜÓ˜[YOH™]™[X˜YÙH¼'æª:®-:®"H;e¢{ «; à{d¢ÜÜ[ŸBˆÜ›ÙXİœÛÛİ]	‰ˆÜ[ˆÛ\ÜÓ˜[YOHœÛÛİ]X˜YÙH»d¢;("ÜÜ[ŸBˆÙ]‚ˆ]ˆÛ\ÜÓ˜[YOHœ›ÙXİZ[™›È‚ˆÛ\ÜÓ˜[YOHœ›ÙXİ[Y]HÜ›ÙXİ˜Ø]YÛÜ_H0­ÈÜ›ÙXİœİXŸOÜ‚ˆÏÜ›ÙXİ›˜[Y_OÚÏ‚ˆÛ\ÜÓ˜[YOHœ›ÙXİ][š]Ü›ÙXİ[š]º­ç:¬ªH:ë.;'fŸOÜ‚ˆ]ˆÛ\ÜÓ˜[YOHœšXÙK[[™H‚ˆİ›Û™ÏÚ\ÔšXÙHÈÛÛŠX]›Z[Š‹‹œšXÙ\ÊJHˆº¬ :¬ªH:ë.;'fŸOÜİ›Û™Ï‚ˆÚ\ÔšXÙH	‰ˆÜ[»&äÜ›ÙXİœXÚÓÜ[ÛœË›[™İˆHÈºí ;a,ˆˆˆŸOÜÜ[ŸBˆÙ]‚ˆÙ]‚ˆ]Û‚ˆÛ\ÜÓ˜[YOH›Ü™\‹\İš\‚ˆ\OH˜]Ûˆ‚ˆ\ØX›Y^Ü›ÙXİœÛÛİ]BˆÛÛXÚÏ^ÛÛ“Ü™\ŸBˆ‚ˆÜ›ÙXİœÛÛİ]È»d¢;("ˆˆºì%:èg;(ï:ë.ŸHÜ[ˆ\šXKZY[HYH¸¡¤ÜÜ[‚ˆØ]Û‚ˆØ\XÛO‚ˆ
+NÂŸB‚™[˜İ[ÛˆÜ™\”ÚY]
+È›ÙXİÛÛÜÙKÛ“Ü™\™YNˆÈ›ÙXİˆ›ÙXİÈÛÛÜÙNˆ
 
-  function setQty(index: number, next: number) {
-    const option = product.packOptions[index];
-    if (!option) return;
-    const step = option.step || 1;
-    const rounded = Math.max(0, Math.round(next / step) * step);
-    setQuantities((current) => current.map((value, i) => i === index ? Number(rounded.toFixed(3)) : value));
-  }
+HOˆ›ÚYÈÛ“Ü™\™Yˆ
+Yˆİš[™ÊHOˆ›ÛZ\ÙO›ÚYˆJHÂˆÛÛœİÜ]X[]Y\ËÙ]]X[]Y\×HH\ÙTİ]O[X™\–×OŠ›ÙXİœXÚÓÜ[ÛœË›X\
 
-  function sendSms() {
-    if (!valid) {
-      setMessage("ìˆ˜ëŸ‰ì„ í•˜ë‚˜ ì´ìƒ ì„ íƒí•´ ì£¼ì„¸ìš”.");
-      return;
-    }
-    try {
-      localStorage.setItem("buja-customer", customer.trim());
-    } catch {
-      // Storage can be unavailable in private browser modes.
-    }
-    const qtyText = chosen.map(({ option, qty }) => `${qty}${option.label === "kg" ? "kg" : option.label}`).join(" + ");
-    const body = [
-      `ìƒí’ˆ: ${product.name}`,
-      `ê·œê²©: ${product.unit}`,
-      `ìˆ˜ëŸ‰: ${qtyText}`,
-      `ì‹ë‹¹ëª… ë˜ëŠ” ê±°ë˜ì²˜ë²ˆí˜¸: ${customer.trim()}`,
-    ].join("\n");
-    const apple = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    window.location.href = `sms:${sms}${apple ? "&" : "?"}body=${encodeURIComponent(body)}`;
-  }
 
-  return (
-    <div className="sheet-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <section className="order-sheet" role="dialog" aria-modal="true" aria-labelledby="order-title">
-        <div className="sheet-top">
-          <div>
-            <p>ë¬¸ì ì£¼ë¬¸</p>
-            <h2 id="order-title">{product.name}</h2>
-            <span>{product.unit}</span>
-          </div>
-          <button type="button" className="sheet-close" onClick={onClose} aria-label="ë‹«ê¸°">Ã—</button>
-        </div>
+HOˆ
+JNÂˆÛÛœİÛ›İKÙ]›İWHH\ÙTİ]JˆŠNÂˆÛÛœİÛY\ÜØYÙKÙ]Y\ÜØYÙWHH\ÙTİ]JˆŠNÂˆÛÛœİØ\ŞKÙ]\ŞWHH\ÙTİ]J˜[ÙJNÂ‚ˆÛÛœİÚÜÙ[ˆH›ÙXİœXÚÓÜ[ÛœÂˆ›X\
 
-        <div className="quantity-list">
-          {product.packOptions.map((option, index) => (
-            <QuantityRow
-              key={`${option.label}-${index}`}
-              option={option}
-              qty={quantities[index] ?? 0}
-              onChange={(next) => setQty(index, next)}
-            />
-          ))}
-        </div>
+Ü[Û‹[™^
+HOˆ
+ÈÜ[Û‹]Nˆ]X[]Y\ÖÚ[™^HÏÈJJBˆ™š[\Š
+›İÊHOˆ›İËœ]Hˆ
+NÂˆÛÛœİİ[HÚÜÙ[‹œ™YXÙJ
+İ[K›İÊHOˆİ[H
+È
+›İË›Ü[Û‹œšXÙHÏÈ
+H
+ˆ›İËœ]K
+NÂ‚ˆ[˜İ[ÛˆÙ]]J[™^ˆ[X™\‹™^ˆ[X™\ŠHÂˆÛÛœİÜ[ÛˆH›ÙXİœXÚÓÜ[ÛœÖÚ[™^NÂˆYˆ
+[Ü[ÛŠH™]\›ÂˆÛÛœİİ\HÜ[Û‹œİ\NÂˆÛÛœİ›İ[™YHX]›X^
+X]œ›İ[™
+™^Èİ\
+H
+ˆİ\
+NÂˆÙ]]X[]Y\Ê
+İ\œ™[
+HOˆİ\œ™[›X\
 
-        <label className="customer-field">
-          <span>ì‹ë‹¹ëª… ë˜ëŠ” ê±°ë˜ì²˜ë²ˆí˜¸</span>
-          <input
-            value={customer}
-            onChange={(event) => setCustomer(event.target.value)}
-            placeholder="ì˜ˆ: 85-18 / â—‹â—‹ì‹ë‹¹"
-            maxLength={60}
-          />
-          <small>í•œ ë²ˆ ì…ë ¥í•˜ë©´ ì´ ê¸°ê¸°ì— ì €ì¥ë©ë‹ˆë‹¤.</small>
-        </label>
+˜[YKJHOˆHOOH[™^È[X™\Š›İ[™YÑš^Y
+ÊJHˆ˜[YJJNÂˆB‚ˆ\Ş[˜È[˜İ[ÛˆİX›Z]Ü™\Š
+HÂˆYˆ
+XÚÜÙ[‹›[™İ
+HÈÙ]Y\ÜØYÙJ»"&:çâ{'a;ef:à¦;'m; àH;!(;`ç{em;(ï;!.;&¥ˆŠNÈ™]\›ÈBˆÙ]\ŞJYJNÈÙ]Y\ÜØYÙJˆŠNÂˆHÂˆÛÛœİ™\ÜÛœÙHH]ØZ]™]Ú
+‹Ø\KÛÜ™\œÈ‹ÂˆY]Ùˆ”ÔÕ‹ˆXY\œÎˆÈÛÛ[U\Hˆ˜\XØ][Û‹ÚœÛÛˆˆKˆ›ÙNˆ”ÓÓ‹œİš[™ÚYJÂˆ][\ÎˆÚÜÙ[‹›X\
 
-        <div className="order-summary">
-          <span>ì˜ˆìƒ ê¸ˆì•¡</span>
-          <strong>{total > 0 ? `${won(total)}ì›` : "ê°€ê²© ë¬¸ì˜ í¬í•¨"}</strong>
-        </div>
+ÈÜ[Û‹]HJHOˆ
+È›ÙXİYˆ›ÙXİšYÜ[Û“X™[ˆÜ[Û‹›X™[]X[]Nˆ]HJJKˆ›İKˆJKˆJNÂˆÛÛœİ]HH]ØZ]™\ÜÛœÙKšœÛÛŠ
+H\ÈÈ\œ›ÜÎˆİš[™ÎÈÜ™\ÎˆÈYˆİš[™ÈHNÂˆYˆ
+\™\ÜÛœÙK›ÚÈY]K›Ü™\ŠH›İÈ™]È\œ›ÜŠ]K™\œ›Üˆ»(ï:ë.;(${"&;%ä;"é;c*;e¢;"­zââ:âéˆŠNÂˆ]ØZ]Û“Ü™\™Y
+]K›Ü™\‹šY
+NÂˆHØ]Ú
+\œ›ÜŠHÂˆÙ]Y\ÜØYÙJ\œ›Üˆ[œİ[˜Ù[Ùˆ\œ›ÜˆÈ\œ›Ü‹›Y\ÜØYÙHˆ»(ï:ë.;(${"&;%ä;"é;c*;e¢;"­zââ:âéˆŠNÂˆHš[˜[HÈÙ]\ŞJ˜[ÙJNÈBˆB‚ˆ™]\›ˆ
+ˆ]ˆÛ\ÜÓ˜[YOHœÚY]X˜XÚÙ›Üˆ›ÛOHœ™\Ù[][ÛˆˆÛ“[İ\ÙQİÛ^Ê]™[
+HOˆÈYˆ
+]™[\™Ù]OOH]™[˜İ\œ™[\™Ù]	‰ˆX\ŞJHÛÛÜÙJ
+NÈ_O‚ˆÙXİ[ÛˆÛ\ÜÓ˜[YOH›Ü™\‹\ÚY]ˆ›ÛOH™X[ÙÈˆ\šXK[[Ù[HYHˆ\šXK[X™[YOH›Ü™\‹]]H‚ˆ]ˆÛ\ÜÓ˜[YOHœÚY]]Ü]ºì%:èg;(ï:ë.ÜˆYH›Ü™\‹]]HÜ›ÙXİ›˜[Y_OÚÜ[Ü›ÙXİ[š]OÜÜ[Ù]]Ûˆ\OH˜]ÛˆˆÛ\ÜÓ˜[YOHœÚY]XÛÜÙHˆÛÛXÚÏ^ÛÛÛÜÙ_H\ØX›Y^Ø\Ş_O°åÏØ]ÛÙ]‚ˆ]ˆÛ\ÜÓ˜[YOHœ]X[]K[\İÜ›ÙXİœXÚÓÜ[ÛœË›X\
 
-        {message && <p className="form-error" role="alert">{message}</p>}
-
-        <button type="button" className="compose-sms" onClick={sendSms}>
-          ë¬¸ì ì‘ì„±í•˜ê¸° <span aria-hidden="true">â†’</span>
-        </button>
-        <p className="sheet-help">ë¬¸ì ì•±ì´ ì—´ë¦¬ë©´ ë‚´ìš©ì„ í™•ì¸í•œ ë’¤ ì „ì†¡ ë²„íŠ¼ì„ ëˆŒëŸ¬ ì£¼ì„¸ìš”.</p>
-      </section>
-    </div>
-  );
-}
-
-function QuantityRow({
-  option,
-  qty,
-  onChange,
-}: {
-  option: PackOption;
-  qty: number;
-  onChange: (next: number) => void;
-}) {
-  const step = option.step || 1;
-  return (
-    <div className="quantity-row">
-      <div>
-        <strong>{option.label}</strong>
-        <span>{option.price === null ? "ê°€ê²© ë¬¸ì˜" : `${won(option.price)}ì›`}</span>
-      </div>
-      <div className="stepper">
-        <button type="button" onClick={() => onChange(qty - step)} aria-label={`${option.label} ìˆ˜ëŸ‰ ì¤„ì´ê¸°`}>âˆ’</button>
-        <input
-          inputMode="decimal"
-          value={qty}
-          onChange={(event) => onChange(Number(event.target.value || 0))}
-          aria-label={`${option.label} ìˆ˜ëŸ‰`}
-        />
-        <button type="button" onClick={() => onChange(qty + step)} aria-label={`${option.label} ìˆ˜ëŸ‰ ëŠ˜ë¦¬ê¸°`}>+</button>
-      </div>
-    </div>
-  );
-}
+Ü[Û‹[™^
+HOˆ]X[]T›İÈÙ^O^Ø	ÛÜ[Û‹›X™[KIÚ[™^XHÜ[Û^ÛÜ[ÛŸH]O^Ü]X[]Y\ÖÚ[™^HÏÈHÛÚ[™ÙO^Ê™^
+HOˆÙ]]J[™^™^
+_HÏŠ_OÙ]‚ˆX™[Û\ÜÓ˜[YOH˜İ\İÛY\‹YšY[Ü[»&¥;,«{ «;ekOÜÜ[[œ]˜[YO^Û›İ_HÛÚ[™ÙO^Ê]™[
+HOˆÙ]›İJ]™[\™Ù]˜[YJ_HXÙZÛ\H»%á»'/:êm:îa;&ã:äd;!.;&¥ˆX^[™İ^ÌŒHÏÛX™[‚ˆ]ˆÛ\ÜÓ˜[YOH›Ü™\‹\İ[[X\HÜ[»&"; àH:®";%hOÜÜ[İ›Û™Ïİİ[ˆÈ	İÛÛŠİ[
+_{&äˆº¬ :¬ªH:ë.;'f;cë;ejŸOÜİ›Û™ÏÙ]‚ˆÛY\ÜØYÙH	‰ˆÛ\ÜÓ˜[YOH™›Ü›KY\œ›Üˆˆ›ÛOH˜[\ÛY\ÜØYÙ_OÜŸBˆ]Ûˆ\OH˜]ÛˆˆÛ\ÜÓ˜[YOH˜ÛÛ\ÜÙK\Û\ÈˆÛÛXÚÏ^Ê
+HOˆ›ÚYİX›Z]Ü™\Š
+_H\ØX›Y^Ø\Ş_OØ\ŞHÈ»(${"&;)$K‹‹ˆˆˆ»(ï:ë.;fe{(%HŸHÜ[ˆ\šXKZY[HYH¸¡¤ÜÜ[Ø]Û‚ˆÛ\ÜÓ˜[YOHœÚY]Z[»(ï:ë.;fe{(%{'a:â!:ém:êm:í ;'¤;'(;a­H:­ :é«;'¤;fe:êm;%ä:ì%:èg;(${"&:ä*zââ:âéÜ‚ˆÜÙXİ[Û‚ˆÙ]‚ˆ
+NÂŸB‚™[˜İ[Ûˆ]X[]T›İÊÂˆÜ[Û‹ˆ]KˆÛÚ[™ÙKŸNˆÂˆÜ[ÛˆXÚÓÜ[ÛÂˆ]Nˆ[X™\ÂˆÛÚ[™ÙNˆ
+™^ˆ[X™\ŠHOˆ›ÚYÂŸJHÂˆÛÛœİİ\HÜ[Û‹œİ\NÂˆ™]\›ˆ
+ˆ]ˆÛ\ÜÓ˜[YOHœ]X[]K\›İÈ‚ˆ]‚ˆİ›Û™ÏÛÜ[Û‹›X™[OÜİ›Û™Ï‚ˆÜ[ÛÜ[Û‹œšXÙHOOH[Èº¬ :¬ªH:ë.;'fˆˆ	İÛÛŠÜ[Û‹œšXÙJ_{&äOÜÜ[‚ˆÙ]‚ˆ]ˆÛ\ÜÓ˜[YOHœİ\\ˆ‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆÛÚ[™ÙJ]HHİ\
+_H\šXK[X™[^Ø	ÛÜ[Û‹›X™[H;"&:çâH;)!;'m:®,O¸¢$Ø]Û‚ˆ[œ]ˆ[œ][ÙOH™XÚ[X[‚ˆ˜[YO^Ü]_BˆÛÚ[™ÙO^Ê]™[
+HOˆÛÚ[™ÙJ[X™\Š]™[\™Ù]˜[YH
+J_Bˆ\šXK[X™[^Ø	ÛÜ[Û‹›X™[H;"&:çâXBˆÏ‚ˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
+HOˆÛÚ[™ÙJ]H
+Èİ\
+_H\šXK[X™[^Ø	ÛÜ[Û‹›X™[H;"&:çâH:â¦:é«:®,OŠÏØ]Û‚ˆÙ]‚ˆÙ]‚ˆ
+NÂŸB
