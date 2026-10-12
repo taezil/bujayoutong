@@ -85,11 +85,11 @@ function AccountsPage(){
       </section>
 
       <section className="account-section">
-        <div className="account-section-head"><div><p>CUSTOMER</p><h2>거래처 직원 계정</h2></div><span>{customerUsers.length}명</span></div>
+        <div className="account-section-head"><div><p>CUSTOMER</p><h2>거래처 직원 계정</h2><small>직원은 거래처번호 없이 아이디 + PIN만으로 로그인합니다. 아이디는 전체 거래처에서 중복 사용할 수 없습니다.</small></div><span>{customerUsers.length}명</span></div>
         <div className="customer-user-create">
           <select value={customerId} onChange={e=>setCustomerId(e.target.value)}>{customers.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
           <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="직원 이름 예: 사장님 / 점장"/>
-          <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase())} placeholder="직원 아이디"/>
+          <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase())} placeholder="로그인 아이디 예: 8518"/>
           <input value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,"").slice(0,6))} inputMode="numeric" placeholder="PIN 6자리"/>
           <button disabled={!customerId||!displayName.trim()||!username.trim()||pin.length!==6} onClick={()=>void act("/api/admin/customer-users",{action:"create",customerId,displayName,username,pin}).then(()=>{setDisplayName("");setUsername("");setPin("");})}>+ 거래처 직원 추가</button>
         </div>
