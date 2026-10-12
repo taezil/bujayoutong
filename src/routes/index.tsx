@@ -436,9 +436,8 @@ function StorePage() {
 
 
 function CustomerLogin({ onSuccess }: { onSuccess: () => Promise<void> }) {
-  const [code, setCode] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [pin, setPin] = useState("");
-  const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -449,7 +448,7 @@ function CustomerLogin({ onSuccess }: { onSuccess: () => Promise<void> }) {
       const response = await fetch("/api/customer/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, pin, username }),
+        body: JSON.stringify({ identifier, pin }),
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "로그인에 실패했습니다.");
@@ -468,14 +467,14 @@ function CustomerLogin({ onSuccess }: { onSuccess: () => Promise<void> }) {
         <h1>처음 한 번만 로그인해 주세요.</h1>
         <span>이 휴대폰에서는 다음부터 자동으로 로그인됩니다.</span>
         <form onSubmit={submit}>
-          <label>거래처번호<input value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: 8-18" autoComplete="organization" /></label>
-          <label>직원 아이디 <small>직원계정 사용 시에만</small><input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="사장님 기존 계정은 비워두세요" autoComplete="username" /></label>
-          <label>인증번호 / PIN<input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="숫자 6자리" inputMode="numeric" autoComplete="current-password" /></label>
+          <label>아이디<input value={identifier} onChange={(e) => setIdentifier(e.target.value.toLowerCase())} placeholder="예: 8518" autoComplete="username" /></label>
+          <label>PIN<input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="숫자 6자리" inputMode="numeric" autoComplete="current-password" /></label>
           {error && <p className="form-error">{error}</p>}
-          <button type="submit" disabled={busy || !code.trim() || pin.length !== 6}>{busy ? "확인 중..." : "로그인"}</button>
+          <button type="submit" disabled={busy || !identifier.trim() || pin.length !== 6}>{busy ? "확인 중..." : "로그인"}</button>
         </form>
+        <p className="legacy-customer-login-note">기존 대표계정은 기존 거래처번호를 아이디처럼 입력해도 됩니다.</p>
         <a className="login-price-list-link" href="/price-list">로그인 없이 부자유통 단가표 보기</a>
-        <small>인증번호를 모르시면 부자유통으로 문의해 주세요.</small>
+        <small>아이디 또는 PIN을 모르시면 부자유통으로 문의해 주세요.</small>
       </main>
     </div>
   );
