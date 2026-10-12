@@ -2223,3 +2223,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 460px) {
   .price-card-grid { grid-template-columns: 1fr; }
 }
+
+
+/* Simple customer ID + PIN login */
+.customer-login-card > .legacy-customer-login-note {
+  margin: 12px 0 0;
+  color: #737d75;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.account-section-head > div > small {
+  display: block;
+  margin-top: 6px;
+  color: #788179;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+}
