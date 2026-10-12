@@ -94,7 +94,15 @@ async function ensureOperationsSchema(database: D1Database) {
 
   await database.exec("CREATE TABLE IF NOT EXISTS customer_users (id TEXT PRIMARY KEY, customer_id TEXT NOT NULL, username TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL, auth_salt TEXT NOT NULL, auth_hash TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE)");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_users_customer ON customer_users(customer_id, active, display_name)");
-  await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_users_username_lookup ON customer_users(username COLLATE NOCASE)");
+  const duplicateCustomerUsername = await database.prepare(
+    "SELECT lower(username) AS username FROM customer_users GROUP BY lower(username) HAVING COUNT(*) > 1 LIMIT 1",
+  ).first();
+  if (!duplicateCustomerUsername) {
+    await database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_users_username_unique ON customer_users(username COLLATE NOCASE)");
+  } else {
+    // 기존 데이터에 중복이 있더라도 서비스 전체가 멈추지는 않게 하고, 로그인 단계에서 중복을 차단합니다.
+    await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_users_username_lookup ON customer_users(username COLLATE NOCASE)");
+  }
   await ensureColumn(database, "customer_sessions", "customer_user_id", "TEXT NOT NULL DEFAULT ''");
 
   await database.exec("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL DEFAULT 'system', actor_id TEXT NOT NULL DEFAULT '', actor_name TEXT NOT NULL DEFAULT '', action TEXT NOT NULL, entity_type TEXT NOT NULL DEFAULT '', entity_id TEXT NOT NULL DEFAULT '', summary TEXT NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL DEFAULT (datetime('now')))");
