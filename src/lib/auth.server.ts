@@ -200,29 +200,44 @@ export async function makeCustomerPinCredential(pin: string) {
   return { salt, hash };
 }
 
-export async function loginCustomer(code: string, pin: string, username = "") {
+export async function loginCustomer(identifier: string, pin: string) {
   await ensureDatabase();
-  const normalized = normalizeCustomerCode(code);
-  if (!normalized || !/^\d{6}$/.test(pin)) throw new Error("거래처번호와 인증번호를 확인해 주세요.");
-  const customer = await db().prepare(
-    "SELECT id, auth_salt, auth_hash, active FROM customers WHERE upper(code) = upper(?) LIMIT 1",
-  ).bind(normalized).first<{ id: string; auth_salt: string; auth_hash: string; active: number }>();
-  if (!customer || customer.active !== 1) throw new Error("거래처번호와 인증번호를 확인해 주세요.");
+  const loginId = identifier.trim().toLowerCase();
+  if (!loginId || !/^\d{6}$/.test(pin)) throw new Error("아이디와 PIN을 확인해 주세요.");
 
+  const employeeRows = await db().prepare(`
+    SELECT u.id,u.customer_id,u.auth_salt,u.auth_hash,u.active,c.active AS customer_active
+    FROM customer_users u
+    JOIN customers c ON c.id=u.customer_id
+    WHERE lower(u.username)=lower(?)
+    LIMIT 2
+  `).bind(loginId).all<Record<string, unknown>>();
+
+  let customerId = "";
   let customerUserId = "";
-  const employeeUsername = username.trim().toLowerCase();
-  if (employeeUsername) {
-    const user = await db().prepare(
-      "SELECT id,auth_salt,auth_hash,active FROM customer_users WHERE customer_id=? AND lower(username)=lower(?) LIMIT 1",
-    ).bind(customer.id, employeeUsername).first<{ id: string; auth_salt: string; auth_hash: string; active: number }>();
-    if (!user || user.active !== 1) throw new Error("거래처 직원 아이디와 PIN을 확인해 주세요.");
-    const hash = await derivePassword(pin, user.auth_salt);
-    if (hash !== user.auth_hash) throw new Error("거래처 직원 아이디와 PIN을 확인해 주세요.");
-    customerUserId = user.id;
+  if (employeeRows.results.length > 1) {
+    throw new Error("같은 아이디가 중복 등록되어 있습니다. 부자유통으로 문의해 주세요.");
+  }
+
+  const employee = employeeRows.results[0];
+  if (employee) {
+    if (Number(employee.active ?? 0) !== 1 || Number(employee.customer_active ?? 0) !== 1) {
+      throw new Error("아이디와 PIN을 확인해 주세요.");
+    }
+    const hash = await derivePassword(pin, String(employee.auth_salt));
+    if (hash !== String(employee.auth_hash)) throw new Error("아이디와 PIN을 확인해 주세요.");
+    customerId = String(employee.customer_id);
+    customerUserId = String(employee.id);
   } else {
-    if (!customer.auth_hash) throw new Error("거래처번호와 인증번호를 확인해 주세요.");
+    // 기존 대표계정은 거래처번호를 로그인 아이디처럼 계속 사용할 수 있습니다.
+    const normalizedCode = normalizeCustomerCode(identifier);
+    const customer = await db().prepare(
+      "SELECT id,auth_salt,auth_hash,active FROM customers WHERE upper(code)=upper(?) LIMIT 1",
+    ).bind(normalizedCode).first<{ id: string; auth_salt: string; auth_hash: string; active: number }>();
+    if (!customer || customer.active !== 1 || !customer.auth_hash) throw new Error("아이디와 PIN을 확인해 주세요.");
     const hash = await derivePassword(pin, customer.auth_salt);
-    if (hash !== customer.auth_hash) throw new Error("거래처번호와 인증번호를 확인해 주세요.");
+    if (hash !== customer.auth_hash) throw new Error("아이디와 PIN을 확인해 주세요.");
+    customerId = customer.id;
   }
 
   const token = randomHex(32);
@@ -230,7 +245,7 @@ export async function loginCustomer(code: string, pin: string, username = "") {
   await db().batch([
     db().prepare("DELETE FROM customer_sessions WHERE expires_at <= datetime('now')"),
     db().prepare("INSERT INTO customer_sessions (token_hash, customer_id, customer_user_id, expires_at) VALUES (?, ?, ?, datetime('now', '+5 years'))")
-      .bind(tokenHash, customer.id, customerUserId),
+      .bind(tokenHash, customerId, customerUserId),
   ]);
   return token;
 }
