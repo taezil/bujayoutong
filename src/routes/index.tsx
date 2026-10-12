@@ -489,15 +489,13 @@ function PromoCarousel({
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const positionRef = useRef(0);
-  const interactionTimerRef = useRef<number | null>(null);
-  const [paused, setPaused] = useState(false);
+  const interactionUntilRef = useRef(0);
   const repeatCount = Math.max(6, Math.ceil(14 / Math.max(products.length, 1)));
   const repeatedProducts = Array.from({ length: repeatCount }, () => products).flat();
 
-  function pauseForInteraction(delay = 2200) {
-    setPaused(true);
-    if (interactionTimerRef.current !== null) window.clearTimeout(interactionTimerRef.current);
-    interactionTimerRef.current = window.setTimeout(() => setPaused(false), delay);
+  function pauseForInteraction(delay = 3200) {
+    interactionUntilRef.current = performance.now() + delay;
+    if (trackRef.current) positionRef.current = trackRef.current.scrollLeft;
   }
 
   function segmentWidth() {
@@ -560,7 +558,7 @@ function PromoCarousel({
 
       const segment = segmentWidth();
       if (segment > 0) {
-        if (paused) {
+        if (time < interactionUntilRef.current) {
           positionRef.current = track.scrollLeft;
         } else {
           let next = positionRef.current + (pixelsPerSecond * elapsed) / 1000;
@@ -576,13 +574,7 @@ function PromoCarousel({
 
     frame = window.requestAnimationFrame(animate);
     return () => window.cancelAnimationFrame(frame);
-  }, [paused, products.length, repeatCount]);
-
-  useEffect(() => {
-    return () => {
-      if (interactionTimerRef.current !== null) window.clearTimeout(interactionTimerRef.current);
-    };
-  }, []);
+  }, [products.length, repeatCount]);
 
   return (
     <section className="promo-showcase" aria-labelledby="promo-title">
@@ -602,12 +594,13 @@ function PromoCarousel({
         <div
           ref={trackRef}
           className="promo-track"
-          onPointerDown={() => pauseForInteraction()}
-          onPointerUp={() => pauseForInteraction(1500)}
-          onTouchStart={() => pauseForInteraction()}
-          onWheel={() => pauseForInteraction()}
+          onPointerDown={() => pauseForInteraction(4000)}
+          onPointerUp={() => pauseForInteraction(3000)}
+          onTouchStart={() => pauseForInteraction(4000)}
+          onTouchEnd={() => pauseForInteraction(3000)}
+          onWheel={() => pauseForInteraction(3000)}
           onScroll={() => {
-            if (paused && trackRef.current) positionRef.current = trackRef.current.scrollLeft;
+            if (performance.now() < interactionUntilRef.current && trackRef.current) positionRef.current = trackRef.current.scrollLeft;
           }}
         >
           {repeatedProducts.map((product, index) => (
