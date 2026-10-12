@@ -468,7 +468,7 @@ function CustomerLogin({ onSuccess }: { onSuccess: () => Promise<void> }) {
         <span>이 휴대폰에서는 다음부터 자동으로 로그인됩니다.</span>
         <form onSubmit={submit}>
           <label>아이디<input value={identifier} onChange={(e) => setIdentifier(e.target.value.toLowerCase())} placeholder="예: 8518" autoComplete="username" /></label>
-          <label>PIN<input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="숫자 6자리" inputMode="numeric" autoComplete="current-password" /></label>
+          <label>비밀번호 / PIN<input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="숫자 6자리" inputMode="numeric" autoComplete="current-password" /></label>
           {error && <p className="form-error">{error}</p>}
           <button type="submit" disabled={busy || !identifier.trim() || pin.length !== 6}>{busy ? "확인 중..." : "로그인"}</button>
         </form>
