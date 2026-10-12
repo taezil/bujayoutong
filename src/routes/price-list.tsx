@@ -46,6 +46,11 @@ function priceLabel(product: PriceProduct, option: PriceOption) {
   return won(option.price);
 }
 
+function servingsUnitLabel(product: PriceProduct) {
+  const option = product.packOptions.find((row) => !row.label.includes("박스")) ?? product.packOptions[0];
+  return option?.label ? `1${option.label} 기준` : "1단위 기준";
+}
+
 function PriceListPage() {
   const [data, setData] = useState<PriceData | null>(null);
   const [error, setError] = useState("");
@@ -143,20 +148,52 @@ function PriceListPage() {
       </nav>
 
       {!data ? <div className="price-list-loading">단가표를 불러오는 중입니다.</div> : compact ? (
-        <section className="price-table-wrap">
-          <table className="price-table">
-            <thead><tr><th>품목</th><th>규격</th><th>판매단위 / 가격</th><th>구성·인분</th><th>보관</th></tr></thead>
-            <tbody>
-              {visible.map((product) => <tr key={product.id} className={product.soldout ? "soldout" : ""}>
-                <td><b>{product.name}</b><span>{product.category}{product.sub ? ` · ${product.sub}` : ""}{product.isPromo ? " · 🚨행사" : ""}</span></td>
-                <td>{product.unit || "-"}</td>
-                <td>{product.packOptions.map((option) => <div className="price-table-option" key={option.label}><span>{option.label}</span><b>{priceLabel(product, option)}</b>{internal && product.priceDisplayMode === "fixed" && <small>A {won(option.priceA ?? option.price)} · B {won(option.priceB ?? option.price)}</small>}</div>)}</td>
-                <td><span>{product.servingsPerUnit || ""}</span><span>{product.boxContents || ""}</span><span>{product.servingsPerBox || ""}</span>{!product.servingsPerUnit && !product.boxContents && !product.servingsPerBox ? "-" : ""}</td>
-                <td>{product.storageMethod || "-"}</td>
-              </tr>)}
-            </tbody>
-          </table>
-        </section>
+        <>
+          <section className="price-table-wrap price-table-desktop">
+            <table className="price-table">
+              <thead><tr><th>품목</th><th>규격</th><th>판매단위 / 가격</th><th>구성·인분</th><th>보관</th></tr></thead>
+              <tbody>
+                {visible.map((product) => <tr key={product.id} className={product.soldout ? "soldout" : ""}>
+                  <td><b>{product.name}</b><span>{product.category}{product.sub ? ` · ${product.sub}` : ""}{product.isPromo ? " · 🚨행사" : ""}</span></td>
+                  <td>{product.unit || "-"}</td>
+                  <td>{product.packOptions.map((option) => <div className="price-table-option" key={option.label}><span>{option.label}</span><b>{priceLabel(product, option)}</b>{internal && product.priceDisplayMode === "fixed" && <small>A {won(option.priceA ?? option.price)} · B {won(option.priceB ?? option.price)}</small>}</div>)}</td>
+                  <td className="price-table-facts">
+                    {product.servingsPerUnit && <span><b>{servingsUnitLabel(product)}</b>{product.servingsPerUnit}</span>}
+                    {product.boxContents && <span><b>1박스 입수</b>{product.boxContents}</span>}
+                    {product.servingsPerBox && <span><b>1박스 기준</b>{product.servingsPerBox}</span>}
+                    {!product.servingsPerUnit && !product.boxContents && !product.servingsPerBox ? "-" : ""}
+                  </td>
+                  <td>{product.storageMethod || "-"}</td>
+                </tr>)}
+              </tbody>
+            </table>
+          </section>
+
+          <section className="price-mobile-list" aria-label="모바일 간단 단가표">
+            {visible.map((product) => <article className={`price-mobile-item ${product.soldout ? "soldout" : ""}`} key={product.id}>
+              <div className="price-mobile-item-head">
+                <div>
+                  <p>{product.category}{product.sub ? ` · ${product.sub}` : ""}{product.isPromo ? " · 🚨행사" : ""}</p>
+                  <h2>{product.name}</h2>
+                </div>
+                <span>{product.unit || "규격 문의"}</span>
+              </div>
+              <div className="price-mobile-options">
+                {product.packOptions.map((option) => <div key={option.label}>
+                  <span>{option.label}</span>
+                  <strong>{priceLabel(product, option)}</strong>
+                  {internal && product.priceDisplayMode === "fixed" && <small>A {won(option.priceA ?? option.price)} · B {won(option.priceB ?? option.price)}</small>}
+                </div>)}
+              </div>
+              {(product.servingsPerUnit || product.boxContents || product.servingsPerBox || product.storageMethod) && <div className="price-mobile-facts">
+                {product.servingsPerUnit && <span><b>{servingsUnitLabel(product)}</b>{product.servingsPerUnit}</span>}
+                {product.boxContents && <span><b>1박스 입수</b>{product.boxContents}</span>}
+                {product.servingsPerBox && <span><b>1박스 기준</b>{product.servingsPerBox}</span>}
+                {product.storageMethod && <span><b>보관</b>{product.storageMethod}</span>}
+              </div>}
+            </article>)}
+          </section>
+        </>
       ) : (
         <section className="price-card-grid">
           {visible.map((product) => <article className={`price-card ${product.soldout ? "soldout" : ""}`} key={product.id}>
@@ -177,7 +214,7 @@ function PriceListPage() {
                 </div>)}
               </div>
               {(product.servingsPerUnit || product.boxContents || product.servingsPerBox) && <dl className="price-info-list">
-                {product.servingsPerUnit && <div><dt>1단위 기준</dt><dd>{product.servingsPerUnit}</dd></div>}
+                {product.servingsPerUnit && <div><dt>{servingsUnitLabel(product)}</dt><dd>{product.servingsPerUnit}</dd></div>}
                 {product.boxContents && <div><dt>1박스 입수</dt><dd>{product.boxContents}</dd></div>}
                 {product.servingsPerBox && <div><dt>1박스 기준</dt><dd>{product.servingsPerBox}</dd></div>}
               </dl>}
