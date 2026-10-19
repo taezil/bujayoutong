@@ -1,12 +1,7 @@
 name: Build Heroes Quiz Auto APK
 
 on:
-  push:
-    branches:
-      - heroes-quiz-auto
   pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
