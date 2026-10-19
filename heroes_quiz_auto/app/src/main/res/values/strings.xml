@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">히테2 퀴즈 AUTO</string>
+    <string name="accessibility_desc">게임 채팅 입력과 전송 버튼을 자동으로 누르기 위해 사용합니다.</string>
+</resources>
