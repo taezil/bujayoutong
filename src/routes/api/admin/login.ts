@@ -9,8 +9,8 @@ export const Route = createFileRoute("/api/admin/login")({
           return Response.json({ error: "잘못된 요청입니다." }, { status: 403 });
         }
         try {
-          const body = await request.json() as { password?: string };
-          const token = await loginAdmin(String(body.password ?? ""));
+          const body = await request.json() as { username?: string; password?: string };
+          const token = await loginAdmin(String(body.username ?? ""), String(body.password ?? ""));
           return Response.json(
             { ok: true },
             { headers: { "Set-Cookie": sessionCookie(token), "Cache-Control": "no-store" } },
