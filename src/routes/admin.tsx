@@ -763,22 +763,15 @@ function ProductEditor({
             <div className="adm-units">
               <div className="adm-units-head">
                 <h3>주문 단위 설정</h3>
-                <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "박스", price: null, priceA: null, priceB: null, step: 1 }] })}>＋ 단위 추가</button>
+                <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "박스", price: null, step: 1 }] })}>＋ 단위 추가</button>
               </div>
               <p className="adm-help">거래처 화면에 단위별로 −/＋ 버튼이 생깁니다. 수량 step은 한 번 누를 때 늘어나는 양입니다.</p>
               {draft.packOptions.map((option, index) => (
                 <div className="adm-unit-row" key={index}>
                   <label>단위<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} placeholder="박스" list="adm-unit-presets" /></label>
                   <label>수량 step<input inputMode="decimal" value={option.step} onChange={(e) => updateOption(index, { step: Number(e.target.value || 1) })} /></label>
-                  <label>기본가격<input inputMode="numeric" value={option.price ?? ""} placeholder="가격문의" onChange={(e) => updateOption(index, { price: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} /></label>
+                  <label>가격<input inputMode="numeric" value={option.price ?? ""} placeholder="가격문의" onChange={(e) => updateOption(index, { price: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} /></label>
                   <button type="button" className="adm-unit-del" aria-label="단위 삭제" onClick={() => setDraft({ ...draft, packOptions: draft.packOptions.filter((_, i) => i !== index) })}>×</button>
-                  <details className="adm-unit-group">
-                    <summary>거래처 그룹 가격 (A/B)</summary>
-                    <div>
-                      <label>A그룹<input inputMode="numeric" value={option.priceA ?? ""} placeholder="기본가 사용" onChange={(e) => updateOption(index, { priceA: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} /></label>
-                      <label>B그룹<input inputMode="numeric" value={option.priceB ?? ""} placeholder="기본가 사용" onChange={(e) => updateOption(index, { priceB: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} /></label>
-                    </div>
-                  </details>
                 </div>
               ))}
               <datalist id="adm-unit-presets">
@@ -900,7 +893,7 @@ function makeNewProduct(store: StoreData): Product {
     priceDisplayMode: "fixed",
     hidden: false,
     promoPrice: null,
-    packOptions: [{ label: "박스", price: null, priceA: null, priceB: null, step: 1 }],
+    packOptions: [{ label: "박스", price: null, step: 1 }],
   };
 }
 
