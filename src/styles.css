@@ -2435,3 +2435,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .simple-cart-backdrop { padding: 0; }
   .simple-cart-sheet { max-height: 88dvh; border-radius: 24px 24px 0 0; padding: 22px 16px max(18px,env(safe-area-inset-bottom)); }
 }
+
+.simple-admin-head { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:22px; }
+.simple-admin-head p { margin:0 0 5px; color:var(--blue); font-size:13px; font-weight:900; }
+.simple-admin-head h1 { margin:0; font-size:38px; letter-spacing:-.05em; }
+.simple-admin-head span { display:block; margin-top:7px; color:#667085; font-size:13px; }
+.simple-admin-actions { display:flex; gap:8px; }
+.simple-admin-actions a,.simple-admin-actions button { min-height:42px; display:inline-flex; align-items:center; padding:0 14px; border:1px solid #cbd7e2; border-radius:10px; background:#fff; text-decoration:none; font-weight:800; cursor:pointer; }
+.simple-admin-search { margin-bottom:14px; }
+.simple-admin-search input { width:100%; height:50px; padding:0 14px; border:1px solid #cbd7e2; border-radius:12px; background:#fff; font-size:15px; }
+@media(max-width:680px){.simple-admin-head{align-items:stretch;flex-direction:column}.simple-admin-actions>*{flex:1;justify-content:center}.admin-section{padding:16px}.admin-product-row{grid-template-columns:56px minmax(0,1fr) auto}.admin-product-price{display:none}}
