@@ -169,6 +169,23 @@ export async function ensureDatabase(database: D1Database = db()) {
   await ensureColumn(database, "pack_options", "spec", "TEXT NOT NULL DEFAULT ''");
   await ensureOperationsSchema(database);
 
+  const singleAdminSeeded = await database
+    .prepare("SELECT value FROM app_settings WHERE key = 'single_admin_login_v1'")
+    .first<{ value: string }>();
+  if (!singleAdminSeeded) {
+    await database.batch([
+      database.prepare("DELETE FROM admin_sessions"),
+      database.prepare("DELETE FROM staff_sessions WHERE staff_id IN (SELECT id FROM staff_users WHERE role='ADMIN')"),
+      database.prepare("DELETE FROM staff_users WHERE role='ADMIN'"),
+      database.prepare("INSERT OR REPLACE INTO admin_credentials (id, salt, hash) VALUES (1, ?, ?)").bind(
+        "bujadmin20261023",
+        "d037839d879bf478ecde1e4d8eacca623e6f94f2c50d3bf0e50f1c91d3a4e7b0",
+      ),
+      database.prepare("DELETE FROM app_settings WHERE key = 'bootstrap_key'"),
+      database.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('single_admin_login_v1', '1')"),
+    ]);
+  }
+
   const demoSeeded = await database
     .prepare("SELECT value FROM app_settings WHERE key = 'demo_customer_seeded'")
     .first<{ value: string }>();
