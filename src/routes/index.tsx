@@ -13,7 +13,7 @@ const getStore = createServerFn({ method: "GET" }).handler(async () => {
     ...store,
     products: store.products.map((product) => ({
       ...product,
-      packOptions: product.packOptions.map((option) => ({ label: option.label, price: option.price, step: option.step })),
+      packOptions: product.packOptions.map((option) => ({ label: option.label, spec: option.spec, price: option.price, step: option.step })),
     })),
   };
 });
@@ -40,6 +40,17 @@ const CART_STORAGE_KEY = "buja-simple-cart-v1";
 const SENT_STORAGE_KEY = "buja-simple-cart-sent-v1";
 const HISTORY_STORAGE_KEY = "buja-simple-history-v1";
 const ALL = "전체";
+
+const DEFAULT_CATEGORY_PHOTOS: Record<string, string> = {
+  "행사품목": "https://images.unsplash.com/photo-1772457677598-2dc68bb6f4c8?auto=format&fit=crop&w=520&q=82",
+  "냉동식품": "https://images.unsplash.com/photo-1777113310227-db99e3431b3f?auto=format&fit=crop&w=520&q=82",
+  "건어물": "https://images.unsplash.com/photo-1772285337950-82b3bc190b30?auto=format&fit=crop&w=520&q=82",
+  "김치": "https://images.unsplash.com/photo-1775883374700-bddbb6c80fcb?auto=format&fit=crop&w=520&q=82",
+  "냉동수산": "https://images.unsplash.com/photo-1774978612710-c3e2e285e690?auto=format&fit=crop&w=520&q=82",
+  "냉동축산": "https://images.unsplash.com/photo-1690983325563-fe4412c4c347?auto=format&fit=crop&w=520&q=82",
+  "공산품": "https://images.unsplash.com/photo-1781018727258-4a70d500e4ee?auto=format&fit=crop&w=520&q=82",
+};
+
 
 /* ---------- 검색 ---------- */
 
@@ -74,11 +85,35 @@ function toChoseong(value: string) {
 /* ---------- 상품 안내 문구 ---------- */
 
 function productOptions(product: Product): PackOption[] {
-  return product.packOptions.length ? product.packOptions : [{ label: product.unit, price: product.price, step: 1 }];
+  return product.packOptions.length ? product.packOptions : [{ label: product.unit, spec: product.unit, price: product.price, step: 1 }];
 }
 
 function smallPackWord(options: PackOption[]) {
   return options.map((option) => option.label.trim()).find((label) => label && !label.includes("박스")) ?? "";
+}
+
+function servingText(value: string) {
+  const text = value.trim();
+  if (!text) return "";
+  return /인분\s*$/.test(text) ? text : `${text}인분`;
+}
+
+function packCountSuffix(label: string) {
+  if (label.includes("봉")) return "봉";
+  if (label.includes("팩")) return "팩";
+  if (label.includes("개")) return "개";
+  if (label.includes("통")) return "통";
+  if (label.includes("캔")) return "캔";
+  if (label.includes("판")) return "판";
+  if (label.includes("묶음")) return "묶음";
+  return "봉";
+}
+
+function boxContentsText(value: string, smallLabel: string) {
+  const text = value.trim();
+  if (!text) return "";
+  if (/^\d+(?:\.\d+)?$/.test(text)) return `${text}${packCountSuffix(smallLabel)}`;
+  return text.replace(/봉지\s*$/, "봉");
 }
 
 function servingsLines(product: Product) {
@@ -89,16 +124,29 @@ function servingsLines(product: Product) {
   const word = smallPackWord(productOptions(product));
 
   if (unitServings) {
-    const alreadyLabeled = /^1/.test(unitServings) || (word && unitServings.includes(word));
-    lines.push(alreadyLabeled || !word ? unitServings : `1${word} ${unitServings}`);
+    const label = word || "단위";
+    const normalized = servingText(unitServings);
+    const alreadyLabeled = /^1/.test(normalized) || normalized.includes(label);
+    lines.push(alreadyLabeled ? normalized : `1${label} ${normalized}`);
   }
+
   if (boxContents || boxServings) {
-    const contents = boxContents && (/^1\s*박스/.test(boxContents) ? boxContents : `1박스 ${boxContents}`);
-    if (contents && boxServings) lines.push(`${contents} (${boxServings})`);
-    else if (contents) lines.push(contents);
-    else lines.push(/^1\s*박스/.test(boxServings) ? boxServings : `1박스 ${boxServings}`);
+    const contents = boxContentsText(boxContents, word);
+    const servings = servingText(boxServings);
+    if (contents && servings) lines.push(`1박스 ${contents} (${servings})`);
+    else if (contents) lines.push(`1박스 ${contents}`);
+    else if (servings) lines.push(`1박스 ${servings}`);
   }
+
   return lines;
+}
+
+function optionSpec(product: Product, option: PackOption) {
+  const explicit = (option.spec ?? "").trim();
+  if (explicit) return explicit;
+  const options = productOptions(product);
+  if (options.length === 1 || !option.label.includes("박스")) return product.unit.trim();
+  return "";
 }
 
 /* ---------- 문자/복사/저장 ---------- */
@@ -250,6 +298,7 @@ function OrderPage() {
     const covers: Record<string, string> = {};
     for (const name of categoryNames) {
       covers[name] = store.categoryImages?.[name]
+        || DEFAULT_CATEGORY_PHOTOS[name]
         || store.products.find((product) => product.category === name && product.photo)?.photo
         || "";
     }
@@ -431,7 +480,7 @@ function OrderPage() {
         <nav className="od-tiles od-home-tiles" aria-label="카테고리">
           {categoryNames.map((name) => (
             <button type="button" key={name} className={`od-tile ${name === promo ? "promo" : ""}`} onClick={() => openCategory(name)}>
-              <span className="od-tile-img"><CategoryGlyph name={name} promo={name === promo} /></span>
+              <span className="od-tile-img">{categoryCover[name] ? <img src={categoryCover[name]} alt="" loading="lazy" decoding="async" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</span>
               <span className="od-tile-name">{name}</span>
             </button>
           ))}
@@ -479,7 +528,7 @@ function OrderPage() {
               className={`od-tile ${category === name ? "selected" : ""} ${name === promo ? "promo" : ""}`}
               onClick={() => { setCategory(name); setSub(ALL); window.scrollTo({ top: 0 }); }}
             >
-              <span className="od-tile-img"><CategoryGlyph name={name} promo={name === promo} /></span>
+              <span className="od-tile-img">{categoryCover[name] ? <img src={categoryCover[name]} alt="" loading="lazy" decoding="async" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</span>
               <span className="od-tile-name">{name}</span>
             </button>
           ))}
@@ -705,14 +754,13 @@ function ProductCard({ product, promo, quantityFor, onQuantity, onOpen }: CardPr
         {product.soldout && <b className="od-soldout-cover">품절</b>}
       </button>
       <div className="od-card-body">
-        <button type="button" className="od-card-name" onClick={() => onOpen(product)}>{product.name}</button>
-        <p className="od-card-spec">
-          {product.unit && <span>{product.unit}</span>}
-          {product.storageMethod && <em className={`od-storage s-${product.storageMethod}`}>{product.storageMethod}</em>}
-        </p>
-        {servings.length > 0 && (
-          <ul className="od-card-servings">{servings.map((line) => <li key={line}>{line}</li>)}</ul>
-        )}
+        <div className="od-card-title-row">
+          <button type="button" className="od-card-name" onClick={() => onOpen(product)}>{product.name}</button>
+          {servings.length > 0 && (
+            <ul className="od-card-servings od-card-servings-inline">{servings.map((line) => <li key={line}>{line}</li>)}</ul>
+          )}
+        </div>
+        {product.storageMethod && <span className={`od-storage od-card-storage s-${product.storageMethod}`}>{product.storageMethod}</span>}
         {hasDescription && <button type="button" className="od-card-more" onClick={() => onOpen(product)}>상품설명 보기 ›</button>}
         {product.soldout
           ? <div className="od-soldout-text">품절</div>
@@ -720,19 +768,6 @@ function ProductCard({ product, promo, quantityFor, onQuantity, onOpen }: CardPr
       </div>
     </article>
   );
-}
-
-function CategoryGlyph({ name, promo }: { name: string; promo: boolean }) {
-  const text = promo || name.includes("행사") ? "%"
-    : name.includes("냉동식품") ? "❄"
-    : name.includes("건어") ? "🐟"
-    : name.includes("김치") ? "🥬"
-    : name.includes("수산") ? "🐟"
-    : name.includes("축산") ? "🥩"
-    : name.includes("공산") ? "📦"
-    : name.includes("신선") ? "🥬"
-    : "🍽️";
-  return <span className={`od-category-glyph ${promo ? "promo" : ""}`} aria-hidden="true">{text}</span>;
 }
 
 function ProductTags({ product, promo }: { product: Product; promo: string }) {
@@ -775,7 +810,9 @@ function OptionSteppers({
         const step = option.step || 1;
         return (
           <div className={`od-option ${quantity > 0 ? "active" : ""}`} key={label}>
-            <span className="od-option-label">{label}</span>
+            <span className={`od-option-label ${label.includes("박스") ? "unit-box" : label.includes("봉") ? "unit-bag" : "unit-other"}`}>
+              <strong>{label}</strong>{optionSpec(product, option) && <small>({optionSpec(product, option)})</small>}
+            </span>
             <div className={`od-stepper ${quantity > 0 ? "active" : ""}`}>
               <button type="button" aria-label={`${label} 수량 줄이기`} onClick={() => onQuantity(product, option, quantity - step)} disabled={quantity <= 0}>−</button>
               <b>{quantity}</b>
