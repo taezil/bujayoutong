@@ -3537,6 +3537,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
   .od-card {
     box-shadow: 0 2px 8px rgba(27,49,34,.04) !important;
+    content-visibility: auto;
+    contain-intrinsic-size: 420px;
   }
   .od-card-photo > img {
     transition: none !important;
