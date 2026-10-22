@@ -2381,13 +2381,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .simple-product-card { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid #dfe5ec; border-radius: 18px; background: #fff; box-shadow: 0 2px 8px rgba(16,24,40,.04); }
 .simple-product-card.soldout { background: #f7f7f8; }
 .simple-product-card.soldout h3 { color: #667085; }
-.simple-product-top { display: grid; grid-template-columns: 120px minmax(0,1fr); gap: 14px; align-items: start; }
-.simple-product-photo { position: relative; width: 120px; height: 120px; padding: 0; overflow: hidden; border: 0; border-radius: 14px; background: #f2f4f7; cursor: zoom-in; }
+.simple-product-top { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.08fr); gap: 12px; align-items: start; }
+.simple-product-side { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.simple-product-photo { position: relative; width: 100%; aspect-ratio: 1 / 1; padding: 0; overflow: hidden; border: 0; border-radius: 14px; background: #f2f4f7; cursor: zoom-in; }
 .simple-product-photo:disabled { cursor: default; }
-.simple-product-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.simple-product-photo img.placeholder { object-fit: contain; padding: 22px; opacity: .45; }
+.simple-product-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.simple-product-photo img.placeholder { object-fit: contain; padding: 28%; opacity: .45; }
 .simple-product-photo > b { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(16,24,40,.6); color: #fff; font-size: 18px; }
-.simple-product-photo > i { position: absolute; right: 6px; bottom: 6px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: rgba(16,24,40,.55); color: #fff; font-style: normal; font-size: 15px; }
+.simple-product-photo > i { position: absolute; right: 8px; bottom: 8px; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; background: rgba(16,24,40,.55); color: #fff; font-style: normal; font-size: 15px; }
 .simple-product-info { min-width: 0; padding-top: 2px; }
 .simple-product-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
 .simple-product-tags span { padding: 3px 8px; border-radius: 6px; font-size: 13px; font-weight: 800; line-height: 1.3; }
@@ -2405,13 +2406,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .simple-product-desc { color: #344054; font-size: 15px; line-height: 1.55; white-space: pre-line; word-break: keep-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .simple-product-desc.open { display: block; -webkit-line-clamp: unset; }
 .simple-desc-toggle { justify-self: start; min-height: 36px; padding: 0 4px; border: 0; background: none; color: var(--blue-strong); font-size: 15px; font-weight: 800; cursor: pointer; }
-.simple-product-options { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
-.simple-product-options.count-1 { grid-template-columns: minmax(0,1fr); }
-.simple-option { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1.5px solid #dbe2ea; border-radius: 14px; background: #fff; }
+.simple-product-options { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; }
+.simple-option { display: flex; align-items: center; gap: 6px; padding: 5px 5px 5px 10px; border: 1.5px solid #dbe2ea; border-radius: 14px; background: #fff; }
 .simple-option.active { border-color: #77afe0; background: #f2f8ff; }
-.simple-option-label { flex: 0 0 auto; min-width: 2.2em; color: #1d2939; font-size: 17px; font-weight: 900; }
-.simple-stepper { flex: 1; display: grid; grid-template-columns: 44px minmax(36px,1fr) 44px; height: 46px; overflow: hidden; border: 1px solid #c9d3de; border-radius: 11px; background: #fff; }
-.simple-product-options.count-1 .simple-stepper { flex: 0 0 200px; margin-left: auto; }
+.simple-option-label { flex: 0 0 auto; min-width: 2.2em; color: #1d2939; font-size: 16px; font-weight: 900; white-space: nowrap; }
+.simple-stepper { flex: 1; min-width: 0; display: grid; grid-template-columns: 42px minmax(26px,1fr) 42px; height: 46px; overflow: hidden; border: 1px solid #c9d3de; border-radius: 11px; background: #fff; }
 .simple-stepper.active { border-color: #4f97d8; }
 .simple-stepper button { border: 0; background: #eef2f6; color: #101828; font-size: 24px; font-weight: 700; cursor: pointer; touch-action: manipulation; }
 .simple-stepper button:last-child { background: var(--blue); color: #fff; }
@@ -2464,21 +2463,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .simple-search { top: 70px; }
   .simple-product-list { grid-template-columns: minmax(0,1fr); }
   .simple-product-card { padding: 12px; }
-  .simple-product-top { grid-template-columns: 112px minmax(0,1fr); gap: 12px; }
-  .simple-product-photo { width: 112px; height: 112px; }
+  .simple-product-top { gap: 10px; }
   .simple-product-info h3 { font-size: 19px; }
-  .simple-option { padding-left: 10px; gap: 6px; }
-  .simple-option-label { font-size: 16px; }
-  .simple-stepper { grid-template-columns: 40px minmax(30px,1fr) 40px; }
-  .simple-product-options.count-1 .simple-stepper { flex-basis: 190px; }
+  .simple-option { padding-left: 8px; gap: 4px; }
+  .simple-option-label { font-size: 15px; }
+  .simple-stepper { grid-template-columns: 38px minmax(24px,1fr) 38px; height: 44px; }
   .simple-cart-backdrop { padding: 0; }
   .simple-cart-sheet { max-height: 90dvh; border-radius: 24px 24px 0 0; padding: 22px 16px max(18px,env(safe-area-inset-bottom)); }
 }
 @media (max-width: 360px) {
-  .simple-product-top { grid-template-columns: 96px minmax(0,1fr); }
-  .simple-product-photo { width: 96px; height: 96px; }
-  .simple-product-options { grid-template-columns: minmax(0,1fr); }
-  .simple-product-options .simple-stepper { flex: 0 0 190px; margin-left: auto; }
+  .simple-product-top { grid-template-columns: minmax(0,.9fr) minmax(0,1fr); }
+  .simple-stepper { grid-template-columns: 34px minmax(22px,1fr) 34px; }
 }
 
 .simple-admin-head { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:22px; }

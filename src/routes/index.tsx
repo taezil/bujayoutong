@@ -258,14 +258,37 @@ function SimpleProductCard({
           {product.soldout && <b>품절</b>}
           {product.photo && !product.soldout && <i aria-hidden="true">⤢</i>}
         </button>
-        <div className="simple-product-info">
-          <div className="simple-product-tags">
-            {isPromo && <span className="tag-promo">행사</span>}
-            {product.storageMethod && <span className={`tag-storage tag-${product.storageMethod}`}>{product.storageMethod}</span>}
-            {product.sub && <span className="tag-sub">{product.sub}</span>}
+        <div className="simple-product-side">
+          <div className="simple-product-info">
+            <div className="simple-product-tags">
+              {isPromo && <span className="tag-promo">행사</span>}
+              {product.storageMethod && <span className={`tag-storage tag-${product.storageMethod}`}>{product.storageMethod}</span>}
+              {product.sub && <span className="tag-sub">{product.sub}</span>}
+            </div>
+            <h3>{product.name}</h3>
+            {product.unit && <p className="simple-product-spec">규격 <b>{product.unit}</b></p>}
           </div>
-          <h3>{product.name}</h3>
-          {product.unit && <p className="simple-product-spec">규격 <b>{product.unit}</b></p>}
+          {product.soldout ? (
+            <div className="simple-soldout-text">현재 품절된 상품입니다</div>
+          ) : (
+            <div className={`simple-product-options count-${Math.min(options.length, 3)}`}>
+              {options.map((option) => {
+                const label = option.label || product.unit;
+                const quantity = quantityFor(product.id, label);
+                const step = option.step || 1;
+                return (
+                  <div className={`simple-option ${quantity > 0 ? "active" : ""}`} key={label}>
+                    <span className="simple-option-label">{label}</span>
+                    <div className={`simple-stepper ${quantity > 0 ? "active" : ""}`}>
+                      <button type="button" aria-label={`${label} 수량 줄이기`} onClick={() => onQuantity(product, option, quantity - step)} disabled={quantity <= 0}>−</button>
+                      <b>{quantity}</b>
+                      <button type="button" aria-label={`${label} 수량 늘리기`} onClick={() => onQuantity(product, option, quantity + step)}>＋</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -283,28 +306,6 @@ function SimpleProductCard({
               {expanded ? "접기 ▲" : "설명 더보기 ▼"}
             </button>
           )}
-        </div>
-      )}
-
-      {product.soldout ? (
-        <div className="simple-soldout-text">현재 품절된 상품입니다</div>
-      ) : (
-        <div className={`simple-product-options count-${Math.min(options.length, 3)}`}>
-          {options.map((option) => {
-            const label = option.label || product.unit;
-            const quantity = quantityFor(product.id, label);
-            const step = option.step || 1;
-            return (
-              <div className={`simple-option ${quantity > 0 ? "active" : ""}`} key={label}>
-                <span className="simple-option-label">{label}</span>
-                <div className={`simple-stepper ${quantity > 0 ? "active" : ""}`}>
-                  <button type="button" aria-label={`${label} 수량 줄이기`} onClick={() => onQuantity(product, option, quantity - step)} disabled={quantity <= 0}>−</button>
-                  <b>{quantity}</b>
-                  <button type="button" aria-label={`${label} 수량 늘리기`} onClick={() => onQuantity(product, option, quantity + step)}>＋</button>
-                </div>
-              </div>
-            );
-          })}
         </div>
       )}
     </article>
