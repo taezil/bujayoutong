@@ -29,6 +29,10 @@ export type Product = {
   storageMethod?: string;
   priceListVisible?: boolean;
   priceDisplayMode?: "fixed" | "market" | "inquiry";
+  /** 숨김: 거래처 화면·단가표에 보이지 않음 (관리자에서만 보임) */
+  hidden?: boolean;
+  /** 행사가격 (대표 가격, 원). 없으면 null */
+  promoPrice?: number | null;
   packOptions: PackOption[];
 };
 
@@ -59,6 +63,8 @@ export type OrderSettings = {
 export type StoreData = {
   products: Product[];
   categories: Record<string, string[]>;
+  /** 카테고리별 대표 사진 URL (없으면 빈 값) */
+  categoryImages: Record<string, string>;
   promoCategory: string;
   sms: string;
   admin: boolean;
@@ -150,6 +156,9 @@ export async function ensureDatabase(database: D1Database = db()) {
   await ensureColumn(database, "products", "storage_method", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn(database, "products", "price_list_visible", "INTEGER NOT NULL DEFAULT 1");
   await ensureColumn(database, "products", "price_display_mode", "TEXT NOT NULL DEFAULT 'fixed'");
+  await ensureColumn(database, "products", "hidden", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(database, "products", "promo_price", "INTEGER");
+  await ensureColumn(database, "categories", "image", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn(database, "pack_options", "price_a", "INTEGER");
   await ensureColumn(database, "pack_options", "price_b", "INTEGER");
   await ensureOperationsSchema(database);
@@ -193,19 +202,23 @@ function boolSetting(settings: Record<string, string>, key: string, fallback: bo
   return settings[key] === "1";
 }
 
-export async function readStore(priceGroup?: "A" | "B"): Promise<StoreData> {
+export async function readStore(priceGroup?: "A" | "B", options: { includeHidden?: boolean } = {}): Promise<StoreData> {
   const database = db();
   await ensureDatabase(database);
   const [categoryRows, subRows, productRows, optionRows, settingsRows] = await Promise.all([
-    database.prepare("SELECT name, sort_order, is_promo FROM categories ORDER BY sort_order, name").all(),
+    database.prepare("SELECT name, sort_order, is_promo, image FROM categories ORDER BY sort_order, name").all(),
     database.prepare("SELECT category_name, name, sort_order FROM subcategories ORDER BY category_name, sort_order, name").all(),
-    database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone, description, servings_per_unit, box_contents, servings_per_box, storage_method, price_list_visible, price_display_mode FROM products ORDER BY sort_order, name").all(),
+    database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone, description, servings_per_unit, box_contents, servings_per_box, storage_method, price_list_visible, price_display_mode, hidden, promo_price FROM products ORDER BY sort_order, name").all(),
     database.prepare("SELECT product_id, label, price, price_a, price_b, step, sort_order FROM pack_options ORDER BY product_id, sort_order, id").all(),
     database.prepare("SELECT key, value FROM app_settings").all(),
   ]);
 
   const categories: Record<string, string[]> = {};
-  for (const row of categoryRows.results as Array<Record<string, unknown>>) categories[String(row.name)] = [];
+  const categoryImages: Record<string, string> = {};
+  for (const row of categoryRows.results as Array<Record<string, unknown>>) {
+    categories[String(row.name)] = [];
+    categoryImages[String(row.name)] = String(row.image ?? "");
+  }
   for (const row of subRows.results as Array<Record<string, unknown>>) {
     const category = String(row.category_name);
     if (!categories[category]) categories[category] = [];
@@ -234,7 +247,9 @@ export async function readStore(priceGroup?: "A" | "B"): Promise<StoreData> {
     (settingsRows.results as Array<Record<string, unknown>>).map((row) => [String(row.key), String(row.value)]),
   );
 
-  const products: Product[] = (productRows.results as Array<Record<string, unknown>>).map((row) => ({
+  const productList = (productRows.results as Array<Record<string, unknown>>)
+    .filter((row) => options.includeHidden || Number(row.hidden ?? 0) !== 1);
+  const products: Product[] = productList.map((row) => ({
     id: String(row.id),
     name: String(row.name),
     category: String(row.category),
@@ -252,6 +267,8 @@ export async function readStore(priceGroup?: "A" | "B"): Promise<StoreData> {
     storageMethod: String(row.storage_method ?? ""),
     priceListVisible: Number(row.price_list_visible ?? 1) === 1,
     priceDisplayMode: String(row.price_display_mode ?? "fixed") === "market" ? "market" : String(row.price_display_mode ?? "fixed") === "inquiry" ? "inquiry" : "fixed",
+    hidden: Number(row.hidden ?? 0) === 1,
+    promoPrice: row.promo_price == null ? null : Number(row.promo_price),
     packOptions: optionsByProduct.get(String(row.id)) ?? [],
   }));
 
@@ -262,6 +279,7 @@ export async function readStore(priceGroup?: "A" | "B"): Promise<StoreData> {
   return {
     products,
     categories,
+    categoryImages,
     promoCategory: settings.promoCategory || String(promoFromTable?.name ?? ""),
     sms: settings.sms || "",
     admin: false,

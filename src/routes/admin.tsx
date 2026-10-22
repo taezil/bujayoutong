@@ -39,19 +39,44 @@ function orderPeriod(value: string) {
 
 const WAREHOUSE_ZONES = ["미지정", "냉동식품창고", "냉동수산창고", "냉동축산창고", "냉장창고", "김치창고", "건어물창고", "공산품창고", "상온창고"];
 
+type AdminView = "products" | "categories" | "settings";
+type StatusFilter = "all" | "selling" | "soldout" | "hidden" | "promo";
+const PAGE_SIZE = 20;
+
+function productStatus(product: Product): "selling" | "soldout" | "hidden" {
+  if (product.hidden) return "hidden";
+  if (product.soldout) return "soldout";
+  return "selling";
+}
+
+function wonText(value: number | null | undefined) {
+  return value == null ? "" : `${new Intl.NumberFormat("ko-KR").format(value)}원`;
+}
+
+async function uploadPhoto(file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const upload = await fetch("/api/photo", { method: "POST", body: form });
+  const data = await upload.json() as { url?: string; error?: string };
+  if (!upload.ok || !data.url) throw new Error(data.error || "사진 업로드에 실패했습니다.");
+  return data.url;
+}
+
 function AdminPage() {
   const [status, setStatus] = useState<AdminStatus | null>(null);
   const [store, setStore] = useState<StoreData | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [setupKey, setSetupKey] = useState("");
   const [password, setPassword] = useState("");
   const [staffUsername, setStaffUsername] = useState("");
   const [staffPin, setStaffPin] = useState("");
   const [editing, setEditing] = useState<Product | "new" | null>(null);
-  const [query, setQuery] = useState("");
+  const [view, setView] = useState<AdminView>("products");
 
   const loadStore = useCallback(async () => {
-    const response = await fetch("/api/store", { cache: "no-store" });
+    // all=1: 관리자 인증 시 숨김 상품까지 포함
+    const response = await fetch("/api/store?all=1", { cache: "no-store" });
     if (!response.ok) throw new Error("상품 데이터를 불러오지 못했습니다.");
     setStore(await response.json() as StoreData);
   }, []);
@@ -66,6 +91,12 @@ function AdminPage() {
   useEffect(() => {
     void loadStatus().catch((reason) => setError(reason instanceof Error ? reason.message : "관리자 화면을 불러오지 못했습니다."));
   }, [loadStatus]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 2200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   async function setup(event: React.FormEvent) {
     event.preventDefault(); setError("");
@@ -126,35 +157,58 @@ function AdminPage() {
   );
 
   if (!store) return <AdminShell><p className="admin-loading">상품을 불러오는 중입니다.</p></AdminShell>;
-  const needle = normalizeAdminQuery(query);
-  const products = store.products.filter((p) => !needle || normalizeAdminQuery(`${p.name} ${p.category} ${p.sub} ${p.unit}`).includes(needle));
+
+  const staffName = status.staff?.displayName ?? "관리자";
+  const menu: Array<{ id: AdminView; label: string; icon: string }> = [
+    { id: "products", label: "상품 관리", icon: "📦" },
+    { id: "categories", label: "카테고리 관리", icon: "🗂" },
+    { id: "settings", label: "설정", icon: "⚙" },
+  ];
 
   return (
-    <AdminShell>
-      <div className="simple-admin-head">
-        <div><p>부자유통 관리자</p><h1>품목 관리</h1><span>상품 추가·수정·품절 처리만 사용하는 간단 관리자입니다.</span></div>
-        <div className="simple-admin-actions"><a href="/">주문페이지 보기</a><button type="button" onClick={logout}>로그아웃</button></div>
-      </div>
-      {error && <p className="admin-banner-error">{error}</p>}
-      <section className="admin-section" id="admin-products">
-        <div className="admin-section-head">
-          <div><h2>상품 {store.products.length}개</h2><p>상품명, 규격, 카테고리, 사진, 판매단위, 품절 여부를 수정할 수 있습니다.</p></div>
-          <button type="button" className="admin-primary" onClick={() => setEditing("new")}>+ 새 상품 추가</button>
-        </div>
-        <div className="simple-admin-search"><input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="상품명·카테고리 검색" /></div>
-        <div className="admin-product-list">
-          {products.map((product) => (
-            <div className="admin-product-row" key={product.id}>
-              <div className="admin-product-thumb">{product.photo ? <img src={product.photo} alt="" /> : <img src={BUJA_MARK_DATA} alt="" />}</div>
-              <div className="admin-product-copy"><strong>{product.name}</strong><span>{product.category} · {product.sub} · {product.unit}</span></div>
-              <div className="admin-product-price">{product.soldout ? <b className="red">품절</b> : <b>판매중</b>}</div>
-              <button type="button" onClick={() => setEditing(product)}>수정</button>
-            </div>
+    <div className="adm-layout">
+      <aside className="adm-side">
+        <div className="adm-side-brand"><img src={BUJA_LOGO_DATA} alt="부자유통" /><span>관리자</span></div>
+        <nav>
+          {menu.map((item) => (
+            <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}>
+              <i aria-hidden="true">{item.icon}</i>{item.label}
+            </button>
           ))}
+        </nav>
+        <div className="adm-side-foot">
+          <span>{staffName}</span>
+          <a href="/" target="_blank" rel="noreferrer">주문화면 보기 ↗</a>
+          <button type="button" onClick={logout}>로그아웃</button>
         </div>
-      </section>
-      {editing && <ProductEditor product={editing === "new" ? makeNewProduct(store) : editing} creating={editing === "new"} categories={store.categories} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await loadStore(); }} onError={setError} />}
-    </AdminShell>
+      </aside>
+      <main className="adm-main">
+        {error && <p className="adm-alert" role="alert">{error}<button type="button" onClick={() => setError("")} aria-label="닫기">×</button></p>}
+        {notice && <p className="adm-notice" role="status">{notice}</p>}
+        {view === "products" && (
+          <ProductsView
+            store={store}
+            onEdit={(product) => setEditing(product)}
+            onCreate={() => setEditing("new")}
+            onReload={loadStore}
+            onError={setError}
+            onNotice={setNotice}
+          />
+        )}
+        {view === "categories" && <CategoryView store={store} onSaved={loadStore} onError={setError} onNotice={setNotice} />}
+        {view === "settings" && <SimpleSettingsView store={store} onSaved={loadStore} onError={setError} onNotice={setNotice} />}
+      </main>
+      {editing && (
+        <ProductEditor
+          product={editing === "new" ? makeNewProduct(store) : editing}
+          creating={editing === "new"}
+          categories={store.categories}
+          onClose={() => setEditing(null)}
+          onSaved={async (message) => { setEditing(null); await loadStore(); setNotice(message); }}
+          onError={setError}
+        />
+      )}
+    </div>
   );
 }
 
@@ -168,6 +222,333 @@ function AdminShell({ children }: { children: ReactNode }) {
       <header className="admin-brandbar"><a href="/" aria-label="부자유통 홈"><img src={BUJA_LOGO_DATA} alt="부자유통" /></a></header>
       <main className="admin-wrap">{children}</main>
     </div>
+  );
+}
+
+function ProductsView({
+  store,
+  onEdit,
+  onCreate,
+  onReload,
+  onError,
+  onNotice,
+}: {
+  store: StoreData;
+  onEdit: (product: Product) => void;
+  onCreate: () => void;
+  onReload: () => Promise<void>;
+  onError: (value: string) => void;
+  onNotice: (value: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("전체");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [page, setPage] = useState(1);
+  const [busyId, setBusyId] = useState("");
+
+  const needle = normalizeAdminQuery(query);
+  const filtered = store.products.filter((p) => {
+    if (category !== "전체" && p.category !== category) return false;
+    if (statusFilter === "promo" && p.category !== store.promoCategory) return false;
+    if (statusFilter === "selling" && productStatus(p) !== "selling") return false;
+    if (statusFilter === "soldout" && productStatus(p) !== "soldout") return false;
+    if (statusFilter === "hidden" && productStatus(p) !== "hidden") return false;
+    return !needle || normalizeAdminQuery(`${p.id} ${p.name} ${p.category} ${p.sub} ${p.unit}`).includes(needle);
+  });
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const current = Math.min(page, pages);
+  const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [query, category, statusFilter]);
+
+  const counts = {
+    all: store.products.length,
+    selling: store.products.filter((p) => productStatus(p) === "selling").length,
+    soldout: store.products.filter((p) => productStatus(p) === "soldout").length,
+    hidden: store.products.filter((p) => productStatus(p) === "hidden").length,
+  };
+
+  async function quickStatus(product: Product, next: "selling" | "soldout" | "hidden") {
+    setBusyId(product.id);
+    onError("");
+    try {
+      await jsonPost("/api/admin/products", {
+        action: "update",
+        product: { ...product, soldout: next === "soldout", hidden: next === "hidden" },
+      });
+      await onReload();
+      onNotice(`‘${product.name}’ ${next === "selling" ? "판매중" : next === "soldout" ? "품절" : "숨김"}으로 변경했습니다.`);
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "상태 변경에 실패했습니다.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function remove(product: Product) {
+    if (!window.confirm(`‘${product.name}’ 상품을 삭제할까요?\n삭제하면 되돌릴 수 없습니다. 잠시 내릴 때는 '숨김'을 사용하세요.`)) return;
+    setBusyId(product.id);
+    onError("");
+    try {
+      await jsonPost("/api/admin/products", { action: "delete", id: product.id });
+      await onReload();
+      onNotice(`‘${product.name}’ 상품을 삭제했습니다.`);
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "상품 삭제에 실패했습니다.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  return (
+    <section className="adm-panel">
+      <div className="adm-head">
+        <div><h1>상품 관리</h1><p>전체 {counts.all}개 · 판매중 {counts.selling} · 품절 {counts.soldout} · 숨김 {counts.hidden}</p></div>
+        <button type="button" className="adm-primary" onClick={onCreate}>＋ 상품 추가</button>
+      </div>
+      <div className="adm-toolbar">
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="상품명, 코드 검색" />
+        <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="카테고리">
+          <option value="전체">전체 카테고리</option>
+          {Object.keys(store.categories).map((name) => <option key={name} value={name}>{name}</option>)}
+        </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} aria-label="상태">
+          <option value="all">전체 상태</option>
+          <option value="selling">판매중</option>
+          <option value="soldout">품절</option>
+          <option value="hidden">숨김</option>
+          <option value="promo">행사</option>
+        </select>
+      </div>
+
+      <div className="adm-table-wrap">
+        <table className="adm-table">
+          <thead>
+            <tr><th>사진</th><th>상품명</th><th>규격</th><th>단위</th><th>카테고리</th><th>가격</th><th>상태</th><th>관리</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((product) => {
+              const state = productStatus(product);
+              const isPromo = product.category === store.promoCategory;
+              const minPrice = product.packOptions.map((o) => o.price).filter((v): v is number => v !== null);
+              return (
+                <tr key={product.id} className={state !== "selling" ? `is-${state}` : ""}>
+                  <td className="c-photo"><div className="adm-thumb">{product.photo ? <img src={product.photo} alt="" loading="lazy" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</div></td>
+                  <td className="c-name">
+                    <button type="button" onClick={() => onEdit(product)}>{product.name}</button>
+                    <small>{product.sub || "-"}{(product.servingsPerUnit || product.servingsPerBox) ? " · 인분정보 ✓" : ""}</small>
+                  </td>
+                  <td className="c-spec">{product.unit || "-"}</td>
+                  <td className="c-unit">{product.packOptions.map((o) => o.label).join(" / ") || "-"}</td>
+                  <td className="c-cat">{product.category}</td>
+                  <td className="c-price">
+                    {product.promoPrice != null
+                      ? <><s>{minPrice.length ? wonText(Math.min(...minPrice)) : ""}</s><b className="promo">{wonText(product.promoPrice)}</b></>
+                      : minPrice.length ? wonText(Math.min(...minPrice)) : <span className="muted">-</span>}
+                  </td>
+                  <td className="c-state">
+                    <select
+                      className={`adm-state s-${isPromo && state === "selling" ? "promo" : state}`}
+                      value={state}
+                      disabled={busyId === product.id}
+                      onChange={(e) => void quickStatus(product, e.target.value as "selling" | "soldout" | "hidden")}
+                      aria-label={`${product.name} 상태`}
+                    >
+                      <option value="selling">{isPromo ? "행사·판매중" : "판매중"}</option>
+                      <option value="soldout">품절</option>
+                      <option value="hidden">숨김</option>
+                    </select>
+                  </td>
+                  <td className="c-actions">
+                    <button type="button" className="adm-btn-edit" onClick={() => onEdit(product)}>수정</button>
+                    <button type="button" className="adm-btn-del" disabled={busyId === product.id} onClick={() => void remove(product)}>삭제</button>
+                  </td>
+                </tr>
+              );
+            })}
+            {!rows.length && <tr><td colSpan={8} className="adm-empty">조건에 맞는 상품이 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {pages > 1 && (
+        <nav className="adm-pager" aria-label="페이지">
+          <button type="button" disabled={current <= 1} onClick={() => setPage(current - 1)}>‹</button>
+          {pageNumbers(current, pages).map((n, i) => n === 0
+            ? <span key={`gap-${i}`}>…</span>
+            : <button type="button" key={n} className={n === current ? "active" : ""} onClick={() => setPage(n)}>{n}</button>)}
+          <button type="button" disabled={current >= pages} onClick={() => setPage(current + 1)}>›</button>
+        </nav>
+      )}
+    </section>
+  );
+}
+
+function pageNumbers(current: number, pages: number) {
+  const set = new Set([1, pages, current - 1, current, current + 1]);
+  const list = Array.from(set).filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+  const out: number[] = [];
+  list.forEach((n, i) => {
+    if (i > 0 && n - list[i - 1]! > 1) out.push(0);
+    out.push(n);
+  });
+  return out;
+}
+
+function CategoryView({ store, onSaved, onError, onNotice }: { store: StoreData; onSaved: () => Promise<void>; onError: (value: string) => void; onNotice: (value: string) => void }) {
+  const [newCategory, setNewCategory] = useState("");
+  const [busy, setBusy] = useState("");
+
+  async function action(body: Record<string, string>, message: string) {
+    setBusy(body.category ?? body.name ?? "x");
+    try {
+      onError("");
+      await jsonPost("/api/admin/categories", body);
+      await onSaved();
+      onNotice(message);
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "카테고리 작업에 실패했습니다.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function changeImage(category: string, file: File | null) {
+    if (!file) return;
+    setBusy(category);
+    try {
+      onError("");
+      const url = await uploadPhoto(file);
+      await jsonPost("/api/admin/categories", { action: "set-image", category, image: url });
+      await onSaved();
+      onNotice(`‘${category}’ 사진을 바꿨습니다.`);
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "사진 변경에 실패했습니다.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  const names = Object.keys(store.categories);
+  const productCount = (name: string) => store.products.filter((p) => p.category === name).length;
+
+  return (
+    <section className="adm-panel">
+      <div className="adm-head">
+        <div><h1>카테고리 관리</h1><p>순서·사진은 거래처 주문화면 첫 화면의 카테고리 칸에 그대로 반영됩니다. 사진이 없으면 그 카테고리 첫 상품 사진을 씁니다.</p></div>
+        <div className="adm-inline-add">
+          <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="새 카테고리 이름" />
+          <button type="button" className="adm-primary" disabled={!newCategory.trim()} onClick={async () => {
+            const name = newCategory.trim();
+            await action({ action: "add-category", name }, `‘${name}’ 카테고리를 추가했습니다.`);
+            setNewCategory("");
+          }}>추가</button>
+        </div>
+      </div>
+      <div className="adm-cat-list">
+        {names.map((category, index) => {
+          const image = store.categoryImages?.[category] ?? "";
+          const isPromo = category === store.promoCategory;
+          return (
+            <article className={`adm-cat ${busy === category ? "busy" : ""}`} key={category}>
+              <div className="adm-cat-top">
+                <label className="adm-cat-photo" title="사진 바꾸기">
+                  {image ? <img src={image} alt="" /> : <span>{isPromo ? "%" : "사진\n없음"}</span>}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { void changeImage(category, e.target.files?.[0] ?? null); e.target.value = ""; }} />
+                  <em>변경</em>
+                </label>
+                <div className="adm-cat-title">
+                  <strong>{category}{isPromo && <b className="adm-chip-promo">행사</b>}</strong>
+                  <small>상품 {productCount(category)}개 · 세부 {store.categories[category]?.length ?? 0}개</small>
+                  <div className="adm-cat-actions">
+                    <button type="button" disabled={index === 0} onClick={() => void action({ action: "move-category", category, direction: "up" }, "순서를 바꿨습니다.")}>▲</button>
+                    <button type="button" disabled={index === names.length - 1} onClick={() => void action({ action: "move-category", category, direction: "down" }, "순서를 바꿨습니다.")}>▼</button>
+                    <button type="button" onClick={() => {
+                      const name = window.prompt("새 카테고리명", category);
+                      if (name && name.trim() && name.trim() !== category) void action({ action: "rename-category", category, name: name.trim() }, "이름을 바꿨습니다.");
+                    }}>이름변경</button>
+                    {image && <button type="button" onClick={() => void action({ action: "set-image", category, image: "" }, "사진을 지웠습니다.")}>사진삭제</button>}
+                    <button type="button" className="danger" onClick={() => {
+                      if (window.confirm(`‘${category}’ 카테고리를 삭제할까요? 상품이 들어 있으면 삭제되지 않습니다.`)) void action({ action: "delete-category", category }, "카테고리를 삭제했습니다.");
+                    }}>삭제</button>
+                  </div>
+                </div>
+              </div>
+              <ul className="adm-subs">
+                {(store.categories[category] ?? []).map((sub) => (
+                  <li key={sub}>
+                    <span>{sub}</span>
+                    <button type="button" onClick={() => {
+                      const name = window.prompt("새 세부 카테고리명", sub);
+                      if (name && name.trim() && name.trim() !== sub) void action({ action: "rename-sub", category, sub, name: name.trim() }, "세부 카테고리를 수정했습니다.");
+                    }}>수정</button>
+                    <button type="button" onClick={() => {
+                      if (window.confirm(`‘${sub}’ 세부 카테고리를 삭제할까요?`)) void action({ action: "delete-sub", category, sub }, "세부 카테고리를 삭제했습니다.");
+                    }}>삭제</button>
+                  </li>
+                ))}
+                <li className="add">
+                  <button type="button" onClick={() => {
+                    const name = window.prompt(`‘${category}’에 추가할 세부 카테고리명`);
+                    if (name && name.trim()) void action({ action: "add-sub", category, name: name.trim() }, "세부 카테고리를 추가했습니다.");
+                  }}>＋ 세부 카테고리 추가</button>
+                </li>
+              </ul>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function SimpleSettingsView({ store, onSaved, onError, onNotice }: { store: StoreData; onSaved: () => Promise<void>; onError: (value: string) => void; onNotice: (value: string) => void }) {
+  const [sms, setSms] = useState(store.sms);
+  const [promoCategory, setPromoCategory] = useState(store.promoCategory);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setSms(store.sms); setPromoCategory(store.promoCategory); }, [store.sms, store.promoCategory]);
+
+  async function save() {
+    setBusy(true);
+    try {
+      onError("");
+      // 기존 주문 운영 설정 값은 그대로 유지해서 함께 보냄
+      await jsonPost("/api/admin/settings", {
+        sms,
+        promoCategory,
+        orderEnabled: store.orderSettings.enabled,
+        order24h: store.orderSettings.open24h,
+        orderOpenTime: store.orderSettings.openTime,
+        orderCloseTime: store.orderSettings.closeTime,
+        editMinutes: store.orderSettings.editMinutes,
+        cancelMinutes: store.orderSettings.cancelMinutes,
+      });
+      await onSaved();
+      onNotice("설정을 저장했습니다.");
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "설정 저장에 실패했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="adm-panel">
+      <div className="adm-head"><div><h1>설정</h1><p>거래처 주문화면의 기본 설정입니다.</p></div></div>
+      <div className="adm-form-card">
+        <label>주문 문자 받을 번호
+          <input inputMode="tel" value={sms} onChange={(e) => setSms(e.target.value)} placeholder="예: 01012345678" />
+          <small>거래처가 '문자로 주문 보내기'를 누르면 이 번호로 문자가 작성됩니다. '전화로 주문' 버튼도 이 번호로 연결됩니다.</small>
+        </label>
+        <label>행사 카테고리
+          <select value={promoCategory} onChange={(e) => setPromoCategory(e.target.value)}>
+            {Object.keys(store.categories).map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+          <small>이 카테고리 상품에 '행사' 표시가 붙고, 주문화면 맨 앞과 '행사상품' 탭에 나옵니다.</small>
+        </label>
+        <div className="adm-form-actions"><button type="button" className="adm-primary" disabled={busy} onClick={save}>{busy ? "저장 중" : "저장"}</button></div>
+      </div>
+    </section>
   );
 }
 
@@ -206,76 +587,6 @@ function SettingsPanel({ store, onSaved, onError }: { store: StoreData; onSaved:
       <label>수정 기준(분)<input type="number" min="0" value={editMinutes} onChange={(e) => setEditMinutes(Number(e.target.value || 0))} /></label>
       <label>취소 가능(분)<input type="number" min="0" value={cancelMinutes} onChange={(e) => setCancelMinutes(Number(e.target.value || 0))} /></label>
       <button type="button" onClick={save}>설정 저장</button>
-    </section>
-  );
-}
-
-function CategoryPanel({ store, onSaved, onError }: { store: StoreData; onSaved: () => Promise<void>; onError: (value: string) => void }) {
-  const [newCategory, setNewCategory] = useState("");
-
-  async function action(body: Record<string, string>) {
-    try {
-      onError("");
-      await jsonPost("/api/admin/categories", body);
-      await onSaved();
-    } catch (reason) {
-      onError(reason instanceof Error ? reason.message : "카테고리 작업에 실패했습니다.");
-    }
-  }
-
-  return (
-    <section className="admin-section">
-      <div className="admin-section-head">
-        <div><h2>카테고리</h2><p>카테고리와 세부 분류도 계속 추가·수정할 수 있습니다.</p></div>
-        <div className="inline-add">
-          <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="새 카테고리" />
-          <button type="button" onClick={async () => {
-            if (!newCategory.trim()) return;
-            await action({ action: "add-category", name: newCategory });
-            setNewCategory("");
-          }}>추가</button>
-        </div>
-      </div>
-      <div className="category-admin-grid">
-        {Object.entries(store.categories).map(([category, subs]) => (
-          <div className="category-admin-card" key={category}>
-            <div className="category-admin-title">
-              <strong>{category}{category === store.promoCategory ? " 🚨" : ""}</strong>
-              <div>
-                <button type="button" onClick={() => {
-                  const name = window.prompt("새 카테고리명", category);
-                  if (name && name !== category) void action({ action: "rename-category", category, name });
-                }}>이름변경</button>
-                <button type="button" onClick={() => {
-                  if (window.confirm(`‘${category}’ 카테고리를 삭제할까요? 상품이 들어 있으면 삭제되지 않습니다.`)) {
-                    void action({ action: "delete-category", category });
-                  }
-                }}>삭제</button>
-              </div>
-            </div>
-            <ul>
-              {subs.map((sub) => (
-                <li key={sub}>
-                  <span>{sub}</span>
-                  <div>
-                    <button type="button" onClick={() => {
-                      const name = window.prompt("새 세부 카테고리명", sub);
-                      if (name && name !== sub) void action({ action: "rename-sub", category, sub, name });
-                    }}>수정</button>
-                    <button type="button" onClick={() => {
-                      if (window.confirm(`‘${sub}’ 세부 카테고리를 삭제할까요?`)) void action({ action: "delete-sub", category, sub });
-                    }}>삭제</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <button type="button" className="add-sub" onClick={() => {
-              const name = window.prompt(`‘${category}’에 추가할 세부 카테고리명`);
-              if (name) void action({ action: "add-sub", category, name });
-            }}>+ 세부 카테고리 추가</button>
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
@@ -324,19 +635,29 @@ function ProductEditor({
   creating: boolean;
   categories: Record<string, string[]>;
   onClose: () => void;
-  onSaved: () => Promise<void>;
+  onSaved: (message: string) => Promise<void>;
   onError: (value: string) => void;
 }) {
   const [draft, setDraft] = useState<Product>(() => structuredClone(product));
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState("");
   const [busy, setBusy] = useState(false);
+  const [localError, setLocalError] = useState("");
   const categoryNames = Object.keys(categories);
+  const state = productStatus(draft);
 
   useEffect(() => {
     if (!categories[draft.category]?.includes(draft.sub)) {
       setDraft((current) => ({ ...current, sub: categories[current.category]?.[0] ?? "" }));
     }
   }, [draft.category, draft.sub, categories]);
+
+  useEffect(() => {
+    if (!photoFile) { setPhotoPreview(""); return; }
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
 
   function updateOption(index: number, patch: Partial<PackOption>) {
     setDraft((current) => ({
@@ -345,153 +666,213 @@ function ProductEditor({
     }));
   }
 
+  function setState(next: "selling" | "soldout" | "hidden") {
+    setDraft((current) => ({ ...current, soldout: next === "soldout", hidden: next === "hidden" }));
+  }
+
   async function save() {
+    setLocalError("");
+    if (!draft.name.trim()) { setLocalError("상품명을 입력해 주세요."); return; }
+    if (!draft.packOptions.some((o) => o.label.trim())) { setLocalError("주문 단위를 하나 이상 입력해 주세요."); return; }
     setBusy(true);
     onError("");
     try {
       let photo = draft.photo;
-      if (photoFile) {
-        const form = new FormData();
-        form.append("file", photoFile);
-        const upload = await fetch("/api/photo", { method: "POST", body: form });
-        const data = await upload.json() as { url?: string; error?: string };
-        if (!upload.ok || !data.url) throw new Error(data.error || "사진 업로드에 실패했습니다.");
-        photo = data.url;
-      }
+      if (photoFile) photo = await uploadPhoto(photoFile);
       await jsonPost("/api/admin/products", {
         action: creating ? "create" : "update",
-        product: { ...draft, unit: normalizeStoredUnit(draft.unit), photo },
+        product: { ...draft, name: draft.name.trim(), unit: normalizeStoredUnit(draft.unit), photo },
       });
-      await onSaved();
+      await onSaved(`‘${draft.name.trim()}’ ${creating ? "상품을 추가했습니다" : "저장했습니다"}.`);
     } catch (reason) {
-      onError(reason instanceof Error ? reason.message : "상품 저장에 실패했습니다.");
+      setLocalError(reason instanceof Error ? reason.message : "상품 저장에 실패했습니다.");
     } finally {
       setBusy(false);
     }
   }
 
   async function remove() {
-    if (creating || !window.confirm(`‘${draft.name}’ 상품을 삭제할까요?`)) return;
+    if (creating || !window.confirm(`‘${draft.name}’ 상품을 삭제할까요?\n삭제하면 되돌릴 수 없습니다. 잠시 내릴 때는 '숨김'을 사용하세요.`)) return;
     setBusy(true);
     try {
       await jsonPost("/api/admin/products", { action: "delete", id: draft.id });
-      await onSaved();
+      await onSaved(`‘${draft.name}’ 상품을 삭제했습니다.`);
     } catch (reason) {
-      onError(reason instanceof Error ? reason.message : "상품 삭제에 실패했습니다.");
+      setLocalError(reason instanceof Error ? reason.message : "상품 삭제에 실패했습니다.");
     } finally {
       setBusy(false);
     }
   }
 
+  const shownPhoto = photoPreview || draft.photo;
+
   return (
-    <div className="editor-backdrop" onMouseDown={(e) => { if (e.currentTarget === e.target && !busy) onClose(); }}>
-      <section className="product-editor" role="dialog" aria-modal="true">
-        <div className="editor-head">
-          <div><p>{creating ? "새 상품" : "상품 수정"}</p><h2>{draft.name || "상품 정보 입력"}</h2></div>
-          <button type="button" onClick={onClose} disabled={busy}>×</button>
-        </div>
-        <div className="editor-grid">
-          <label>상품명<input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
-          <label>규격
-            <span className="unit-input-wrap">
-              <input
-                inputMode="decimal"
-                value={unitInputValue(draft.unit)}
-                onChange={(e) => setDraft({ ...draft, unit: kgUnitFromInput(e.target.value) })}
-                placeholder="예: 5 / 0.5"
-              />
-              <b>kg</b>
-            </span>
-            <small className="field-help">숫자만 입력하면 kg가 자동으로 붙습니다. 500g은 0.5로 입력하세요.</small>
-          </label>
-          <label>카테고리
-            <select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value, sub: categories[e.target.value]?.[0] ?? "" })}>
-              {categoryNames.map((name) => <option key={name}>{name}</option>)}
-            </select>
-          </label>
-          <label>세부 카테고리
-            <select value={draft.sub} onChange={(e) => setDraft({ ...draft, sub: e.target.value })}>
-              {(categories[draft.category] ?? []).map((name) => <option key={name}>{name}</option>)}
-            </select>
-          </label>
-          <label>과세 구분
-            <select value={draft.taxType ?? "taxable"} onChange={(e) => setDraft({ ...draft, taxType: e.target.value === "exempt" ? "exempt" : "taxable" })}>
-              <option value="taxable">과세</option><option value="exempt">면세(비과세)</option>
-            </select>
-          </label>
-          <label>창고 위치
-            <select value={draft.warehouseZone || "미지정"} onChange={(e) => setDraft({ ...draft, warehouseZone: e.target.value === "미지정" ? "" : e.target.value })}>
-              {draft.warehouseZone && !WAREHOUSE_ZONES.includes(draft.warehouseZone) && <option value={draft.warehouseZone}>{draft.warehouseZone}</option>}
-              {WAREHOUSE_ZONES.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
-            </select>
-          </label>
-          <label className="editor-photo">상품 사진
-            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
-            <small>JPG·PNG·WebP, 최대 5MB</small>
-          </label>
-          <label className="soldout-check"><input type="checkbox" checked={draft.soldout} onChange={(e) => setDraft({ ...draft, soldout: e.target.checked })} /> 품절로 표시</label>
-        </div>
+    <div className="adm-modal-backdrop" onMouseDown={(e) => { if (e.currentTarget === e.target && !busy) onClose(); }}>
+      <section className="adm-editor" role="dialog" aria-modal="true" aria-label={creating ? "상품 등록" : "상품 수정"}>
+        <header className="adm-editor-head">
+          <div><p>{creating ? "상품 등록" : "상품 수정"}</p><h2>{draft.name || "새 상품"}</h2></div>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="닫기">×</button>
+        </header>
 
-        <div className="price-list-editor">
-          <div className="option-head">
-            <div><strong>상품 안내 정보</strong><small>여기 입력한 인분·구성·보관방법·설명은 거래처 주문 화면 상품카드와 단가표에 바로 표시됩니다.</small></div>
-          </div>
-          <div className="price-list-editor-grid">
-            <label>1단위 기준 인분
-              <input value={draft.servingsPerUnit ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerUnit: e.target.value })} placeholder="예: 1봉 약 8~10인분" />
-            </label>
-            <label>1박스 입수
-              <input value={draft.boxContents ?? ""} onChange={(e) => setDraft({ ...draft, boxContents: e.target.value })} placeholder="예: 10봉 / 20팩" />
-            </label>
-            <label>1박스 기준 인분
-              <input value={draft.servingsPerBox ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerBox: e.target.value })} placeholder="예: 약 80~100인분" />
-            </label>
-            <label>보관방법
-              <select value={draft.storageMethod ?? ""} onChange={(e) => setDraft({ ...draft, storageMethod: e.target.value })}>
-                <option value="">미지정</option>
-                <option value="냉동">냉동</option>
-                <option value="냉장">냉장</option>
-                <option value="상온">상온</option>
-                <option value="실온">실온</option>
-              </select>
-            </label>
-            <label className="price-display-field">가격표시 방식
-              <select value={draft.priceDisplayMode ?? "fixed"} onChange={(e) => setDraft({ ...draft, priceDisplayMode: e.target.value === "market" ? "market" : e.target.value === "inquiry" ? "inquiry" : "fixed" })}>
-                <option value="fixed">고정가격</option>
-                <option value="market">싯가</option>
-                <option value="inquiry">가격문의</option>
-              </select>
-            </label>
-            <label className="price-list-visible-check"><input type="checkbox" checked={draft.priceListVisible !== false} onChange={(e) => setDraft({ ...draft, priceListVisible: e.target.checked })} /> 부자유통 단가표에 공개</label>
-            <label className="product-description-field">상품 설명
-              <textarea value={draft.description ?? ""} onChange={(e) => setDraft({ ...draft, description: e.target.value })} placeholder="상품 특징, 조리용도, 구성 등 신규 거래처가 알아보기 쉽게 적어주세요." rows={4} />
-            </label>
-          </div>
-        </div>
-
-        <div className="option-editor">
-          <div className="option-head">
-            <strong>판매 단위와 가격</strong>
-            <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "박스", price: null, priceA: null, priceB: null, step: 1 }] })}>+ 단위 추가</button>
-          </div>
-          {draft.packOptions.map((option, index) => (
-            <div className="option-row" key={index}>
-              <label>단위<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} /></label>
-              <label>기본가격<input inputMode="numeric" value={option.price ?? ""} placeholder="가격 문의" onChange={(e) => updateOption(index, { price: e.target.value === "" ? null : Number(e.target.value) })} /></label>
-              <label>A그룹 가격<input inputMode="numeric" value={option.priceA ?? ""} placeholder="기본가 사용" onChange={(e) => updateOption(index, { priceA: e.target.value === "" ? null : Number(e.target.value) })} /></label>
-              <label>B그룹 가격<input inputMode="numeric" value={option.priceB ?? ""} placeholder="기본가 사용" onChange={(e) => updateOption(index, { priceB: e.target.value === "" ? null : Number(e.target.value) })} /></label>
-              <label>수량 간격<input inputMode="decimal" value={option.step} onChange={(e) => updateOption(index, { step: Number(e.target.value || 1) })} /></label>
-              <button type="button" onClick={() => setDraft({ ...draft, packOptions: draft.packOptions.filter((_, i) => i !== index) })}>삭제</button>
+        <div className="adm-editor-body">
+          <div className="adm-editor-col">
+            <h3>기본 정보</h3>
+            <div className="adm-photo-field">
+              <div className="adm-photo-preview">
+                {shownPhoto ? <img src={shownPhoto} alt="" /> : <span>사진 없음</span>}
+              </div>
+              <div className="adm-photo-actions">
+                <label className="adm-upload">
+                  ＋ 사진 {shownPhoto ? "변경" : "등록"}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
+                </label>
+                {(photoFile || draft.photo) && (
+                  <button type="button" onClick={() => { setPhotoFile(null); setDraft({ ...draft, photo: "" }); }}>사진 빼기</button>
+                )}
+                <small>JPG·PNG·WebP, 최대 5MB<br />정사각형 사진이 가장 보기 좋습니다.</small>
+              </div>
             </div>
-          ))}
+
+            <label className="adm-field">상품명 <em>*</em>
+              <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="예: 등심돈까스" />
+            </label>
+            <div className="adm-row2">
+              <label className="adm-field">규격
+                <span className="adm-suffix">
+                  <input inputMode="decimal" value={unitInputValue(draft.unit)} onChange={(e) => setDraft({ ...draft, unit: kgUnitFromInput(e.target.value) })} placeholder="예: 3" />
+                  <b>kg</b>
+                </span>
+              </label>
+              <label className="adm-field">상품 코드
+                <input value={draft.id || "저장하면 자동 생성"} readOnly className="readonly" />
+              </label>
+            </div>
+            <div className="adm-row2">
+              <label className="adm-field">카테고리 <em>*</em>
+                <select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value, sub: categories[e.target.value]?.[0] ?? "" })}>
+                  {categoryNames.map((name) => <option key={name}>{name}</option>)}
+                </select>
+              </label>
+              <label className="adm-field">세부 카테고리
+                <select value={draft.sub} onChange={(e) => setDraft({ ...draft, sub: e.target.value })}>
+                  {(categories[draft.category] ?? []).map((name) => <option key={name}>{name}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <div className="adm-units">
+              <div className="adm-units-head">
+                <h3>주문 단위 설정</h3>
+                <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "박스", price: null, priceA: null, priceB: null, step: 1 }] })}>＋ 단위 추가</button>
+              </div>
+              <p className="adm-help">거래처 화면에 단위별로 −/＋ 버튼이 생깁니다. 수량 step은 한 번 누를 때 늘어나는 양입니다.</p>
+              {draft.packOptions.map((option, index) => (
+                <div className="adm-unit-row" key={index}>
+                  <label>단위<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} placeholder="박스" list="adm-unit-presets" /></label>
+                  <label>수량 step<input inputMode="decimal" value={option.step} onChange={(e) => updateOption(index, { step: Number(e.target.value || 1) })} /></label>
+                  <label>기본가격<input inputMode="numeric" value={option.price ?? ""} placeholder="가격문의" onChange={(e) => updateOption(index, { price: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} /></label>
+                  <button type="button" className="adm-unit-del" aria-label="단위 삭제" onClick={() => setDraft({ ...draft, packOptions: draft.packOptions.filter((_, i) => i !== index) })}>×</button>
+                  <details className="adm-unit-group">
+                    <summary>거래처 그룹 가격 (A/B)</summary>
+                    <div>
+                      <label>A그룹<input inputMode="numeric" value={option.priceA ?? ""} placeholder="기본가 사용" onChange={(e) => updateOption(index, { priceA: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} /></label>
+                      <label>B그룹<input inputMode="numeric" value={option.priceB ?? ""} placeholder="기본가 사용" onChange={(e) => updateOption(index, { priceB: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} /></label>
+                    </div>
+                  </details>
+                </div>
+              ))}
+              <datalist id="adm-unit-presets">
+                {["박스", "반박스", "봉지", "팩", "kg", "개", "통", "캔", "판", "묶음"].map((u) => <option key={u} value={u} />)}
+              </datalist>
+            </div>
+          </div>
+
+          <div className="adm-editor-col">
+            <h3>추가 정보</h3>
+            <div className="adm-row2">
+              <label className="adm-field">행사 가격
+                <span className="adm-suffix">
+                  <input inputMode="numeric" value={draft.promoPrice ?? ""} placeholder="없음" onChange={(e) => setDraft({ ...draft, promoPrice: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} />
+                  <b>원</b>
+                </span>
+              </label>
+              <label className="adm-field">보관 방법
+                <select value={draft.storageMethod ?? ""} onChange={(e) => setDraft({ ...draft, storageMethod: e.target.value })}>
+                  <option value="">미지정</option>
+                  <option value="냉동">냉동</option>
+                  <option value="냉장">냉장</option>
+                  <option value="상온">상온</option>
+                  <option value="실온">실온</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="adm-box-info">
+              <strong>인분 안내 <small>거래처 상품카드에 노란 박스로 표시됩니다</small></strong>
+              <label className="adm-field">1단위(봉지·팩) 기준 인분
+                <input value={draft.servingsPerUnit ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerUnit: e.target.value })} placeholder="예: 20인분" />
+              </label>
+              <div className="adm-row2">
+                <label className="adm-field">1박스 입수
+                  <input value={draft.boxContents ?? ""} onChange={(e) => setDraft({ ...draft, boxContents: e.target.value })} placeholder="예: 6봉지" />
+                </label>
+                <label className="adm-field">1박스 기준 인분
+                  <input value={draft.servingsPerBox ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerBox: e.target.value })} placeholder="예: 120인분" />
+                </label>
+              </div>
+            </div>
+
+            <label className="adm-field">상품 설명
+              <textarea value={draft.description ?? ""} onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={4} placeholder="예: 국내산 등심으로 만든 바삭한 돈까스입니다. 170도 기름에 4~5분 튀겨주세요." />
+            </label>
+
+            <div className="adm-row2">
+              <label className="adm-field">과세 구분
+                <select value={draft.taxType ?? "taxable"} onChange={(e) => setDraft({ ...draft, taxType: e.target.value === "exempt" ? "exempt" : "taxable" })}>
+                  <option value="taxable">과세</option><option value="exempt">면세(비과세)</option>
+                </select>
+              </label>
+              <label className="adm-field">창고 위치
+                <select value={draft.warehouseZone || "미지정"} onChange={(e) => setDraft({ ...draft, warehouseZone: e.target.value === "미지정" ? "" : e.target.value })}>
+                  {draft.warehouseZone && !WAREHOUSE_ZONES.includes(draft.warehouseZone) && <option value={draft.warehouseZone}>{draft.warehouseZone}</option>}
+                  {WAREHOUSE_ZONES.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <details className="adm-more">
+              <summary>단가표 설정</summary>
+              <div className="adm-row2">
+                <label className="adm-field">가격표시 방식
+                  <select value={draft.priceDisplayMode ?? "fixed"} onChange={(e) => setDraft({ ...draft, priceDisplayMode: e.target.value === "market" ? "market" : e.target.value === "inquiry" ? "inquiry" : "fixed" })}>
+                    <option value="fixed">고정가격</option>
+                    <option value="market">싯가</option>
+                    <option value="inquiry">가격문의</option>
+                  </select>
+                </label>
+                <label className="adm-check"><input type="checkbox" checked={draft.priceListVisible !== false} onChange={(e) => setDraft({ ...draft, priceListVisible: e.target.checked })} /> 단가표에 공개</label>
+              </div>
+            </details>
+
+            <fieldset className="adm-status">
+              <legend>상태</legend>
+              {([["selling", "판매중", "주문화면에 보이고 주문 가능"], ["soldout", "품절", "보이지만 주문 불가"], ["hidden", "숨김", "주문화면에서 안 보임"]] as const).map(([value, label, help]) => (
+                <label key={value} className={state === value ? "on" : ""}>
+                  <input type="radio" name="adm-status" checked={state === value} onChange={() => setState(value)} />
+                  <span><b>{label}</b><small>{help}</small></span>
+                </label>
+              ))}
+            </fieldset>
+          </div>
         </div>
 
-        <div className="editor-actions">
-          {!creating && <button type="button" className="danger" onClick={remove} disabled={busy}>상품 삭제</button>}
+        <footer className="adm-editor-foot">
+          {localError && <p className="adm-editor-error" role="alert">{localError}</p>}
+          {!creating && <button type="button" className="adm-btn-del" onClick={remove} disabled={busy}>상품 삭제</button>}
           <span />
-          <button type="button" onClick={onClose} disabled={busy}>취소</button>
-          <button type="button" className="admin-primary" onClick={save} disabled={busy}>{busy ? "저장 중" : "저장"}</button>
-        </div>
+          <button type="button" className="adm-ghost" onClick={onClose} disabled={busy}>취소</button>
+          <button type="button" className="adm-primary" onClick={save} disabled={busy}>{busy ? "저장 중…" : "저장하기"}</button>
+        </footer>
       </section>
     </div>
   );
@@ -517,7 +898,9 @@ function makeNewProduct(store: StoreData): Product {
     storageMethod: "",
     priceListVisible: true,
     priceDisplayMode: "fixed",
-    packOptions: [{ label: "박스", price: null, priceA: null, priceB: null, step: 1 }, { label: "봉지", price: null, priceA: null, priceB: null, step: 1 }],
+    hidden: false,
+    promoPrice: null,
+    packOptions: [{ label: "박스", price: null, priceA: null, priceB: null, step: 1 }],
   };
 }
 

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { isAdmin, validMutationOrigin } from "../../../lib/auth.server";
-import { bumpVersion, db } from "../../../lib/db.server";
+import { bumpVersion, db, ensureDatabase } from "../../../lib/db.server";
 import { cleanText } from "../../../lib/admin-validation.server";
 
 type Body = {
@@ -8,6 +8,8 @@ type Body = {
   category?: string;
   sub?: string;
   name?: string;
+  image?: string;
+  direction?: "up" | "down";
 };
 
 export const Route = createFileRoute("/api/admin/categories")({
@@ -18,6 +20,7 @@ export const Route = createFileRoute("/api/admin/categories")({
           return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 403 });
         }
         try {
+          await ensureDatabase();
           const body = await request.json() as Body;
           const database = db();
           const category = cleanText(body.category, 80);
@@ -57,6 +60,22 @@ export const Route = createFileRoute("/api/admin/categories")({
             const used = await database.prepare("SELECT COUNT(*) AS n FROM products WHERE category=? AND sub=?").bind(category, sub).first<{ n: number }>();
             if (Number(used?.n ?? 0) > 0) throw new Error("상품이 들어 있는 세부 카테고리는 삭제할 수 없습니다.");
             await database.prepare("DELETE FROM subcategories WHERE category_name=? AND name=?").bind(category, sub).run();
+          } else if (body.action === "set-image") {
+            if (!category) throw new Error("카테고리가 필요합니다.");
+            const image = cleanText(body.image, 500);
+            if (image && !image.startsWith("/api/photo?id=")) throw new Error("사진 주소가 올바르지 않습니다.");
+            await database.prepare("UPDATE categories SET image=? WHERE name=?").bind(image, category).run();
+          } else if (body.action === "move-category") {
+            if (!category) throw new Error("카테고리가 필요합니다.");
+            const rows = (await database.prepare("SELECT name FROM categories ORDER BY sort_order, name").all()).results as Array<{ name: string }>;
+            const names = rows.map((row) => String(row.name));
+            const index = names.indexOf(category);
+            const target = body.direction === "up" ? index - 1 : index + 1;
+            if (index < 0) throw new Error("카테고리를 찾을 수 없습니다.");
+            if (target >= 0 && target < names.length) {
+              [names[index], names[target]] = [names[target]!, names[index]!];
+              await database.batch(names.map((n, i) => database.prepare("UPDATE categories SET sort_order=? WHERE name=?").bind(i, n)));
+            }
           } else {
             throw new Error("지원하지 않는 작업입니다.");
           }

@@ -10,7 +10,7 @@ export const Route=createFileRoute("/api/driver/data")({server:{handlers:{GET:as
   const [customers,orders,store]=await Promise.all([
     db().prepare(`SELECT c.id,c.code,c.name,c.phone,c.business_number,c.address,c.store_phone,c.region,c.price_group,c.active,COALESCE((SELECT SUM(amount) FROM receivable_ledger r WHERE r.customer_id=c.id),0) AS receivable FROM customers c WHERE c.active=1 ORDER BY c.region,c.code`).all(),
     db().prepare(`SELECT o.id,o.customer_id,o.source,o.status,o.region_snapshot,o.total_amount,o.note,o.created_at,o.delivery_date,o.is_additional,o.order_period,c.code,c.name,c.address,c.store_phone FROM orders o JOIN customers c ON c.id=o.customer_id WHERE o.delivery_date=? AND o.status!='cancelled' ORDER BY o.region_snapshot,c.code,o.created_at`).bind(date).all(),
-    readStore(),
+    readStore(undefined, { includeHidden: true }),
   ]);
   const orderRows=orders.results as Array<Record<string,unknown>>; const ids=orderRows.map(r=>String(r.id)); const itemMap=new Map<string,Array<Record<string,unknown>>>();
   if(ids.length){const ph=ids.map(()=>'?').join(','); const items=await db().prepare(`SELECT order_id,product_name,option_label,quantity,unit_price FROM order_items WHERE order_id IN (${ph}) ORDER BY id`).bind(...ids).all(); for(const row of items.results as Array<Record<string,unknown>>){const k=String(row.order_id),list=itemMap.get(k)??[];list.push(row);itemMap.set(k,list);}}
