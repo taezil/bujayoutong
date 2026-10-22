@@ -299,8 +299,8 @@ function OrderPage() {
   const categoryCover = useMemo(() => {
     const covers: Record<string, string> = {};
     for (const name of categoryNames) {
-      covers[name] = store.categoryImages?.[name]
-        || DEFAULT_CATEGORY_PHOTOS[name]
+      covers[name] = DEFAULT_CATEGORY_PHOTOS[name]
+        || store.categoryImages?.[name]
         || store.products.find((product) => product.category === name && product.photo)?.photo
         || "";
     }
