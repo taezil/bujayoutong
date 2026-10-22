@@ -20,6 +20,10 @@ export const Route = createFileRoute("/api/admin/settings")({
       const body = await request.json() as Record<string, unknown>;
       const sms = cleanText(body.sms, 30).replace(/[^+0-9]/g, "");
       const promoCategory = cleanText(body.promoCategory, 80);
+      const heroImage = cleanText(body.heroImage, 600);
+      const heroKicker = cleanText(body.heroKicker, 60);
+      const heroTitle = cleanText(body.heroTitle, 160);
+      const heroDescription = cleanText(body.heroDescription, 240);
       if (!/^\+?\d{8,15}$/.test(sms)) throw new Error("문자 수신번호를 확인해 주세요.");
       const category = await db().prepare("SELECT 1 FROM categories WHERE name=?").bind(promoCategory).first();
       if (!category) throw new Error("행사 카테고리를 확인해 주세요.");
@@ -34,6 +38,10 @@ export const Route = createFileRoute("/api/admin/settings")({
       await db().batch([
         db().prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('sms',?)").bind(sms),
         db().prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('promoCategory',?)").bind(promoCategory),
+        db().prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('heroImage',?)").bind(heroImage),
+        db().prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('heroKicker',?)").bind(heroKicker),
+        db().prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('heroTitle',?)").bind(heroTitle),
+        db().prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('heroDescription',?)").bind(heroDescription),
         db().prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('orderEnabled',?)").bind(orderEnabled),
         db().prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('order24h',?)").bind(order24h),
         db().prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('orderOpenTime',?)").bind(orderOpenTime),
