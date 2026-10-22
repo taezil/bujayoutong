@@ -837,7 +837,7 @@ function ProductEditor({
                 <h3>주문 단위 설정</h3>
                 <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "박스", spec: "", price: null, step: 1 }] })}>＋ 단위 추가</button>
               </div>
-              <p className="adm-help">규격에는 숫자만 입력하세요. 거래처 화면에서는 kg가 자동으로 붙습니다. 예: 박스 규격 10 → ‘박스 (10kg)’, 봉지 규격 1 → ‘봉지 (1kg)’.</p>
+              <p className="adm-help">규격에는 숫자만 입력하세요. 거래처 화면에서는 kg가 자동으로 붙습니다. 예: 10 → ‘10kg’. ‘+/- 증가 단위’는 + 버튼을 한 번 눌렀을 때 늘어나는 수량이며, 박스·봉지는 보통 1로 두면 됩니다.</p>
               {draft.packOptions.map((option, index) => (
                 <div className="adm-unit-row" key={index}>
                   <label>단위<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} placeholder="박스" list="adm-unit-presets" /></label>
