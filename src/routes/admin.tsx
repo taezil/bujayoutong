@@ -763,12 +763,13 @@ function ProductEditor({
             <div className="adm-units">
               <div className="adm-units-head">
                 <h3>주문 단위 설정</h3>
-                <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "박스", price: null, step: 1 }] })}>＋ 단위 추가</button>
+                <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "박스", spec: "", price: null, step: 1 }] })}>＋ 단위 추가</button>
               </div>
-              <p className="adm-help">거래처 화면에 단위별로 −/＋ 버튼이 생깁니다. 수량 step은 한 번 누를 때 늘어나는 양입니다.</p>
+              <p className="adm-help">단위별 규격을 직접 적을 수 있습니다. 예: 박스 10kg / 봉지 1kg. 거래처 화면에는 ‘박스 (10kg)’처럼 표시됩니다.</p>
               {draft.packOptions.map((option, index) => (
                 <div className="adm-unit-row" key={index}>
                   <label>단위<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} placeholder="박스" list="adm-unit-presets" /></label>
+                  <label>규격<input value={option.spec ?? ""} onChange={(e) => updateOption(index, { spec: e.target.value })} placeholder="예: 10kg" /></label>
                   <label>수량 step<input inputMode="decimal" value={option.step} onChange={(e) => updateOption(index, { step: Number(e.target.value || 1) })} /></label>
                   <label>가격<input inputMode="numeric" value={option.price ?? ""} placeholder="가격문의" onChange={(e) => updateOption(index, { price: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} /></label>
                   <button type="button" className="adm-unit-del" aria-label="단위 삭제" onClick={() => setDraft({ ...draft, packOptions: draft.packOptions.filter((_, i) => i !== index) })}>×</button>
@@ -893,7 +894,7 @@ function makeNewProduct(store: StoreData): Product {
     priceDisplayMode: "fixed",
     hidden: false,
     promoPrice: null,
-    packOptions: [{ label: "박스", price: null, step: 1 }],
+    packOptions: [{ label: "박스", spec: "", price: null, step: 1 }],
   };
 }
 
