@@ -110,7 +110,7 @@ function packCountSuffix(label: string) {
 }
 
 function boxContentsText(value: string, smallLabel: string) {
-  const text = value.trim();
+  const text = value.trim().replace(/^1\s*박스\s*/i, "");
   if (!text) return "";
   if (/^\d+(?:\.\d+)?$/.test(text)) return `${text}${packCountSuffix(smallLabel)}`;
   return text.replace(/봉지\s*$/, "봉");
