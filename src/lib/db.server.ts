@@ -202,7 +202,7 @@ function boolSetting(settings: Record<string, string>, key: string, fallback: bo
   return settings[key] === "1";
 }
 
-export async function readStore(priceGroup?: "A" | "B", options: { includeHidden?: boolean } = {}): Promise<StoreData> {
+export async function readStore(_priceGroup?: "A" | "B", options: { includeHidden?: boolean } = {}): Promise<StoreData> {
   const database = db();
   await ensureDatabase(database);
   const [categoryRows, subRows, productRows, optionRows, settingsRows] = await Promise.all([
@@ -229,15 +229,10 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
   for (const row of optionRows.results as Array<Record<string, unknown>>) {
     const id = String(row.product_id);
     const base = row.price == null ? null : Number(row.price);
-    const a = row.price_a == null ? null : Number(row.price_a);
-    const b = row.price_b == null ? null : Number(row.price_b);
-    const visiblePrice = priceGroup === "A" ? (a ?? base) : priceGroup === "B" ? (b ?? base) : base;
     const list = optionsByProduct.get(id) ?? [];
     list.push({
       label: String(row.label),
-      price: visiblePrice,
-      priceA: a,
-      priceB: b,
+      price: base,
       step: Number(row.step ?? 1),
     });
     optionsByProduct.set(id, list);
