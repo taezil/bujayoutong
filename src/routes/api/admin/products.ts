@@ -74,8 +74,8 @@ export const Route = createFileRoute("/api/admin/products")({
 
       await database.prepare("DELETE FROM pack_options WHERE product_id = ?").bind(id).run();
       const statements = options.map((option, index) => database.prepare(
-        "INSERT INTO pack_options (product_id,label,price,step,sort_order) VALUES (?,?,?,?,?)",
-      ).bind(id, option.label, option.price, option.step, index));
+        "INSERT INTO pack_options (product_id,label,spec,price,step,sort_order) VALUES (?,?,?,?,?,?)",
+      ).bind(id, option.label, option.spec ?? "", option.price, option.step, index));
       if (statements.length) await database.batch(statements);
       await bumpVersion(database);
       await writeAudit({actor,action:body.action === "create" ? "product_create" : "product_update",entityType:"product",entityId:id,summary:`상품 ${name} ${body.action === "create" ? "추가" : "수정"}`});
