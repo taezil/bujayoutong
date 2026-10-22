@@ -28,8 +28,6 @@ export function cleanOptions(value: unknown): PackOption[] {
     return {
       label,
       price: cleanNullablePrice(row.price),
-      priceA: cleanNullablePrice(row.priceA),
-      priceB: cleanNullablePrice(row.priceB),
       step: cleanStep(row.step),
     };
   }).filter((option) => option.label.length > 0);
