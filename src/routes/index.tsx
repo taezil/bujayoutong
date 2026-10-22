@@ -42,8 +42,6 @@ const SENT_STORAGE_KEY = "buja-simple-cart-sent-v1";
 const HISTORY_STORAGE_KEY = "buja-simple-history-v1";
 const ALL = "전체";
 
-const CATEGORY_SPRITE = "https://d2ol7oe51mr4n9.cloudfront.net/user_3JnJRxic6O4O0nSQoboWXwqNyL6/b9c9806b-e218-4c5b-b737-b41e0463fcfa.png";
-
 
 /* ---------- 검색 ---------- */
 
@@ -294,8 +292,8 @@ function OrderPage() {
   const categoryCover = useMemo(() => {
     const covers: Record<string, string> = {};
     for (const name of categoryNames) {
-      covers[name] = CATEGORY_IMAGE_DATA[name]
-        || store.categoryImages?.[name]
+      covers[name] = store.categoryImages?.[name]
+        || CATEGORY_IMAGE_DATA[name]
         || store.products.find((product) => product.category === name && product.photo)?.photo
         || "";
     }
@@ -341,6 +339,7 @@ function OrderPage() {
     [promoProducts, store.products],
   );
   const heroProduct = featuredProducts.find((product) => product.photo) ?? store.products.find((product) => product.photo);
+  const heroImage = store.heroImage || heroProduct?.photo || "";
 
   const categoryProducts = useMemo(() => {
     const list = store.products.filter((product) => {
@@ -477,23 +476,22 @@ function OrderPage() {
         <nav className="od-tiles od-home-tiles" aria-label="카테고리">
           {categoryNames.map((name) => (
             <button type="button" key={name} className={`od-tile ${name === promo ? "promo" : ""}`} onClick={() => openCategory(name)}>
-              <span className={`od-tile-img category-photo category-${name}`} style={categoryCover[name] ? { backgroundImage: `url("${categoryCover[name]}")` } : undefined}>{!categoryCover[name] && <img src={BUJA_MARK_DATA} alt="" className="mark" />}</span>
+              <span className="od-tile-img category-photo">{categoryCover[name] ? <img src={categoryCover[name]} alt="" loading="eager" decoding="async" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</span>
               <span className="od-tile-name">{name}</span>
             </button>
           ))}
         </nav>
 
         <button type="button" className="od-hero" onClick={() => promo ? goTab("promo") : goTab("category", ALL)}>
-          {heroProduct?.photo
-            ? <img src={heroProduct.photo} alt="" aria-hidden="true" />
+          {heroImage
+            ? <img src={heroImage} alt="" aria-hidden="true" />
             : <img src={BUJA_MARK_DATA} alt="" aria-hidden="true" className="mark" />}
           <span className="od-hero-shade" />
           <span className="od-hero-copy">
-            <small>프리미엄 식자재몰 <b>✦</b></small>
-            <strong>좋은 식재료가<br />사장님의 경쟁력입니다.</strong>
-            <em>신선한 식재료를 더 빠르고,<br />더 편리하게 주문하세요.</em>
+            <small>{store.heroKicker || "프리미엄 식자재몰"} <b>✦</b></small>
+            <strong>{store.heroTitle || "좋은 식재료가\n사장님의 경쟁력입니다."}</strong>
+            <em>{store.heroDescription || "신선한 식재료를 더 빠르고,\n더 편리하게 주문하세요."}</em>
           </span>
-          <span className="od-hero-page">1 / 3</span>
         </button>
 
         <section className="od-section od-featured">
@@ -525,7 +523,7 @@ function OrderPage() {
               className={`od-tile ${category === name ? "selected" : ""} ${name === promo ? "promo" : ""}`}
               onClick={() => { setCategory(name); setSub(ALL); window.scrollTo({ top: 0 }); }}
             >
-              <span className={`od-tile-img category-photo category-${name}`} style={categoryCover[name] ? { backgroundImage: `url("${categoryCover[name]}")` } : undefined}>{!categoryCover[name] && <img src={BUJA_MARK_DATA} alt="" className="mark" />}</span>
+              <span className="od-tile-img category-photo">{categoryCover[name] ? <img src={categoryCover[name]} alt="" loading="eager" decoding="async" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</span>
               <span className="od-tile-name">{name}</span>
             </button>
           ))}
