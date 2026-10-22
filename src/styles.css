@@ -3176,7 +3176,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   font-weight: 900;
   line-height: 1.35;
 }
-.od-card-servings-inline li { white-space: nowrap; }
+.od-card-servings-inline li { white-space: normal; word-break: keep-all; }
 .od-card-storage {
   align-self: flex-start;
   margin-top: 1px;
