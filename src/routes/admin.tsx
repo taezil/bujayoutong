@@ -12,7 +12,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type AdminStatus = { setupRequired: boolean; authenticated: boolean; staff?: { id: string; username: string; displayName: string; role: "ADMIN" | "DRIVER" } | null };
+type AdminStatus = { setupRequired: boolean; authenticated: boolean };
 
 async function jsonPost(path: string, body: unknown) {
   const response = await fetch(path, {
@@ -67,10 +67,8 @@ function AdminPage() {
   const [store, setStore] = useState<StoreData | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [setupKey, setSetupKey] = useState("");
+  const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
-  const [staffUsername, setStaffUsername] = useState("");
-  const [staffPin, setStaffPin] = useState("");
   const [editing, setEditing] = useState<Product | "new" | null>(null);
   const [view, setView] = useState<AdminView>("products");
 
@@ -98,67 +96,46 @@ function AdminPage() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  async function setup(event: React.FormEvent) {
-    event.preventDefault(); setError("");
-    try {
-      await jsonPost("/api/admin/setup", { key: setupKey, password });
-      setPassword(""); setSetupKey(""); await loadStatus();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "설정에 실패했습니다."); }
-  }
-
   async function login(event: React.FormEvent) {
-    event.preventDefault(); setError("");
+    event.preventDefault();
+    setError("");
     try {
-      await jsonPost("/api/admin/login", { password });
-      setPassword(""); await loadStatus();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "로그인에 실패했습니다."); }
-  }
-
-  async function staffLogin(event: React.FormEvent) {
-    event.preventDefault(); setError("");
-    try {
-      const response = await fetch("/api/staff/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: staffUsername, pin: staffPin }) });
-      const data = await response.json() as { error?: string; staff?: { role: string } };
-      if (!response.ok) throw new Error(data.error || "로그인에 실패했습니다.");
-      if (data.staff?.role !== "ADMIN") { await fetch("/api/staff/logout", { method: "POST" }); throw new Error("관리자 권한이 없습니다."); }
-      setStaffPin(""); await loadStatus();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "로그인에 실패했습니다."); }
+      await jsonPost("/api/admin/login", { username, password });
+      setPassword("");
+      await loadStatus();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "로그인에 실패했습니다.");
+    }
   }
 
   async function logout() {
-    await Promise.allSettled([jsonPost("/api/admin/logout", {}), fetch("/api/staff/logout", { method: "POST" })]);
-    setStore(null); setStatus({ setupRequired: false, authenticated: false, staff: null });
+    await jsonPost("/api/admin/logout", {});
+    setStore(null);
+    setStatus({ setupRequired: false, authenticated: false });
   }
 
   if (!status) return <AdminShell><p className="admin-loading">관리자 정보를 확인하는 중입니다.</p></AdminShell>;
 
-  if (status.setupRequired) return (
-    <AdminShell><div className="admin-auth-card">
-      <h1>관리자 첫 설정</h1><p>상품 관리를 위한 관리자 비밀번호를 설정합니다.</p>
-      <form onSubmit={setup}>
-        <label>초기 설정 코드<input value={setupKey} onChange={(e) => setSetupKey(e.target.value)} autoComplete="off" /></label>
-        <label>새 비밀번호<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} autoComplete="new-password" /></label>
-        {error && <p className="form-error">{error}</p>}<button type="submit">관리자 설정 완료</button>
-      </form>
-    </div></AdminShell>
-  );
-
   if (!status.authenticated) return (
-    <AdminShell><div className="admin-auth-card staff-admin-login">
-      <h1>품목 관리자 로그인</h1><p>관리자만 상품을 추가·수정·품절 처리할 수 있습니다.</p>
-      <form onSubmit={staffLogin}>
-        <label>직원 아이디<input value={staffUsername} onChange={(e) => setStaffUsername(e.target.value)} autoComplete="username" /></label>
-        <label>6자리 PIN<input type="password" inputMode="numeric" value={staffPin} onChange={(e) => setStaffPin(e.target.value.replace(/\D/g, "").slice(0, 6))} autoComplete="current-password" /></label>
-        <button type="submit" disabled={!staffUsername.trim() || staffPin.length !== 6}>로그인</button>
+    <AdminShell><div className="admin-auth-card">
+      <h1>품목 관리자 로그인</h1>
+      <p>관리자 계정으로 로그인해 주세요.</p>
+      <form onSubmit={login}>
+        <label>아이디
+          <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+        </label>
+        <label>비밀번호
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+        </label>
+        <button type="submit" disabled={!username.trim() || !password}>로그인</button>
       </form>
-      <details className="legacy-admin-login"><summary>기존 관리자 비밀번호 사용</summary><form onSubmit={login}><label>관리자 비밀번호<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button type="submit">로그인</button></form></details>
       {error && <p className="form-error">{error}</p>}
     </div></AdminShell>
   );
 
   if (!store) return <AdminShell><p className="admin-loading">상품을 불러오는 중입니다.</p></AdminShell>;
 
-  const staffName = status.staff?.displayName ?? "관리자";
+  const staffName = "admin";
   const menu: Array<{ id: AdminView; label: string; icon: string }> = [
     { id: "products", label: "상품 관리", icon: "📦" },
     { id: "categories", label: "카테고리 관리", icon: "🗂" },
