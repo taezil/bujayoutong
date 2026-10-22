@@ -68,6 +68,10 @@ export type StoreData = {
   categoryImages: Record<string, string>;
   promoCategory: string;
   sms: string;
+  heroImage: string;
+  heroKicker: string;
+  heroTitle: string;
+  heroDescription: string;
   admin: boolean;
   version: number;
   orderSettings: OrderSettings;
@@ -280,6 +284,10 @@ export async function readStore(_priceGroup?: "A" | "B", options: { includeHidde
     categoryImages,
     promoCategory: settings.promoCategory || String(promoFromTable?.name ?? ""),
     sms: settings.sms || "",
+    heroImage: settings.heroImage || "",
+    heroKicker: settings.heroKicker || "프리미엄 식자재몰",
+    heroTitle: settings.heroTitle || "좋은 식재료가\n사장님의 경쟁력입니다.",
+    heroDescription: settings.heroDescription || "신선한 식재료를 더 빠르고,\n더 편리하게 주문하세요.",
     admin: false,
     version: Number(settings.version || 1),
     orderSettings: {
