@@ -41,14 +41,16 @@ const SENT_STORAGE_KEY = "buja-simple-cart-sent-v1";
 const HISTORY_STORAGE_KEY = "buja-simple-history-v1";
 const ALL = "전체";
 
+const CATEGORY_SPRITE = "https://d2ol7oe51mr4n9.cloudfront.net/user_3JnJRxic6O4O0nSQoboWXwqNyL6/b9c9806b-e218-4c5b-b737-b41e0463fcfa.png";
+
 const DEFAULT_CATEGORY_PHOTOS: Record<string, string> = {
-  "행사품목": "https://images.unsplash.com/photo-1772457677598-2dc68bb6f4c8?auto=format&fit=crop&w=520&q=82",
-  "냉동식품": "https://images.unsplash.com/photo-1777113310227-db99e3431b3f?auto=format&fit=crop&w=520&q=82",
-  "건어물": "https://images.unsplash.com/photo-1772285337950-82b3bc190b30?auto=format&fit=crop&w=520&q=82",
-  "김치": "https://images.unsplash.com/photo-1775883374700-bddbb6c80fcb?auto=format&fit=crop&w=520&q=82",
-  "냉동수산": "https://images.unsplash.com/photo-1774978612710-c3e2e285e690?auto=format&fit=crop&w=520&q=82",
-  "냉동축산": "https://images.unsplash.com/photo-1690983325563-fe4412c4c347?auto=format&fit=crop&w=520&q=82",
-  "공산품": "https://images.unsplash.com/photo-1781018727258-4a70d500e4ee?auto=format&fit=crop&w=520&q=82",
+  "행사품목": CATEGORY_SPRITE,
+  "냉동식품": CATEGORY_SPRITE,
+  "건어물": CATEGORY_SPRITE,
+  "김치": CATEGORY_SPRITE,
+  "냉동수산": CATEGORY_SPRITE,
+  "냉동축산": CATEGORY_SPRITE,
+  "공산품": CATEGORY_SPRITE,
 };
 
 
@@ -480,7 +482,7 @@ function OrderPage() {
         <nav className="od-tiles od-home-tiles" aria-label="카테고리">
           {categoryNames.map((name) => (
             <button type="button" key={name} className={`od-tile ${name === promo ? "promo" : ""}`} onClick={() => openCategory(name)}>
-              <span className="od-tile-img">{categoryCover[name] ? <img src={categoryCover[name]} alt="" loading="lazy" decoding="async" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</span>
+              <span className={`od-tile-img category-photo category-${name}`} style={categoryCover[name] ? { backgroundImage: `url("${categoryCover[name]}")` } : undefined}>{!categoryCover[name] && <img src={BUJA_MARK_DATA} alt="" className="mark" />}</span>
               <span className="od-tile-name">{name}</span>
             </button>
           ))}
@@ -528,7 +530,7 @@ function OrderPage() {
               className={`od-tile ${category === name ? "selected" : ""} ${name === promo ? "promo" : ""}`}
               onClick={() => { setCategory(name); setSub(ALL); window.scrollTo({ top: 0 }); }}
             >
-              <span className="od-tile-img">{categoryCover[name] ? <img src={categoryCover[name]} alt="" loading="lazy" decoding="async" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</span>
+              <span className={`od-tile-img category-photo category-${name}`} style={categoryCover[name] ? { backgroundImage: `url("${categoryCover[name]}")` } : undefined}>{!categoryCover[name] && <img src={BUJA_MARK_DATA} alt="" className="mark" />}</span>
               <span className="od-tile-name">{name}</span>
             </button>
           ))}
