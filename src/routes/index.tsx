@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { readStore } from "../lib/db.server";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
+import { CATEGORY_IMAGE_DATA } from "../category-images";
 
 // 거래처 화면에는 가격을 보여주지 않으므로 그룹별 단가(A/B)는 내려보내지 않음
 const getStore = createServerFn({ method: "GET" }).handler(async () => {
@@ -42,16 +43,6 @@ const HISTORY_STORAGE_KEY = "buja-simple-history-v1";
 const ALL = "전체";
 
 const CATEGORY_SPRITE = "https://d2ol7oe51mr4n9.cloudfront.net/user_3JnJRxic6O4O0nSQoboWXwqNyL6/b9c9806b-e218-4c5b-b737-b41e0463fcfa.png";
-
-const DEFAULT_CATEGORY_PHOTOS: Record<string, string> = {
-  "행사품목": CATEGORY_SPRITE,
-  "냉동식품": CATEGORY_SPRITE,
-  "건어물": CATEGORY_SPRITE,
-  "김치": CATEGORY_SPRITE,
-  "냉동수산": CATEGORY_SPRITE,
-  "냉동축산": CATEGORY_SPRITE,
-  "공산품": CATEGORY_SPRITE,
-};
 
 
 /* ---------- 검색 ---------- */
@@ -303,7 +294,7 @@ function OrderPage() {
   const categoryCover = useMemo(() => {
     const covers: Record<string, string> = {};
     for (const name of categoryNames) {
-      covers[name] = DEFAULT_CATEGORY_PHOTOS[name]
+      covers[name] = CATEGORY_IMAGE_DATA[name]
         || store.categoryImages?.[name]
         || store.products.find((product) => product.category === name && product.photo)?.photo
         || "";
