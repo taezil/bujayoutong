@@ -406,8 +406,7 @@ function OrderPage() {
   }
 
   function openCategory(name: string) {
-    if (name === promo) goTab("promo");
-    else goTab("category", name);
+    goTab("category", name);
   }
 
   const searching = query.trim().length > 0;
@@ -430,15 +429,9 @@ function OrderPage() {
     content = (
       <>
         <nav className="od-tiles od-home-tiles" aria-label="카테고리">
-          {categoryNames.slice(0, 6).map((name) => (
+          {categoryNames.map((name) => (
             <button type="button" key={name} className={`od-tile ${name === promo ? "promo" : ""}`} onClick={() => openCategory(name)}>
-              <span className="od-tile-img">
-                {name === promo && !store.categoryImages?.[name]
-                  ? <i aria-hidden="true">%</i>
-                  : categoryCover[name]
-                    ? <img src={categoryCover[name]} alt="" loading="lazy" decoding="async" />
-                    : <img src={BUJA_MARK_DATA} alt="" className="mark" />}
-              </span>
+              <span className="od-tile-img"><CategoryGlyph name={name} promo={name === promo} /></span>
               <span className="od-tile-name">{name}</span>
             </button>
           ))}
@@ -459,7 +452,7 @@ function OrderPage() {
 
         <section className="od-section od-featured">
           <div className="od-section-head">
-            <h2>{promoProducts.length ? "인기 상품" : "추천 상품"}</h2>
+            <h2>행사상품</h2>
             <button type="button" onClick={() => promoProducts.length ? goTab("promo") : goTab("category", ALL)}>전체보기 ›</button>
           </div>
           <ProductGrid products={featuredProducts} {...cardProps} />
@@ -478,27 +471,26 @@ function OrderPage() {
   } else if (tab === "category") {
     content = (
       <>
-        <div className="od-chips-bar">
-          <nav className="od-chips" aria-label="카테고리 선택">
-            {[ALL, ...categoryNames].map((name) => (
-              <button
-                type="button"
-                key={name}
-                className={`${category === name ? "selected" : ""} ${name === promo ? "promo" : ""}`}
-                onClick={() => { setCategory(name); setSub(ALL); window.scrollTo({ top: 0 }); }}
-              >
-                {name === promo ? `🔥 ${name}` : name}
-              </button>
+        <nav className="od-tiles od-home-tiles od-category-fixed" aria-label="카테고리 선택">
+          {categoryNames.map((name) => (
+            <button
+              type="button"
+              key={name}
+              className={`od-tile ${category === name ? "selected" : ""} ${name === promo ? "promo" : ""}`}
+              onClick={() => { setCategory(name); setSub(ALL); window.scrollTo({ top: 0 }); }}
+            >
+              <span className="od-tile-img"><CategoryGlyph name={name} promo={name === promo} /></span>
+              <span className="od-tile-name">{name}</span>
+            </button>
+          ))}
+        </nav>
+        {subNames.length > 1 && (
+          <nav className="od-subchips od-category-subchips" aria-label="세부 분류">
+            {[ALL, ...subNames].map((name) => (
+              <button type="button" key={name} className={sub === name ? "selected" : ""} onClick={() => setSub(name)}>{name}</button>
             ))}
           </nav>
-          {subNames.length > 1 && (
-            <nav className="od-subchips" aria-label="세부 분류">
-              {[ALL, ...subNames].map((name) => (
-                <button type="button" key={name} className={sub === name ? "selected" : ""} onClick={() => setSub(name)}>{name}</button>
-              ))}
-            </nav>
-          )}
-        </div>
+        )}
         <section className="od-section">
           <div className="od-section-head"><h2>{category === ALL ? "전체 상품" : sub !== ALL ? `${category} · ${sub}` : category}</h2><span>{categoryProducts.length}개</span></div>
           <ProductGrid products={categoryProducts} empty="이 분류에 등록된 상품이 없습니다." {...cardProps} />
@@ -728,6 +720,19 @@ function ProductCard({ product, promo, quantityFor, onQuantity, onOpen }: CardPr
       </div>
     </article>
   );
+}
+
+function CategoryGlyph({ name, promo }: { name: string; promo: boolean }) {
+  const text = promo || name.includes("행사") ? "%"
+    : name.includes("냉동식품") ? "❄"
+    : name.includes("건어") ? "🐟"
+    : name.includes("김치") ? "🥬"
+    : name.includes("수산") ? "🐟"
+    : name.includes("축산") ? "🥩"
+    : name.includes("공산") ? "📦"
+    : name.includes("신선") ? "🥬"
+    : "🍽️";
+  return <span className={`od-category-glyph ${promo ? "promo" : ""}`} aria-hidden="true">{text}</span>;
 }
 
 function ProductTags({ product, promo }: { product: Product; promo: string }) {
