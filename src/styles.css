@@ -3139,6 +3139,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 
+
+/* User-supplied category photo strip */
+.od-home-tiles .od-tile-img.category-photo {
+  background-repeat: no-repeat;
+  background-size: 746% auto;
+  background-position-y: 33.3%;
+}
+.od-home-tiles .od-tile-img.category-행사품목 { background-position-x: .9%; }
+.od-home-tiles .od-tile-img.category-냉동식품 { background-position-x: 17.7%; }
+.od-home-tiles .od-tile-img.category-건어물 { background-position-x: 34%; }
+.od-home-tiles .od-tile-img.category-김치 { background-position-x: 50.3%; }
+.od-home-tiles .od-tile-img.category-냉동수산 { background-position-x: 66.7%; }
+.od-home-tiles .od-tile-img.category-냉동축산 { background-position-x: 83.1%; }
+.od-home-tiles .od-tile-img.category-공산품 { background-position-x: 99.5%; }
+
 /* ===== Serving/unit-spec + photo category refinements ===== */
 .od-home-tiles .od-tile-img {
   overflow: hidden;
