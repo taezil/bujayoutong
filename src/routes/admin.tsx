@@ -48,6 +48,7 @@ function AdminPage() {
   const [staffUsername, setStaffUsername] = useState("");
   const [staffPin, setStaffPin] = useState("");
   const [editing, setEditing] = useState<Product | "new" | null>(null);
+  const [query, setQuery] = useState("");
 
   const loadStore = useCallback(async () => {
     const response = await fetch("/api/store", { cache: "no-store" });
@@ -67,145 +68,98 @@ function AdminPage() {
   }, [loadStatus]);
 
   async function setup(event: React.FormEvent) {
-    event.preventDefault();
-    setError("");
+    event.preventDefault(); setError("");
     try {
       await jsonPost("/api/admin/setup", { key: setupKey, password });
-      setPassword("");
-      setSetupKey("");
-      await loadStatus();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "설정에 실패했습니다.");
-    }
+      setPassword(""); setSetupKey(""); await loadStatus();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "설정에 실패했습니다."); }
   }
 
   async function login(event: React.FormEvent) {
-    event.preventDefault();
-    setError("");
+    event.preventDefault(); setError("");
     try {
       await jsonPost("/api/admin/login", { password });
-      setPassword("");
-      await loadStatus();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "로그인에 실패했습니다.");
-    }
+      setPassword(""); await loadStatus();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "로그인에 실패했습니다."); }
   }
 
   async function staffLogin(event: React.FormEvent) {
-    event.preventDefault();
-    setError("");
+    event.preventDefault(); setError("");
     try {
       const response = await fetch("/api/staff/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: staffUsername, pin: staffPin }) });
       const data = await response.json() as { error?: string; staff?: { role: string } };
       if (!response.ok) throw new Error(data.error || "로그인에 실패했습니다.");
-      if (data.staff?.role !== "ADMIN") { await fetch("/api/staff/logout", { method: "POST" }); throw new Error("이 계정은 관리자 권한이 없습니다. 배송기사 앱을 이용해 주세요."); }
-      setStaffPin("");
-      await loadStatus();
+      if (data.staff?.role !== "ADMIN") { await fetch("/api/staff/logout", { method: "POST" }); throw new Error("관리자 권한이 없습니다."); }
+      setStaffPin(""); await loadStatus();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "로그인에 실패했습니다."); }
   }
 
   async function logout() {
-    await Promise.allSettled([
-      jsonPost("/api/admin/logout", {}),
-      fetch("/api/staff/logout", { method: "POST" }),
-    ]);
-    setStore(null);
-    setStatus({ setupRequired: false, authenticated: false, staff: null });
+    await Promise.allSettled([jsonPost("/api/admin/logout", {}), fetch("/api/staff/logout", { method: "POST" })]);
+    setStore(null); setStatus({ setupRequired: false, authenticated: false, staff: null });
   }
 
   if (!status) return <AdminShell><p className="admin-loading">관리자 정보를 확인하는 중입니다.</p></AdminShell>;
 
-  if (status.setupRequired) {
-    return (
-      <AdminShell>
-        <div className="admin-auth-card">
-          <h1>관리자 첫 설정</h1>
-          <p>처음 한 번만 초기 설정 코드와 새 비밀번호를 입력합니다.</p>
-          <form onSubmit={setup}>
-            <label>초기 설정 코드<input value={setupKey} onChange={(e) => setSetupKey(e.target.value)} autoComplete="off" /></label>
-            <label>새 비밀번호<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} autoComplete="new-password" /></label>
-            {error && <p className="form-error">{error}</p>}
-            <button type="submit">관리자 설정 완료</button>
-          </form>
-        </div>
-      </AdminShell>
-    );
-  }
+  if (status.setupRequired) return (
+    <AdminShell><div className="admin-auth-card">
+      <h1>관리자 첫 설정</h1><p>상품 관리를 위한 관리자 비밀번호를 설정합니다.</p>
+      <form onSubmit={setup}>
+        <label>초기 설정 코드<input value={setupKey} onChange={(e) => setSetupKey(e.target.value)} autoComplete="off" /></label>
+        <label>새 비밀번호<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} autoComplete="new-password" /></label>
+        {error && <p className="form-error">{error}</p>}<button type="submit">관리자 설정 완료</button>
+      </form>
+    </div></AdminShell>
+  );
 
-  if (!status.authenticated) {
-    return (
-      <AdminShell>
-        <div className="admin-auth-card staff-admin-login">
-          <h1>관리자 로그인</h1>
-          <p>사무실 직원은 개인 아이디와 6자리 PIN으로 로그인합니다.</p>
-          <form onSubmit={staffLogin}>
-            <label>직원 아이디<input value={staffUsername} onChange={(e) => setStaffUsername(e.target.value)} autoComplete="username" placeholder="예: lee" /></label>
-            <label>6자리 PIN<input type="password" inputMode="numeric" value={staffPin} onChange={(e) => setStaffPin(e.target.value.replace(/\D/g, "").slice(0, 6))} autoComplete="current-password" /></label>
-            <button type="submit" disabled={!staffUsername.trim() || staffPin.length !== 6}>직원 로그인</button>
-          </form>
-          <details className="legacy-admin-login"><summary>기존 관리자 비밀번호로 로그인</summary><form onSubmit={login}><label>관리자 비밀번호<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button type="submit">기존 관리자 로그인</button></form></details>
-          {error && <p className="form-error">{error}</p>}
-        </div>
-      </AdminShell>
-    );
-  }
+  if (!status.authenticated) return (
+    <AdminShell><div className="admin-auth-card staff-admin-login">
+      <h1>품목 관리자 로그인</h1><p>관리자만 상품을 추가·수정·품절 처리할 수 있습니다.</p>
+      <form onSubmit={staffLogin}>
+        <label>직원 아이디<input value={staffUsername} onChange={(e) => setStaffUsername(e.target.value)} autoComplete="username" /></label>
+        <label>6자리 PIN<input type="password" inputMode="numeric" value={staffPin} onChange={(e) => setStaffPin(e.target.value.replace(/\D/g, "").slice(0, 6))} autoComplete="current-password" /></label>
+        <button type="submit" disabled={!staffUsername.trim() || staffPin.length !== 6}>로그인</button>
+      </form>
+      <details className="legacy-admin-login"><summary>기존 관리자 비밀번호 사용</summary><form onSubmit={login}><label>관리자 비밀번호<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button type="submit">로그인</button></form></details>
+      {error && <p className="form-error">{error}</p>}
+    </div></AdminShell>
+  );
 
   if (!store) return <AdminShell><p className="admin-loading">상품을 불러오는 중입니다.</p></AdminShell>;
+  const needle = normalizeAdminQuery(query);
+  const products = store.products.filter((p) => !needle || normalizeAdminQuery(`${p.name} ${p.category} ${p.sub} ${p.unit}`).includes(needle));
 
   return (
     <AdminShell>
-      <div className="admin-workspace">
-        <aside className="admin-side admin-side-left"><SupplierPanel onError={setError} /></aside>
-        <div className="admin-dashboard">
-        <div className="admin-titlebar">
-          <div><p>부자유통{status.staff ? ` · ${status.staff.displayName}` : ""}</p><h1>통합 관리자</h1><span>상품 {store.products.length}개 · 주문/거래처/재고 통합관리 · 버전 {store.version}</span></div>
-          <div className="admin-title-actions">
-            <div className="admin-top-actions">
-              <a href="/dashboard">대시보드</a>
-              <a href="/price-list">부자유통 단가표</a>
-              <button type="button" onClick={() => { document.getElementById("admin-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); window.setTimeout(() => setEditing("new"), 250); }}>상품추가</button>
-              <a href="/admin/accounts">계정관리</a>
-            </div>
-            <div className="session-actions"><span><b>{status.staff?.displayName || "관리자"}</b><small>관리자</small></span><button type="button" onClick={logout}>로그아웃</button></div>
-          </div>
-        </div>
-        {error && <p className="admin-banner-error">{error}</p>}
-        <OrderOpsPanel store={store} onError={setError} />
-        <CustomerOpsPanel onError={setError} />
-        <InventoryOpsPanel onError={setError} storeVersion={store.version} />
-        <SettingsPanel store={store} onSaved={loadStore} onError={setError} />
-        <CategoryPanel store={store} onSaved={loadStore} onError={setError} />
-        <section className="admin-section" id="admin-products">
-          <div className="admin-section-head">
-            <div><h2>상품</h2><p>상품은 계속 추가·수정·삭제할 수 있습니다.</p></div>
-            <button type="button" className="admin-primary" onClick={() => setEditing("new")}>+ 새 상품 추가</button>
-          </div>
-          <div className="admin-product-list">
-            {store.products.map((product) => (
-              <div className="admin-product-row" key={product.id}>
-                <div className="admin-product-thumb">{product.photo ? <img src={product.photo} alt="" /> : <img src={BUJA_MARK_DATA} alt="" />}</div>
-                <div className="admin-product-copy"><strong>{product.name}</strong><span>{product.category} · {product.sub} · {product.unit}</span></div>
-                <div className="admin-product-price">{product.soldout ? <b className="red">품절</b> : <b>{displayPrice(product)}</b>}</div>
-                <button type="button" onClick={() => setEditing(product)}>수정</button>
-              </div>
-            ))}
-          </div>
-        </section>
-        </div>
-        <aside className="admin-side admin-side-right"><AuditPanel /></aside>
+      <div className="simple-admin-head">
+        <div><p>부자유통 관리자</p><h1>품목 관리</h1><span>상품 추가·수정·품절 처리만 사용하는 간단 관리자입니다.</span></div>
+        <div className="simple-admin-actions"><a href="/">주문페이지 보기</a><button type="button" onClick={logout}>로그아웃</button></div>
       </div>
-      {editing && (
-        <ProductEditor
-          product={editing === "new" ? makeNewProduct(store) : editing}
-          creating={editing === "new"}
-          categories={store.categories}
-          onClose={() => setEditing(null)}
-          onSaved={async () => { setEditing(null); await loadStore(); }}
-          onError={setError}
-        />
-      )}
+      {error && <p className="admin-banner-error">{error}</p>}
+      <section className="admin-section" id="admin-products">
+        <div className="admin-section-head">
+          <div><h2>상품 {store.products.length}개</h2><p>상품명, 규격, 카테고리, 사진, 판매단위, 품절 여부를 수정할 수 있습니다.</p></div>
+          <button type="button" className="admin-primary" onClick={() => setEditing("new")}>+ 새 상품 추가</button>
+        </div>
+        <div className="simple-admin-search"><input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="상품명·카테고리 검색" /></div>
+        <div className="admin-product-list">
+          {products.map((product) => (
+            <div className="admin-product-row" key={product.id}>
+              <div className="admin-product-thumb">{product.photo ? <img src={product.photo} alt="" /> : <img src={BUJA_MARK_DATA} alt="" />}</div>
+              <div className="admin-product-copy"><strong>{product.name}</strong><span>{product.category} · {product.sub} · {product.unit}</span></div>
+              <div className="admin-product-price">{product.soldout ? <b className="red">품절</b> : <b>판매중</b>}</div>
+              <button type="button" onClick={() => setEditing(product)}>수정</button>
+            </div>
+          ))}
+        </div>
+      </section>
+      {editing && <ProductEditor product={editing === "new" ? makeNewProduct(store) : editing} creating={editing === "new"} categories={store.categories} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await loadStore(); }} onError={setError} />}
     </AdminShell>
   );
+}
+
+function normalizeAdminQuery(value: string) {
+  return value.toLocaleLowerCase("ko-KR").replace(/\s+/g, "");
 }
 
 function AdminShell({ children }: { children: ReactNode }) {
