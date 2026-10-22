@@ -505,17 +505,48 @@ function CategoryView({ store, onSaved, onError, onNotice }: { store: StoreData;
 function SimpleSettingsView({ store, onSaved, onError, onNotice }: { store: StoreData; onSaved: () => Promise<void>; onError: (value: string) => void; onNotice: (value: string) => void }) {
   const [sms, setSms] = useState(store.sms);
   const [promoCategory, setPromoCategory] = useState(store.promoCategory);
+  const [heroImage, setHeroImage] = useState(store.heroImage);
+  const [heroKicker, setHeroKicker] = useState(store.heroKicker);
+  const [heroTitle, setHeroTitle] = useState(store.heroTitle);
+  const [heroDescription, setHeroDescription] = useState(store.heroDescription);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setSms(store.sms); setPromoCategory(store.promoCategory); }, [store.sms, store.promoCategory]);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    setSms(store.sms);
+    setPromoCategory(store.promoCategory);
+    setHeroImage(store.heroImage);
+    setHeroKicker(store.heroKicker);
+    setHeroTitle(store.heroTitle);
+    setHeroDescription(store.heroDescription);
+  }, [store.sms, store.promoCategory, store.heroImage, store.heroKicker, store.heroTitle, store.heroDescription]);
+
+  async function changeHeroImage(file: File | null) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      onError("");
+      const url = await uploadPhoto(file);
+      setHeroImage(url);
+      onNotice("배너 이미지를 불러왔습니다. 아래 저장 버튼을 눌러 적용하세요.");
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "배너 사진 업로드에 실패했습니다.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function save() {
     setBusy(true);
     try {
       onError("");
-      // 기존 주문 운영 설정 값은 그대로 유지해서 함께 보냄
       await jsonPost("/api/admin/settings", {
         sms,
         promoCategory,
+        heroImage,
+        heroKicker,
+        heroTitle,
+        heroDescription,
         orderEnabled: store.orderSettings.enabled,
         order24h: store.orderSettings.open24h,
         orderOpenTime: store.orderSettings.openTime,
@@ -534,19 +565,45 @@ function SimpleSettingsView({ store, onSaved, onError, onNotice }: { store: Stor
 
   return (
     <section className="adm-panel">
-      <div className="adm-head"><div><h1>설정</h1><p>거래처 주문화면의 기본 설정입니다.</p></div></div>
+      <div className="adm-head"><div><h1>설정</h1><p>거래처 주문화면의 기본 설정과 메인 배너를 관리합니다.</p></div></div>
+
+      <div className="adm-form-card adm-banner-settings">
+        <h3>메인 배너</h3>
+        <p className="adm-help">주문화면 첫 화면의 큰 홍보 영역입니다. 행사·신상품·공지 등에 사용할 수 있습니다.</p>
+        <div className="adm-banner-preview">
+          {heroImage ? <img src={heroImage} alt="" /> : <span>배너 이미지를 지정하지 않으면 행사상품 사진을 자동으로 사용합니다.</span>}
+        </div>
+        <div className="adm-banner-actions">
+          <label className="adm-upload">
+            {uploading ? "업로드 중…" : "＋ 배너 사진 변경"}
+            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={(e) => { void changeHeroImage(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+          </label>
+          {heroImage && <button type="button" className="adm-ghost" onClick={() => setHeroImage("")}>자동 이미지 사용</button>}
+        </div>
+        <label>상단 작은 문구
+          <input value={heroKicker} onChange={(e) => setHeroKicker(e.target.value)} placeholder="예: 프리미엄 식자재몰" />
+        </label>
+        <label>큰 제목
+          <textarea rows={2} value={heroTitle} onChange={(e) => setHeroTitle(e.target.value)} placeholder={"예: 좋은 식재료가\n사장님의 경쟁력입니다."} />
+          <small>줄바꿈도 그대로 반영됩니다.</small>
+        </label>
+        <label>설명
+          <textarea rows={2} value={heroDescription} onChange={(e) => setHeroDescription(e.target.value)} placeholder={"예: 신선한 식재료를 더 빠르고,\n더 편리하게 주문하세요."} />
+        </label>
+      </div>
+
       <div className="adm-form-card">
         <label>주문 문자 받을 번호
           <input inputMode="tel" value={sms} onChange={(e) => setSms(e.target.value)} placeholder="예: 01012345678" />
-          <small>거래처가 '문자로 주문 보내기'를 누르면 이 번호로 문자가 작성됩니다. '전화로 주문' 버튼도 이 번호로 연결됩니다.</small>
+          <small>거래처가 '문자로 주문 보내기'를 누르면 이 번호로 문자가 작성됩니다.</small>
         </label>
         <label>행사 카테고리
           <select value={promoCategory} onChange={(e) => setPromoCategory(e.target.value)}>
             {Object.keys(store.categories).map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
-          <small>이 카테고리 상품에 '행사' 표시가 붙고, 주문화면 맨 앞과 '행사상품' 탭에 나옵니다.</small>
+          <small>이 카테고리 상품에 '행사' 표시가 붙고 첫 화면 행사상품에 노출됩니다.</small>
         </label>
-        <div className="adm-form-actions"><button type="button" className="adm-primary" disabled={busy} onClick={save}>{busy ? "저장 중" : "저장"}</button></div>
+        <div className="adm-form-actions"><button type="button" className="adm-primary" disabled={busy || uploading} onClick={save}>{busy ? "저장 중" : "설정 저장"}</button></div>
       </div>
     </section>
   );
@@ -589,6 +646,10 @@ function SettingsPanel({ store, onSaved, onError }: { store: StoreData; onSaved:
       <button type="button" onClick={save}>설정 저장</button>
     </section>
   );
+}
+
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "");
 }
 
 function sanitizeKgNumber(value: string) {
@@ -776,12 +837,12 @@ function ProductEditor({
                 <h3>주문 단위 설정</h3>
                 <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "박스", spec: "", price: null, step: 1 }] })}>＋ 단위 추가</button>
               </div>
-              <p className="adm-help">단위별 규격을 직접 적을 수 있습니다. 예: 박스 10kg / 봉지 1kg. 거래처 화면에는 ‘박스 (10kg)’처럼 표시됩니다.</p>
+              <p className="adm-help">규격에는 숫자만 입력하세요. 거래처 화면에서는 kg가 자동으로 붙습니다. 예: 박스 규격 10 → ‘박스 (10kg)’, 봉지 규격 1 → ‘봉지 (1kg)’.</p>
               {draft.packOptions.map((option, index) => (
                 <div className="adm-unit-row" key={index}>
                   <label>단위<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} placeholder="박스" list="adm-unit-presets" /></label>
-                  <label>규격<input value={option.spec ?? ""} onChange={(e) => updateOption(index, { spec: e.target.value })} placeholder="예: 10kg" /></label>
-                  <label>수량 step<input inputMode="decimal" value={option.step} onChange={(e) => updateOption(index, { step: Number(e.target.value || 1) })} /></label>
+                  <label>규격(kg)<input inputMode="decimal" value={option.spec ?? ""} onChange={(e) => updateOption(index, { spec: sanitizeKgNumber(e.target.value) })} placeholder="예: 10" /></label>
+                  <label>+/- 증가 단위<input inputMode="decimal" value={option.step} onChange={(e) => { const value = sanitizeKgNumber(e.target.value); updateOption(index, { step: value ? Number(value) : 1 }); }} /></label>
                   <label>가격<input inputMode="numeric" value={option.price ?? ""} placeholder="가격문의" onChange={(e) => updateOption(index, { price: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} /></label>
                   <button type="button" className="adm-unit-del" aria-label="단위 삭제" onClick={() => setDraft({ ...draft, packOptions: draft.packOptions.filter((_, i) => i !== index) })}>×</button>
                 </div>
@@ -815,14 +876,14 @@ function ProductEditor({
             <div className="adm-box-info">
               <strong>인분 안내 <small>거래처 상품카드에 노란 박스로 표시됩니다</small></strong>
               <label className="adm-field">1단위(봉지·팩) 기준 인분
-                <input inputMode="numeric" value={draft.servingsPerUnit ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerUnit: e.target.value })} placeholder="예: 20" />
+                <input inputMode="numeric" value={draft.servingsPerUnit ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerUnit: digitsOnly(e.target.value) })} placeholder="예: 20" />
               </label>
               <div className="adm-row2">
                 <label className="adm-field">1박스 입수 수량
-                  <input inputMode="numeric" value={draft.boxContents ?? ""} onChange={(e) => setDraft({ ...draft, boxContents: e.target.value })} placeholder="예: 10" />
+                  <input inputMode="numeric" value={draft.boxContents ?? ""} onChange={(e) => setDraft({ ...draft, boxContents: digitsOnly(e.target.value) })} placeholder="예: 10" />
                 </label>
                 <label className="adm-field">1박스 기준 인분
-                  <input inputMode="numeric" value={draft.servingsPerBox ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerBox: e.target.value })} placeholder="예: 100" />
+                  <input inputMode="numeric" value={draft.servingsPerBox ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerBox: digitsOnly(e.target.value) })} placeholder="예: 100" />
                 </label>
               </div>
             </div>
