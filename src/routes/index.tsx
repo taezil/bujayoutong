@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { readStore } from "../lib/db.server";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
+import { CATEGORY_IMAGE_DATA } from "../category-images";
 
 // 거래처 화면에는 가격을 보여주지 않으므로 그룹별 단가(A/B)는 내려보내지 않음
 const getStore = createServerFn({ method: "GET" }).handler(async () => {
@@ -40,16 +41,6 @@ const CART_STORAGE_KEY = "buja-simple-cart-v1";
 const SENT_STORAGE_KEY = "buja-simple-cart-sent-v1";
 const HISTORY_STORAGE_KEY = "buja-simple-history-v1";
 const ALL = "전체";
-
-const DEFAULT_CATEGORY_PHOTOS: Record<string, string> = {
-  "행사품목": "https://images.unsplash.com/photo-1772457677598-2dc68bb6f4c8?auto=format&fit=crop&w=520&q=82",
-  "냉동식품": "https://images.unsplash.com/photo-1777113310227-db99e3431b3f?auto=format&fit=crop&w=520&q=82",
-  "건어물": "https://images.unsplash.com/photo-1772285337950-82b3bc190b30?auto=format&fit=crop&w=520&q=82",
-  "김치": "https://images.unsplash.com/photo-1775883374700-bddbb6c80fcb?auto=format&fit=crop&w=520&q=82",
-  "냉동수산": "https://images.unsplash.com/photo-1774978612710-c3e2e285e690?auto=format&fit=crop&w=520&q=82",
-  "냉동축산": "https://images.unsplash.com/photo-1690983325563-fe4412c4c347?auto=format&fit=crop&w=520&q=82",
-  "공산품": "https://images.unsplash.com/photo-1781018727258-4a70d500e4ee?auto=format&fit=crop&w=520&q=82",
-};
 
 
 /* ---------- 검색 ---------- */
@@ -298,7 +289,7 @@ function OrderPage() {
     const covers: Record<string, string> = {};
     for (const name of categoryNames) {
       covers[name] = store.categoryImages?.[name]
-        || DEFAULT_CATEGORY_PHOTOS[name]
+        || CATEGORY_IMAGE_DATA[name]
         || store.products.find((product) => product.category === name && product.photo)?.photo
         || "";
     }
