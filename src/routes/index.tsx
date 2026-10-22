@@ -147,8 +147,16 @@ function optionSpec(product: Product, option: PackOption) {
 /* ---------- 문자/복사/저장 ---------- */
 
 function buildOrderText(cart: CartLine[]) {
-  const lines = cart.map((line) => `${line.productName}${line.spec ? ` ${line.spec}` : ""} / ${line.quantity}${line.optionLabel}`);
-  return ["[부자유통 발주]", "", ...lines, "", `총 ${cart.length}품목`].join("\n");
+  const grouped = new Map<string, string[]>();
+
+  for (const line of cart) {
+    const parts = grouped.get(line.productName) ?? [];
+    parts.push(`${line.quantity}${line.optionLabel}`);
+    grouped.set(line.productName, parts);
+  }
+
+  const lines = Array.from(grouped, ([productName, quantities]) => `${productName} / ${quantities.join(" ")}`);
+  return ["[부자유통 발주]", "", ...lines, "", `총 ${lines.length}품목`].join("\n");
 }
 
 function isIOS() {
