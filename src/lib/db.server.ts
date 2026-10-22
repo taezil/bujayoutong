@@ -5,6 +5,7 @@ import erpMigrationSql from "../../migrations/0002_erp.sql?raw";
 
 export type PackOption = {
   label: string;
+  spec?: string;
   price: number | null;
   priceA?: number | null;
   priceB?: number | null;
@@ -161,6 +162,7 @@ export async function ensureDatabase(database: D1Database = db()) {
   await ensureColumn(database, "categories", "image", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn(database, "pack_options", "price_a", "INTEGER");
   await ensureColumn(database, "pack_options", "price_b", "INTEGER");
+  await ensureColumn(database, "pack_options", "spec", "TEXT NOT NULL DEFAULT ''");
   await ensureOperationsSchema(database);
 
   const demoSeeded = await database
@@ -209,7 +211,7 @@ export async function readStore(_priceGroup?: "A" | "B", options: { includeHidde
     database.prepare("SELECT name, sort_order, is_promo, image FROM categories ORDER BY sort_order, name").all(),
     database.prepare("SELECT category_name, name, sort_order FROM subcategories ORDER BY category_name, sort_order, name").all(),
     database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone, description, servings_per_unit, box_contents, servings_per_box, storage_method, price_list_visible, price_display_mode, hidden, promo_price FROM products ORDER BY sort_order, name").all(),
-    database.prepare("SELECT product_id, label, price, price_a, price_b, step, sort_order FROM pack_options ORDER BY product_id, sort_order, id").all(),
+    database.prepare("SELECT product_id, label, spec, price, price_a, price_b, step, sort_order FROM pack_options ORDER BY product_id, sort_order, id").all(),
     database.prepare("SELECT key, value FROM app_settings").all(),
   ]);
 
@@ -232,6 +234,7 @@ export async function readStore(_priceGroup?: "A" | "B", options: { includeHidde
     const list = optionsByProduct.get(id) ?? [];
     list.push({
       label: String(row.label),
+      spec: String(row.spec ?? ""),
       price: base,
       step: Number(row.step ?? 1),
     });
