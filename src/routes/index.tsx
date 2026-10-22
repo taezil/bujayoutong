@@ -145,7 +145,11 @@ function servingsLines(product: Product) {
 
 function optionSpec(product: Product, option: PackOption) {
   const explicit = (option.spec ?? "").trim();
-  if (explicit) return explicit;
+  if (explicit) {
+    const numericOnly = explicit.match(/^([0-9]+(?:\.[0-9]+)?)$/);
+    if (numericOnly) return `${numericOnly[1]}kg`;
+    return explicit;
+  }
   const options = productOptions(product);
   if (options.length === 1 || !option.label.includes("박스")) return product.unit.trim();
   return "";
