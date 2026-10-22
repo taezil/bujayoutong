@@ -434,7 +434,7 @@ function ProductEditor({
 
         <div className="price-list-editor">
           <div className="option-head">
-            <div><strong>부자유통 단가표 정보</strong><small>여기서 수정하면 단가표 화면에도 같은 내용이 바로 반영됩니다.</small></div>
+            <div><strong>상품 안내 정보</strong><small>여기 입력한 인분·구성·보관방법·설명은 거래처 주문 화면 상품카드와 단가표에 바로 표시됩니다.</small></div>
           </div>
           <div className="price-list-editor-grid">
             <label>1단위 기준 인분
