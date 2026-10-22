@@ -289,6 +289,13 @@ function OrderPage() {
     [store.products, promo],
   );
 
+  const featuredProducts = useMemo(
+    () => (promoProducts.length ? promoProducts : sortForDisplay(store.products, false)).slice(0, 6),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [promoProducts, store.products],
+  );
+  const heroProduct = featuredProducts.find((product) => product.photo) ?? store.products.find((product) => product.photo);
+
   const categoryProducts = useMemo(() => {
     const list = store.products.filter((product) => {
       if (category !== ALL && product.category !== category) return false;
@@ -422,15 +429,8 @@ function OrderPage() {
   } else if (tab === "home") {
     content = (
       <>
-        <ol className="od-howto" aria-label="주문 방법">
-          <li><b>1</b>＋로 담기</li>
-          <li aria-hidden="true" className="arrow">›</li>
-          <li><b>2</b>주문 확인</li>
-          <li aria-hidden="true" className="arrow">›</li>
-          <li><b>3</b>문자 보내기</li>
-        </ol>
-        <nav className="od-tiles" aria-label="카테고리">
-          {categoryNames.map((name) => (
+        <nav className="od-tiles od-home-tiles" aria-label="카테고리">
+          {categoryNames.slice(0, 6).map((name) => (
             <button type="button" key={name} className={`od-tile ${name === promo ? "promo" : ""}`} onClick={() => openCategory(name)}>
               <span className="od-tile-img">
                 {name === promo && !store.categoryImages?.[name]
@@ -443,15 +443,28 @@ function OrderPage() {
             </button>
           ))}
         </nav>
-        {promoProducts.length > 0 && (
-          <section className="od-section">
-            <div className="od-section-head">
-              <h2>🔥 {promo}</h2>
-              <button type="button" onClick={() => goTab("promo")}>전체보기 ›</button>
-            </div>
-            <ProductGrid products={promoProducts.slice(0, 6)} {...cardProps} />
-          </section>
-        )}
+
+        <button type="button" className="od-hero" onClick={() => promo ? goTab("promo") : goTab("category", ALL)}>
+          {heroProduct?.photo
+            ? <img src={heroProduct.photo} alt="" aria-hidden="true" />
+            : <img src={BUJA_MARK_DATA} alt="" aria-hidden="true" className="mark" />}
+          <span className="od-hero-shade" />
+          <span className="od-hero-copy">
+            <small>프리미엄 식자재몰 <b>✦</b></small>
+            <strong>좋은 식재료가<br />사장님의 경쟁력입니다.</strong>
+            <em>신선한 식재료를 더 빠르고,<br />더 편리하게 주문하세요.</em>
+          </span>
+          <span className="od-hero-page">1 / 3</span>
+        </button>
+
+        <section className="od-section od-featured">
+          <div className="od-section-head">
+            <h2>{promoProducts.length ? "인기 상품" : "추천 상품"}</h2>
+            <button type="button" onClick={() => promoProducts.length ? goTab("promo") : goTab("category", ALL)}>전체보기 ›</button>
+          </div>
+          <ProductGrid products={featuredProducts} {...cardProps} />
+        </section>
+
         <button type="button" className="od-all-button" onClick={() => goTab("category", ALL)}>전체 상품 보기 ({store.products.length}개) ›</button>
       </>
     );
@@ -530,7 +543,7 @@ function OrderPage() {
           <button type="button" className="od-brand" onClick={() => goTab("home")} aria-label="홈으로">
             <img src={BUJA_LOGO_DATA} alt="부자유통" />
           </button>
-          <span className="od-header-title">간편 문자발주</span>
+          <span className="od-header-title"><strong>좋은 식재료,</strong><small>사장님의 성공을 위해</small></span>
           <button type="button" className="od-cart-icon" onClick={() => setCartOpen(true)} aria-label={`장바구니 ${cart.length}품목`}>
             <CartIcon />
             {cart.length > 0 && <b key={cart.length} className="bump">{cart.length}</b>}
@@ -539,7 +552,7 @@ function OrderPage() {
         <div className="od-wrap">
           <div className="od-search">
             <SearchIcon />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="상품명 검색 (예: 돈가스, ㄷㄱㅅ)" type="search" enterKeyHint="search" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="상품명 검색 (예: 돈까스, 만두, 김치 등)" type="search" enterKeyHint="search" />
             {query && <button type="button" aria-label="검색어 지우기" onClick={() => setQuery("")}>×</button>}
           </div>
         </div>
