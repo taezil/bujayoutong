@@ -27,6 +27,7 @@ export function cleanOptions(value: unknown): PackOption[] {
     const label = cleanText(row.label, 24);
     return {
       label,
+      spec: cleanText(row.spec, 40),
       price: cleanNullablePrice(row.price),
       step: cleanStep(row.step),
     };
