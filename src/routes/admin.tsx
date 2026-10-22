@@ -804,14 +804,14 @@ function ProductEditor({
             <div className="adm-box-info">
               <strong>인분 안내 <small>거래처 상품카드에 노란 박스로 표시됩니다</small></strong>
               <label className="adm-field">1단위(봉지·팩) 기준 인분
-                <input value={draft.servingsPerUnit ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerUnit: e.target.value })} placeholder="예: 20인분" />
+                <input inputMode="numeric" value={draft.servingsPerUnit ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerUnit: e.target.value })} placeholder="예: 20" />
               </label>
               <div className="adm-row2">
-                <label className="adm-field">1박스 입수
-                  <input value={draft.boxContents ?? ""} onChange={(e) => setDraft({ ...draft, boxContents: e.target.value })} placeholder="예: 6봉지" />
+                <label className="adm-field">1박스 입수 수량
+                  <input inputMode="numeric" value={draft.boxContents ?? ""} onChange={(e) => setDraft({ ...draft, boxContents: e.target.value })} placeholder="예: 10" />
                 </label>
                 <label className="adm-field">1박스 기준 인분
-                  <input value={draft.servingsPerBox ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerBox: e.target.value })} placeholder="예: 120인분" />
+                  <input inputMode="numeric" value={draft.servingsPerBox ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerBox: e.target.value })} placeholder="예: 100" />
                 </label>
               </div>
             </div>
