@@ -80,16 +80,13 @@ export async function adminSetupRequired() {
 export async function isAdmin(request: Request) {
   await ensureDatabase();
   const token = parseCookie(request, ADMIN_COOKIE_NAME);
-  if (token) {
-    const hash = await sha256(token);
-    const row = await db()
-      .prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > datetime('now')")
-      .bind(hash)
-      .first();
-    if (row) return true;
-  }
-  const staff = await getStaff(request);
-  return staff?.role === "ADMIN";
+  if (!token) return false;
+  const hash = await sha256(token);
+  const row = await db()
+    .prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > datetime('now')")
+    .bind(hash)
+    .first();
+  return Boolean(row);
 }
 
 export async function createAdmin(password: string, bootstrapKey: string) {
@@ -106,12 +103,13 @@ export async function createAdmin(password: string, bootstrapKey: string) {
   return createAdminSession();
 }
 
-export async function loginAdmin(password: string) {
+export async function loginAdmin(username: string, password: string) {
   await ensureDatabase();
+  if (username.trim().toLowerCase() !== "admin") throw new Error("아이디 또는 비밀번호가 올바르지 않습니다.");
   const row = await db().prepare("SELECT salt, hash FROM admin_credentials WHERE id = 1").first<{ salt: string; hash: string }>();
-  if (!row) throw new Error("관리자 설정이 필요합니다.");
+  if (!row) throw new Error("관리자 계정이 준비되지 않았습니다.");
   const hash = await derivePassword(password, row.salt);
-  if (hash !== row.hash) throw new Error("비밀번호가 올바르지 않습니다.");
+  if (hash !== row.hash) throw new Error("아이디 또는 비밀번호가 올바르지 않습니다.");
   return createAdminSession();
 }
 
