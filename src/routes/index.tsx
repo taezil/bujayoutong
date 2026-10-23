@@ -763,7 +763,6 @@ function ProductCard({ product, promo, quantityFor, onQuantity, onOpen }: CardPr
             <ul className="od-card-servings od-card-servings-inline">{servings.map((line) => <li key={line}>{line}</li>)}</ul>
           )}
         </div>
-        {product.storageMethod && <span className={`od-storage od-card-storage s-${product.storageMethod}`}>{product.storageMethod}</span>}
         {hasDescription && <button type="button" className="od-card-more" onClick={() => onOpen(product)}>상품설명 보기 ›</button>}
         {product.soldout
           ? <div className="od-soldout-text">품절</div>
@@ -778,7 +777,6 @@ function ProductTags({ product, promo }: { product: Product; promo: string }) {
   return (
     <div className="od-tags">
       {isPromo && <span className="t-promo">행사</span>}
-      {product.storageMethod && <span className={`od-storage s-${product.storageMethod}`}>{product.storageMethod}</span>}
       {product.sub && <span className="t-sub">{product.sub}</span>}
     </div>
   );
