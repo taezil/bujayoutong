@@ -37,8 +37,6 @@ function orderPeriod(value: string) {
   return hour < 12 ? "오전발주" : "오후발주";
 }
 
-const WAREHOUSE_ZONES = ["미지정", "냉동식품창고", "냉동수산창고", "냉동축산창고", "냉장창고", "김치창고", "건어물창고", "공산품창고", "상온창고"];
-
 type AdminView = "products" | "categories" | "settings";
 type StatusFilter = "all" | "selling" | "soldout" | "hidden" | "promo";
 const PAGE_SIZE = 20;
@@ -832,23 +830,12 @@ function ProductEditor({
 
           <div className="adm-editor-col">
             <h3>추가 정보</h3>
-            <div className="adm-row2">
-              <label className="adm-field">행사 가격
-                <span className="adm-suffix">
-                  <input inputMode="numeric" value={draft.promoPrice ?? ""} placeholder="없음" onChange={(e) => setDraft({ ...draft, promoPrice: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} />
-                  <b>원</b>
-                </span>
-              </label>
-              <label className="adm-field">보관 방법
-                <select value={draft.storageMethod ?? ""} onChange={(e) => setDraft({ ...draft, storageMethod: e.target.value })}>
-                  <option value="">미지정</option>
-                  <option value="냉동">냉동</option>
-                  <option value="냉장">냉장</option>
-                  <option value="상온">상온</option>
-                  <option value="실온">실온</option>
-                </select>
-              </label>
-            </div>
+            <label className="adm-field">행사 가격
+              <span className="adm-suffix">
+                <input inputMode="numeric" value={draft.promoPrice ?? ""} placeholder="없음" onChange={(e) => setDraft({ ...draft, promoPrice: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} />
+                <b>원</b>
+              </span>
+            </label>
 
             <div className="adm-box-info">
               <strong>인분 안내 <small>거래처 상품카드에 노란 박스로 표시됩니다</small></strong>
@@ -869,19 +856,11 @@ function ProductEditor({
               <textarea value={draft.description ?? ""} onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={4} placeholder="예: 국내산 등심으로 만든 바삭한 돈까스입니다. 170도 기름에 4~5분 튀겨주세요." />
             </label>
 
-            <div className="adm-row2">
-              <label className="adm-field">과세 구분
-                <select value={draft.taxType ?? "taxable"} onChange={(e) => setDraft({ ...draft, taxType: e.target.value === "exempt" ? "exempt" : "taxable" })}>
-                  <option value="taxable">과세</option><option value="exempt">면세(비과세)</option>
-                </select>
-              </label>
-              <label className="adm-field">창고 위치
-                <select value={draft.warehouseZone || "미지정"} onChange={(e) => setDraft({ ...draft, warehouseZone: e.target.value === "미지정" ? "" : e.target.value })}>
-                  {draft.warehouseZone && !WAREHOUSE_ZONES.includes(draft.warehouseZone) && <option value={draft.warehouseZone}>{draft.warehouseZone}</option>}
-                  {WAREHOUSE_ZONES.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
-                </select>
-              </label>
-            </div>
+            <label className="adm-field">과세 구분
+              <select value={draft.taxType ?? "taxable"} onChange={(e) => setDraft({ ...draft, taxType: e.target.value === "exempt" ? "exempt" : "taxable" })}>
+                <option value="taxable">과세</option><option value="exempt">면세(비과세)</option>
+              </select>
+            </label>
 
             <details className="adm-more">
               <summary>단가표 설정</summary>
@@ -933,12 +912,10 @@ function makeNewProduct(store: StoreData): Product {
     soldout: false,
     photo: "",
     taxType: "taxable",
-    warehouseZone: "",
     description: "",
     servingsPerUnit: "",
     boxContents: "",
     servingsPerBox: "",
-    storageMethod: "",
     priceListVisible: true,
     priceDisplayMode: "fixed",
     hidden: false,
