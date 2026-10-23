@@ -12,6 +12,36 @@ async function readExcelCatalogSql() {
   return new Response(stream.pipeThrough(new DecompressionStream("gzip"))).text();
 }
 
+async function importExcelCatalog(database: D1Database) {
+  const sql = await readExcelCatalogSql();
+  const productStart = sql.indexOf("INSERT INTO products ");
+  const optionStart = sql.indexOf("INSERT INTO pack_options ", productStart);
+  if (productStart < 0 || optionStart < 0) throw new Error("Excel catalog SQL is invalid");
+
+  const beforeProducts = sql.slice(0, productStart);
+  const productsStatement = sql.slice(productStart, optionStart).trim();
+  const afterProducts = sql.slice(optionStart);
+
+  if (beforeProducts.trim()) await database.exec(beforeProducts);
+
+  const valuesMarker = ") VALUES\n";
+  const valuesIndex = productsStatement.indexOf(valuesMarker);
+  if (valuesIndex < 0) throw new Error("Excel product rows are invalid");
+  const productHeader = productsStatement.slice(0, valuesIndex + valuesMarker.length);
+  const productRows = productsStatement
+    .slice(valuesIndex + valuesMarker.length)
+    .replace(/;\s*$/, "")
+    .split(",\n");
+
+  const chunkSize = 150;
+  for (let index = 0; index < productRows.length; index += chunkSize) {
+    const chunk = productRows.slice(index, index + chunkSize);
+    await database.exec(`${productHeader}${chunk.join(",\n")};`);
+  }
+
+  if (afterProducts.trim()) await database.exec(afterProducts);
+}
+
 export type PackOption = {
   label: string;
   spec?: string;
@@ -182,7 +212,7 @@ export async function ensureDatabase(database: D1Database = db()) {
     .prepare("SELECT value FROM app_settings WHERE key = 'excel_catalog_import_v1'")
     .first<{ value: string }>();
   if (!excelCatalogImported) {
-    await database.exec(await readExcelCatalogSql());
+    await importExcelCatalog(database);
   }
 
   const singleAdminSeeded = await database
