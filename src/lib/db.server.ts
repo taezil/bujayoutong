@@ -215,6 +215,21 @@ export async function ensureDatabase(database: D1Database = db()) {
     await importExcelCatalog(database);
   }
 
+  const excelCatalogClassificationFixed = await database
+    .prepare("SELECT value FROM app_settings WHERE key = 'excel_catalog_classification_fix_v1'")
+    .first<{ value: string }>();
+  if (!excelCatalogClassificationFixed) {
+    await database.batch([
+      database.prepare("UPDATE products SET category='냉동수산', sub='생선' WHERE id='ERP-31928'"),
+      database.prepare("UPDATE products SET category='냉동축산', sub='소고기' WHERE id='ERP-32802'"),
+      database.prepare("UPDATE products SET category='냉동축산', sub='돼지고기' WHERE id='ERP-32690'"),
+      database.prepare("UPDATE products SET category='냉동수산', sub='젓갈·알류' WHERE id='ERP-32477'"),
+      database.prepare("UPDATE products SET category='냉동수산', sub='젓갈·알류' WHERE id='ERP-32472'"),
+      database.prepare("UPDATE products SET category='냉동수산', sub='생선' WHERE id='ERP-31928'"),
+      database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('excel_catalog_classification_fix_v1','1')"),
+    ]);
+  }
+
   const singleAdminSeeded = await database
     .prepare("SELECT value FROM app_settings WHERE key = 'single_admin_login_v1'")
     .first<{ value: string }>();
