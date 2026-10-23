@@ -230,6 +230,28 @@ export async function ensureDatabase(database: D1Database = db()) {
     ]);
   }
 
+  const excelCatalogClassificationFixed2 = await database
+    .prepare("SELECT value FROM app_settings WHERE key = 'excel_catalog_classification_fix_v2'")
+    .first<{ value: string }>();
+  if (!excelCatalogClassificationFixed2) {
+    await database.batch([
+      database.prepare("UPDATE products SET category='냉동수산', sub='생선' WHERE id='ERP-33004'"),
+      database.prepare("UPDATE products SET category='냉동식품', sub='떡·간편식' WHERE id IN ('ERP-30215','ERP-30084','ERP-30636','ERP-30622','ERP-30639')"),
+      database.prepare("UPDATE products SET category='신선식품', sub='두부·묵' WHERE id='ERP-32174'"),
+      database.prepare("UPDATE products SET category='냉동축산', sub='돼지고기' WHERE id='ERP-32354'"),
+      database.prepare("UPDATE products SET category='공산품', sub='음료·차·잼' WHERE id IN ('ERP-30597','ERP-33013')"),
+      database.prepare("UPDATE products SET category='냉동식품', sub='튀김·가스' WHERE id IN ('ERP-33011','ERP-30057','ERP-30056','ERP-31964','ERP-32775','ERP-31966','ERP-32786')"),
+      database.prepare("UPDATE products SET category='신선식품', sub='반찬·절임' WHERE id IN ('ERP-9013','ERP-9014','ERP-9028','ERP-31721')"),
+      database.prepare("UPDATE products SET category='공산품', sub='기타 공산품' WHERE id IN ('ERP-32969','ERP-32878','ERP-31687','ERP-8048')"),
+      database.prepare("UPDATE products SET category='공산품', sub='통조림' WHERE id IN ('ERP-8063','ERP-31030')"),
+      database.prepare("UPDATE products SET category='공산품', sub='면·스파게티' WHERE id='ERP-31323'"),
+      database.prepare("UPDATE products SET category='공산품', sub='소스·드레싱' WHERE id='ERP-32294'"),
+      database.prepare("UPDATE products SET category='공산품', sub='분말·양념' WHERE id='ERP-30690'"),
+      database.prepare("UPDATE products SET category='냉동수산', sub='젓갈·알류' WHERE id='ERP-9012'"),
+      database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('excel_catalog_classification_fix_v2','1')"),
+    ]);
+  }
+
   const singleAdminSeeded = await database
     .prepare("SELECT value FROM app_settings WHERE key = 'single_admin_login_v1'")
     .first<{ value: string }>();
