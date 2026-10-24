@@ -15,7 +15,12 @@ async function ensureCatalogImportV3() {
 
   try {
     for (const sql of CATALOG_SQL_CHUNKS) {
-      if (sql.trim()) await database.exec(sql);
+      if (!sql.trim()) continue;
+      const normalized =
+        /^INSERT\s+(?:OR\s+REPLACE\s+)?INTO\s+(?:products|pack_options)\b/i.test(sql.trimStart())
+          ? sql.replace(/\n/g, " ")
+          : sql;
+      await database.exec(normalized);
     }
     await database.prepare("DELETE FROM app_settings WHERE key='excel_catalog_import_error'").run();
   } catch (error) {
