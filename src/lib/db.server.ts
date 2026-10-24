@@ -12,6 +12,24 @@ async function readExcelCatalogSql() {
   return new Response(stream.pipeThrough(new DecompressionStream("gzip"))).text();
 }
 
+async function execChunkedValuesStatement(database: D1Database, statement: string, chunkSize = 120) {
+  const valuesMarker = ") VALUES\n";
+  const valuesIndex = statement.indexOf(valuesMarker);
+  if (valuesIndex < 0) throw new Error("Excel catalog rows are invalid");
+
+  const header = statement.slice(0, valuesIndex + valuesMarker.length);
+  const rows = statement
+    .slice(valuesIndex + valuesMarker.length)
+    .replace(/;\s*$/, "")
+    .split(",\n")
+    .filter(Boolean);
+
+  for (let index = 0; index < rows.length; index += chunkSize) {
+    const chunk = rows.slice(index, index + chunkSize);
+    await database.exec(`${header}${chunk.join(",\n")};`);
+  }
+}
+
 async function importExcelCatalog(database: D1Database) {
   const sql = await readExcelCatalogSql();
   const productStart = sql.indexOf("INSERT INTO products ");
@@ -19,27 +37,28 @@ async function importExcelCatalog(database: D1Database) {
   if (productStart < 0 || optionStart < 0) throw new Error("Excel catalog SQL is invalid");
 
   const beforeProducts = sql.slice(0, productStart);
-  const productsStatement = sql.slice(productStart, optionStart).trim();
-  const afterProducts = sql.slice(optionStart);
+  const productsAndAfter = sql.slice(productStart);
+  const productsEnd = productsAndAfter.indexOf(";\n", productsAndAfter.indexOf(") VALUES\n"));
+  if (productsEnd < 0) throw new Error("Excel product rows are invalid");
+
+  const productsStatement = productsAndAfter.slice(0, productsEnd + 1);
+  const afterProducts = productsAndAfter.slice(productsEnd + 1);
+  const relativeOptionStart = afterProducts.indexOf("INSERT INTO pack_options ");
+  if (relativeOptionStart < 0) throw new Error("Excel pack option rows are invalid");
+
+  const beforeOptions = afterProducts.slice(0, relativeOptionStart);
+  const optionsAndAfter = afterProducts.slice(relativeOptionStart);
+  const optionsEnd = optionsAndAfter.indexOf(";\n", optionsAndAfter.indexOf(") VALUES\n"));
+  if (optionsEnd < 0) throw new Error("Excel pack option rows are invalid");
+
+  const optionsStatement = optionsAndAfter.slice(0, optionsEnd + 1);
+  const tail = optionsAndAfter.slice(optionsEnd + 1);
 
   if (beforeProducts.trim()) await database.exec(beforeProducts);
-
-  const valuesMarker = ") VALUES\n";
-  const valuesIndex = productsStatement.indexOf(valuesMarker);
-  if (valuesIndex < 0) throw new Error("Excel product rows are invalid");
-  const productHeader = productsStatement.slice(0, valuesIndex + valuesMarker.length);
-  const productRows = productsStatement
-    .slice(valuesIndex + valuesMarker.length)
-    .replace(/;\s*$/, "")
-    .split(",\n");
-
-  const chunkSize = 150;
-  for (let index = 0; index < productRows.length; index += chunkSize) {
-    const chunk = productRows.slice(index, index + chunkSize);
-    await database.exec(`${productHeader}${chunk.join(",\n")};`);
-  }
-
-  if (afterProducts.trim()) await database.exec(afterProducts);
+  await execChunkedValuesStatement(database, productsStatement, 120);
+  if (beforeOptions.trim()) await database.exec(beforeOptions);
+  await execChunkedValuesStatement(database, optionsStatement, 120);
+  if (tail.trim()) await database.exec(tail);
 }
 
 export type PackOption = {
