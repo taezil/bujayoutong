@@ -231,7 +231,11 @@ export async function ensureDatabase(database: D1Database = db()) {
     .prepare("SELECT value FROM app_settings WHERE key = 'excel_catalog_import_v1'")
     .first<{ value: string }>();
   if (!excelCatalogImported) {
-    await importExcelCatalog(database);
+    try {
+      await importExcelCatalog(database);
+    } catch (error) {
+      console.error("Excel catalog import failed", error);
+    }
   }
 
   const excelCatalogClassificationFixed = await database
