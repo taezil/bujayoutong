@@ -1,19 +1,47 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getCustomer, isAdmin } from "../../lib/auth.server";
 import { db, ensureDatabase, readStore } from "../../lib/db.server";
+import { CATALOG_SQL_CHUNKS } from "../../catalog-sql.generated";
+
+
+async function ensureCatalogImportV3() {
+  const database = db();
+  await ensureDatabase(database);
+
+  const done = await database
+    .prepare("SELECT value FROM app_settings WHERE key='excel_catalog_import_v3'")
+    .first<{ value: string }>();
+  if (done?.value === "1") return;
+
+  try {
+    for (const sql of CATALOG_SQL_CHUNKS) {
+      if (sql.trim()) await database.exec(sql);
+    }
+    await database.prepare("DELETE FROM app_settings WHERE key='excel_catalog_import_error'").run();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Catalog v3 import failed", error);
+    try {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('excel_catalog_import_error',?)")
+        .bind(message.slice(0, 1000))
+        .run();
+    } catch {}
+  }
+}
 
 export const Route = createFileRoute("/api/store")({
   server: { handlers: { GET: async ({ request }) => {
     try {
       const url = new URL(request.url);
+      await ensureCatalogImportV3();
       if (url.searchParams.get("health") === "1") {
         const database = db();
-        await ensureDatabase(database);
         const [total, erp, options, marker, importError] = await Promise.all([
           database.prepare("SELECT COUNT(*) AS count FROM products").first<{ count: number }>(),
           database.prepare("SELECT COUNT(*) AS count FROM products WHERE id LIKE 'ERP-%'").first<{ count: number }>(),
           database.prepare("SELECT COUNT(*) AS count FROM pack_options").first<{ count: number }>(),
-          database.prepare("SELECT value FROM app_settings WHERE key='excel_catalog_import_v1'").first<{ value: string }>(),
+          database.prepare("SELECT value FROM app_settings WHERE key='excel_catalog_import_v3'").first<{ value: string }>(),
           database.prepare("SELECT value FROM app_settings WHERE key='excel_catalog_import_error'").first<{ value: string }>(),
         ]);
         return Response.json({
