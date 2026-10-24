@@ -280,8 +280,16 @@ export async function ensureDatabase(database: D1Database = db()) {
   if (!excelCatalogImported) {
     try {
       await importExcelCatalog(database);
+      await database.prepare("DELETE FROM app_settings WHERE key = 'excel_catalog_import_error'").run();
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error("Excel catalog import failed", error);
+      try {
+        await database
+          .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('excel_catalog_import_error',?)")
+          .bind(message.slice(0, 1000))
+          .run();
+      } catch {}
     }
   }
 
