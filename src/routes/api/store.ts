@@ -11,27 +11,37 @@ async function ensureCatalogImportV3() {
   const done = await database
     .prepare("SELECT value FROM app_settings WHERE key='excel_catalog_import_v3'")
     .first<{ value: string }>();
-  if (done?.value === "1") return;
-
-  try {
-    for (const sql of CATALOG_SQL_CHUNKS) {
-      if (!sql.trim()) continue;
-      const normalized =
-        /^INSERT\s+(?:OR\s+REPLACE\s+)?INTO\s+(?:products|pack_options)\b/i.test(sql.trimStart())
-          ? sql.replace(/\n/g, " ")
-          : sql;
-      await database.exec(normalized);
-    }
-    await database.prepare("DELETE FROM app_settings WHERE key='excel_catalog_import_error'").run();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("Catalog v3 import failed", error);
+  if (done?.value !== "1") {
     try {
-      await database
-        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('excel_catalog_import_error',?)")
-        .bind(message.slice(0, 1000))
-        .run();
-    } catch {}
+      for (const sql of CATALOG_SQL_CHUNKS) {
+        if (!sql.trim()) continue;
+        const normalized =
+          /^INSERT\s+(?:OR\s+REPLACE\s+)?INTO\s+(?:products|pack_options)\b/i.test(sql.trimStart())
+            ? sql.replace(/\n/g, " ")
+            : sql;
+        await database.exec(normalized);
+      }
+      await database.prepare("DELETE FROM app_settings WHERE key='excel_catalog_import_error'").run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Catalog v3 import failed", error);
+      try {
+        await database
+          .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('excel_catalog_import_error',?)")
+          .bind(message.slice(0, 1000))
+          .run();
+      } catch {}
+    }
+  }
+
+  const sellingFixed = await database
+    .prepare("SELECT value FROM app_settings WHERE key='erp_products_selling_v1'")
+    .first<{ value: string }>();
+  if (sellingFixed?.value !== "1") {
+    await database.batch([
+      database.prepare("UPDATE products SET hidden=0, soldout=0, price_list_visible=1 WHERE id LIKE 'ERP-%'"),
+      database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('erp_products_selling_v1','1')"),
+    ]);
   }
 }
 
