@@ -1,0 +1,23 @@
+name: Catalog Photo Search Pass2
+
+on:
+  push:
+    paths:
+      - ".github/workflows/catalog-photo-search-pass2.yml"
+
+jobs:
+  pass2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --quiet requests
+      - name: Fill remaining known catalog items
+        run: python scripts/catalog_photo_search_pass2.py
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-photo-pass2-report
+          path: catalog-photo-pass2-report.json
+          if-no-files-found: ignore
