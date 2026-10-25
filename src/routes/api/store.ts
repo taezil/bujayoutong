@@ -1335,6 +1335,18 @@ export const Route = createFileRoute("/api/store")({
         }, { headers: { "Cache-Control": "no-store" } });
       }
 
+      if (url.searchParams.get("catalogPhotoReviewAll") === "1") {
+        const database = db();
+        const rows = await database
+          .prepare("SELECT id,name,category,sub,unit,photo,sort_order FROM products ORDER BY sort_order,name")
+          .all();
+        return Response.json({
+          catalogPhotoReviewAll: true,
+          total: rows.results.length,
+          products: rows.results,
+        }, { headers: { "Cache-Control": "no-store" } });
+      }
+
       if (url.searchParams.get("catalogPhotoReview") === "1") {
         const database = db();
         const page = Math.max(1, Math.floor(Number(url.searchParams.get("page") || "1")));
