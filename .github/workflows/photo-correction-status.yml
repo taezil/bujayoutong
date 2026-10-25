@@ -26,18 +26,12 @@ jobs:
               d=json.load(f)
           ps=d.get("products") or []
           print("LIVE_PRODUCT_COUNT", len(ps))
-          for page in range(8, 13):
+          for page in range(11, 16):
               a=(page-1)*20; b=min(page*20,len(ps))
               print(f"=== LIVE PAGE {page} positions {a+1}-{b} ===")
               for pos,p in enumerate(ps[a:b], start=a+1):
                   print(pos, p.get("id",""), p.get("name",""), p.get("unit",""), p.get("photo",""), sep="\t")
           PY
-              for page in 9 10; do
-                url="https://order.bujafood.kr/api/store?page${page}PhotoStatus=1"
-                if out="$(curl -fsS --connect-timeout 10 --max-time 120 "$url" 2>/dev/null)"; then
-                  echo "PAGE${page}_STATUS $out"
-                fi
-              done
               exit 0
             fi
             sleep 10
