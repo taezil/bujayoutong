@@ -1049,6 +1049,144 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  // Admin pages 20-22: non-Claude live products only; all targets were blank at audit time.
+  const adminPages2022ExtraPhotoCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='admin_pages20_22_extra_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (adminPages2022ExtraPhotoCorrectionsV1?.value !== "1") {
+    const fixes: Array<PhotoImportEntry & { expectedPhoto: string }> = [
+      {
+        key: "catalog-admin-page20-381-erp-31521.webp",
+        sourceUrl: "https://gagopahealingfood.co.kr/data/goods/1/2021/09/268_temp_16323621834668view.jpg",
+        productIds: ["ERP-31521"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page20-382-erp-32266.webp",
+        sourceUrl: "https://img.danawa.com/prod_img/500000/274/567/img/4567274_1.jpg?_v=20170622172214",
+        productIds: ["ERP-32266"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page20-383-erp-31524.webp",
+        sourceUrl: "https://shop4.daumcdn.net/thumb/R500x500/?fname=http%3A%2F%2Fshop4.daumcdn.net%2Fshophow%2Fp%2FW5577870773.jpg%3Fut%3D20251126205440",
+        productIds: ["ERP-31524"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page20-385-erp-31931.webp",
+        sourceUrl: "https://asset.m-gs.kr/prod/1034841131/1/550",
+        productIds: ["ERP-31931"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page20-388-erp-2008.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/4090/2ab349dc8f9c27b090992c2d6ba9915994359cfff5d1fdba2fc5627058f7.jpg",
+        productIds: ["ERP-2008"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page21-403-erp-30435.webp",
+        sourceUrl: "https://baking25.com/web/product/big/shop1_30da1ff9c0f0b8a019c2305f83d1da18.jpg",
+        productIds: ["ERP-30435"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page21-407-erp-32985.webp",
+        sourceUrl: "https://asset.m-gs.kr/prod/22976687/1/550",
+        productIds: ["ERP-32985"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page21-412-erp-32168.webp",
+        sourceUrl: "https://m.wellbaking.com/web/product/big/202508/fea0482686b845bc61ecce56a2cd6540.jpg",
+        productIds: ["ERP-32168"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page21-413-erp-31467.webp",
+        sourceUrl: "https://fastmall.co.kr/web/product/small/202604/e4a848de30a0aef089edf7631de4a517.jpg",
+        productIds: ["ERP-31467"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page21-417-erp-8108.webp",
+        sourceUrl: "https://gamarang.com/web/product/big/202602/aac7b88703475643aa2e6bf745ff3991.jpg",
+        productIds: ["ERP-8108"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page21-419-erp-32981.webp",
+        sourceUrl: "https://sitem.ssgcdn.com/30/27/66/item/1000624662730_i1_500.jpg",
+        productIds: ["ERP-32981"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page22-424-erp-32560.webp",
+        sourceUrl: "https://shop2.daumcdn.net/shophow/p/D5256289501.jpg?opt=R500x500.q90&type=thumb&ut=20260303162027",
+        productIds: ["ERP-32560"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page22-428-erp-32830.webp",
+        sourceUrl: "https://contents.lotteon.com/itemimage/20251103111659/LO/23/28/76/38/45/_2/32/87/63/84/6/LO2328763845_2328763846_4.jpg/dims/optimize/resizemc/400x400",
+        productIds: ["ERP-32830"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page22-432-erp-32322.webp",
+        sourceUrl: "https://image.homeplus.kr/rtd/e80dfc06-9e7d-47e1-9449-961733091733?w=750",
+        productIds: ["ERP-32322"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page22-433-erp-31828.webp",
+        sourceUrl: "https://contents.lotteon.com/itemimage/20251108180359/LO/25/73/46/13/95/_2/57/34/61/39/6/LO2573461395_2573461396_1.jpg/dims/optimize/resizemc/400x400",
+        productIds: ["ERP-31828"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page22-434-erp-30581.webp",
+        sourceUrl: "https://static.chabyulhwa.com/products/images/raw/202504/%ED%86%B5%ED%9B%84%EC%B6%94_8ce1d205-0d30-4441-ba83-604f9ff15785.png",
+        productIds: ["ERP-30581"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page22-437-erp-32986.webp",
+        sourceUrl: "https://img.danawa.com/prod_img/500000/497/748/img/11748497_1.jpg?_v=20200707111659",
+        productIds: ["ERP-32986"],
+        expectedPhoto: "",
+      },
+    ];
+
+    const errors: string[] = [];
+    for (const fix of fixes) {
+      const id = fix.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || String(existing.photo || "") !== fix.expectedPhoto) continue;
+      try {
+        await importPhotoEntry(fix);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_pages20_22_extra_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='admin_pages20_22_extra_photo_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_pages20_22_extra_photo_corrections_v1_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Admin pages 20-22 extra photo corrections incomplete", errors);
+    }
+  }
+
   // Admin pages 17-19: fill only live products that are NOT in Claude's 284-566 ERP list.
   // All audited targets were blank. A user's manual upload always wins because the import
   // runs only while the current photo is still exactly the audited empty string.
