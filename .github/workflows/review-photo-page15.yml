@@ -1,0 +1,39 @@
+name: Review catalog photo page 15
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/review-photo-page15.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Wait for deployment and fetch live page 15
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://order.bujafood.kr/api/store?photoReviewPage=1&page=15&pageSize=20&token=buja-photo-20261025-f6e3d9a4"
+          for i in $(seq 1 60); do
+            if out="$(curl -fsS --connect-timeout 10 --max-time 60 "$URL" 2>/dev/null)"; then
+              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ok=d.get("photoReviewPage") is True and d.get("page")==15 and len(d.get("products") or [])==20; raise SystemExit(0 if ok else 1)'; then
+                printf '%s' "$out" > /tmp/page15.json
+                break
+              fi
+            fi
+            sleep 10
+          done
+          test -s /tmp/page15.json
+          python - <<'PY'
+          import json
+          d=json.load(open("/tmp/page15.json"))
+          print("PAGE",d["page"],"TOTAL",d["total"],"RANGE",d["startIndex"],d["endIndex"])
+          for i,p in enumerate(d["products"], d["startIndex"]):
+              print(f'{i:03d}\t{p["id"]}\t{p["name"]}\t{p.get("unit","")}\t{p.get("photo","")}')
+          PY
