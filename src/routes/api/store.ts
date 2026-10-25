@@ -1049,6 +1049,126 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  // Admin page 26: non-Claude live products only; audited targets were blank.
+  const adminPage26ExtraPhotoCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='admin_page26_extra_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (adminPage26ExtraPhotoCorrectionsV1?.value !== "1") {
+    const fixes: Array<PhotoImportEntry & { expectedPhoto: string }> = [
+      {
+        key: "catalog-admin-page26-501-erp-32387.webp",
+        sourceUrl: "https://www.costco.co.kr/medias/sys_master/images/h53/h92/244003528769566.jpg",
+        productIds: ["ERP-32387"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-502-erp-32589.webp",
+        sourceUrl: "https://m.nongshimmall.com/web/product/big/202603/59b06e318bd8aa11e6cc01bb9cdd26a1.jpg",
+        productIds: ["ERP-32589"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-503-erp-32571.webp",
+        sourceUrl: "https://asset.m-gs.kr/prod/1037708219/1/550",
+        productIds: ["ERP-32571"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-505-erp-32975.webp",
+        sourceUrl: "https://m.nongshimmall.com/web/product/medium/202512/b3623c0492e8beeb51c6c206acd2eaa8.jpg",
+        productIds: ["ERP-32975"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-506-erp-32856.webp",
+        sourceUrl: "https://asset.m-gs.kr/prod/1007529748/1/550",
+        productIds: ["ERP-32856"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-507-erp-30150.webp",
+        sourceUrl: "https://m.nongshimmall.com/web/product/big/202511/660c92964a2b0a983537f8110dc3d54f.jpg",
+        productIds: ["ERP-30150"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-508-erp-31878.webp",
+        sourceUrl: "https://image.homeplus.kr/td/5a765be8-d659-406c-aa96-4be9d93b9c8b",
+        productIds: ["ERP-31878"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-510-erp-32965.webp",
+        sourceUrl: "https://image2.lotteimall.com/goods/74/90/63/2799639074_3.jpg/dims/resizemc/550x550/optimize",
+        productIds: ["ERP-32965"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-511-erp-33022.webp",
+        sourceUrl: "https://m.iworldstar.com/web/product/big/202404/bc0320a9ddfbd06896219109dfceab57.jpg",
+        productIds: ["ERP-33022"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-514-erp-32388.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/e20c/146d0205b001c8d73a2403997c0ba3c02909c285b644b26b6e6df226d587.png",
+        productIds: ["ERP-32388"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-515-erp-30422.webp",
+        sourceUrl: "https://image.8dogam.com/resized/product/review/v1/upload/ba9b2774db8e48a6b7ba1625da1d7725.jpg?ext=jpg&res=3x&type=small",
+        productIds: ["ERP-30422"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-517-erp-31883.webp",
+        sourceUrl: "https://image.homeplus.kr/rtd/02912309-4f07-40ce-aca1-fdf1fc1287cc?w=750",
+        productIds: ["ERP-31883"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-518-erp-32869.webp",
+        sourceUrl: "https://m.nongshimmall.com/web/product/big/202407/a2075cd0522540af5d9cf1de692382e5.jpg",
+        productIds: ["ERP-32869"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page26-520-erp-32982.webp",
+        sourceUrl: "https://thumbnail8.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/91023087552009-9eccc0aa-152f-41bd-a84d-c42d52a748cc.jpg",
+        productIds: ["ERP-32982"],
+        expectedPhoto: "",
+      },
+    ];
+
+    const errors: string[] = [];
+    for (const fix of fixes) {
+      const id = fix.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || String(existing.photo || "") !== fix.expectedPhoto) continue;
+      try {
+        await importPhotoEntry(fix);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_page26_extra_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='admin_page26_extra_photo_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_page26_extra_photo_corrections_v1_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Admin page 26 extra photo corrections incomplete", errors);
+    }
+  }
+
   // Admin pages 23-25: non-Claude live products only.
   // Two ambiguous internal rice-cake names (ERP-30622, ERP-30639) are intentionally left blank.
   const adminPages2325ExtraPhotoCorrectionsV1 = await database
