@@ -34,24 +34,7 @@ jobs:
           for i in $(seq 1 60); do
             if out="$(curl -fsS --connect-timeout 10 --max-time 120 "$URL" 2>/dev/null)"; then
               echo "attempt=$i $out"
-              if printf '%s' "$out" | python -c '
-import json,sys
-d=json.load(sys.stdin)
-ps={p["id"]:p.get("photo","") for p in d.get("products") or []}
-expected={
-"ERP-32409":"/api/photo?id=catalog-original-148-croaker-fillet.webp",
-"ERP-30634":"/api/photo?id=catalog-original-cut-jaban-mackerel.webp",
-"ERP-32440":"/api/photo?id=catalog-original-cut-jaban-mackerel.webp",
-"ERP-32644":"/api/photo?id=catalog-original-cleaned-baby-octopus.webp",
-"ERP-30986":"/api/photo?id=catalog-original-cleaned-baby-octopus.webp",
-"ERP-32781":"/api/photo?id=catalog-original-cleaned-baby-octopus.webp",
-"ERP-32016":"/api/photo?id=catalog-original-182-cocktail-shrimp-900g.webp",
-"ERP-31040":"/api/photo?id=catalog-original-216-pork-strips.webp",
-"ERP-32766":"/api/photo?id=catalog-original-222-beef-head-meat.webp",
-}
-ok=(d.get("visual141283PhotoStatus") is True and d.get("done") is True and not d.get("error") and all(ps.get(k)==v for k,v in expected.items()))
-raise SystemExit(0 if ok else 1)
-'; then
+              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ps={p["id"]:p.get("photo","") for p in d.get("products") or []}; e={"ERP-32409":"/api/photo?id=catalog-original-148-croaker-fillet.webp","ERP-30634":"/api/photo?id=catalog-original-cut-jaban-mackerel.webp","ERP-32440":"/api/photo?id=catalog-original-cut-jaban-mackerel.webp","ERP-32644":"/api/photo?id=catalog-original-cleaned-baby-octopus.webp","ERP-30986":"/api/photo?id=catalog-original-cleaned-baby-octopus.webp","ERP-32781":"/api/photo?id=catalog-original-cleaned-baby-octopus.webp","ERP-32016":"/api/photo?id=catalog-original-182-cocktail-shrimp-900g.webp","ERP-31040":"/api/photo?id=catalog-original-216-pork-strips.webp","ERP-32766":"/api/photo?id=catalog-original-222-beef-head-meat.webp"}; ok=d.get("visual141283PhotoStatus") is True and d.get("done") is True and not d.get("error") and all(ps.get(k)==v for k,v in e.items()); raise SystemExit(0 if ok else 1)'; then
                 printf '%s' "$out" > /tmp/verified.json
                 break
               fi
@@ -60,12 +43,4 @@ raise SystemExit(0 if ok else 1)
           done
           test -s /tmp/verified.json
           cat /tmp/verified.json
-
-          python - <<'PY'
-          import json, subprocess
-          d=json.load(open("/tmp/verified.json"))
-          for p in d["products"]:
-              url="https://order.bujafood.kr"+p["photo"]
-              subprocess.run(["curl","-fsS","--max-time","60","-o","/dev/null",url],check=True)
-              print("PHOTO_OK",p["id"],p["name"],p["photo"])
-          PY
+          python -c 'import json,subprocess; d=json.load(open("/tmp/verified.json")); [(subprocess.run(["curl","-fsS","--max-time","60","-o","/dev/null","https://order.bujafood.kr"+p["photo"]],check=True), print("PHOTO_OK",p["id"],p["name"],p["photo"])) for p in d["products"]]'
