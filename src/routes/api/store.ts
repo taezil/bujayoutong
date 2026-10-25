@@ -1049,6 +1049,111 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  // Admin product page 15 (live rows 281-300 on 2026-10-26).
+  // Pages 1-14 are protected because the user manually reviewed them.
+  // Each fix is guarded by the exact photo seen during the live audit so a concurrent
+  // manual upload always wins and is never overwritten by this migration.
+  const adminPage15PhotoCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='admin_page15_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (adminPage15PhotoCorrectionsV1?.value !== "1") {
+    const fixes: Array<PhotoImportEntry & { expectedPhoto: string }> = [
+      {
+        key: "catalog-admin-page15-281-erp-30933.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/93/images/85_2752018228_r.jpg?f=webp&s=876x876&t=inside",
+        productIds: ["ERP-30933"],
+        expectedPhoto: "/api/photo?id=catalog-a78f6139253cf56339b5.webp",
+      },
+      {
+        key: "catalog-admin-page15-283-erp-8024.webp",
+        sourceUrl: "https://m.seoilfnb.com/web/product/big/108863/1088637ZmU66464Kp7J6R64u566m01kg_1.JPG",
+        productIds: ["ERP-8024"],
+        expectedPhoto: "/api/photo?id=catalog-search-erp-8024.webp",
+      },
+      {
+        key: "catalog-admin-page15-287-erp-30286.webp",
+        sourceUrl: "https://img-cf.kurly.com/hdims/resize/%3E720x/quality/90/src/shop/data/goodsview/20200331/gv00000088227_1.jpg",
+        productIds: ["ERP-30286"],
+        expectedPhoto: "/api/photo?id=catalog-current283-erp-30286.webp",
+      },
+      {
+        key: "catalog-admin-page15-289-erp-8051.webp",
+        sourceUrl: "https://fastmall.co.kr/web/product/big/202509/bc0b1c86f657ea4f921cffe4344b98b8.jpg",
+        productIds: ["ERP-8051"],
+        expectedPhoto: "/api/photo?id=catalog-search-erp-8051.webp",
+      },
+      {
+        key: "catalog-admin-page15-290-erp-8053.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/1388/images/410_6681075817.jpg",
+        productIds: ["ERP-8053"],
+        expectedPhoto: "/api/photo?id=catalog-search-erp-8053.webp",
+      },
+      {
+        key: "catalog-admin-page15-291-erp-32956.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/2025/09/11/11/9/d1df1dae-81c7-4da0-a824-8db1cadb43d9.jpg",
+        productIds: ["ERP-32956"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page15-293-erp-32032.webp",
+        sourceUrl: "https://cdn.imweb.me/thumbnail/20210912/2da6157027a8e.png",
+        productIds: ["ERP-32032"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page15-294-erp-31325.webp",
+        sourceUrl: "https://ecimg.cafe24img.com/pg707b04087142059/parado99/web/product/big/20240809/bd7288a81eb7948bc8a697e5198e1f2e.jpg",
+        productIds: ["ERP-31325"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page15-295-erp-32926.webp",
+        sourceUrl: "https://sehyeon.s3.us-east-2.amazonaws.com/004460.jpg",
+        productIds: ["ERP-32926"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page15-296-erp-31873.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/01dc/db621ee784dc6aef0d2e59ae33919d555ea90d23497214de5d87875d84cd.jpg",
+        productIds: ["ERP-31873"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page15-297-erp-32959.webp",
+        sourceUrl: "https://sitem.ssgcdn.com/09/10/64/item/1000732641009_i1_500.jpg",
+        productIds: ["ERP-32959"],
+        expectedPhoto: "",
+      },
+    ];
+
+    const errors: string[] = [];
+    for (const fix of fixes) {
+      const id = fix.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || String(existing.photo || "") !== fix.expectedPhoto) continue;
+      try {
+        await importPhotoEntry(fix);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_page15_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='admin_page15_photo_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_page15_photo_corrections_v1_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Admin page 15 photo corrections incomplete", errors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
@@ -1159,6 +1264,23 @@ export const Route = createFileRoute("/api/store")({
           page8CorrectionStatus: true,
           done: doneRow?.value === "1" && doneV2Row?.value === "1",
           error: [errorRow?.value || "", errorV2Row?.value || ""].filter(Boolean).join(" | "),
+          products: rows.results,
+        }, { headers: { "Cache-Control": "no-store" } });
+      }
+
+      if (url.searchParams.get("page15CorrectionStatus") === "1") {
+        const database = db();
+        const ids = ["ERP-30933","ERP-8024","ERP-30286","ERP-8051","ERP-8053","ERP-32956","ERP-32032","ERP-31325","ERP-32926","ERP-31873","ERP-32959"];
+        const placeholders = ids.map(() => "?").join(",");
+        const [rows, doneRow, errorRow] = await Promise.all([
+          database.prepare(`SELECT id,name,photo,sort_order FROM products WHERE id IN (${placeholders}) ORDER BY sort_order,name`).bind(...ids).all(),
+          database.prepare("SELECT value FROM app_settings WHERE key='admin_page15_photo_corrections_v1'").first<{ value: string }>(),
+          database.prepare("SELECT value FROM app_settings WHERE key='admin_page15_photo_corrections_v1_error'").first<{ value: string }>(),
+        ]);
+        return Response.json({
+          page15CorrectionStatus: true,
+          done: doneRow?.value === "1",
+          error: errorRow?.value || "",
           products: rows.results,
         }, { headers: { "Cache-Control": "no-store" } });
       }
