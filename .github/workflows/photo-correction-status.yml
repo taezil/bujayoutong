@@ -10,56 +10,95 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  status:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
-      - name: Wait for deploy and verify confirmed duplicate fixes
+      - name: Install image tools
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick fonts-noto-cjk
+
+      - name: Build live contact sheets for original 141-283 assignment
         shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq 1 60); do
-            if curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store" > /tmp/store.json 2>/dev/null; then
-              if python - <<'PY'
-          import json,sys
+          mkdir -p /tmp/photo-audit /tmp/photo-sheets
+          curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store" > /tmp/store.json
+
+          cat > /tmp/make_sheets.py <<'PY'
+          import json, os, subprocess, textwrap, urllib.parse, urllib.request
+          ids=["ERP-30329","ERP-31856","ERP-30102","ERP-1024","ERP-32829","ERP-32832","ERP-31351","ERP-32409","ERP-33007","ERP-30112","ERP-31410","ERP-30185","ERP-30634","ERP-1013","ERP-32440","ERP-1051","ERP-30349","ERP-32478","ERP-30397","ERP-32852","ERP-31869","ERP-1063","ERP-32428","ERP-30942","ERP-32974","ERP-31962","ERP-31964","ERP-32775","ERP-31966","ERP-32978","ERP-32255","ERP-32655","ERP-31697","ERP-1027","ERP-31263","ERP-1045","ERP-30740","ERP-32644","ERP-30986","ERP-32781","ERP-31321","ERP-32016","ERP-32197","ERP-8013","ERP-32399","ERP-1021","ERP-1072","ERP-9012","ERP-31247","ERP-1073","ERP-30233","ERP-1074","ERP-32085","ERP-1052","ERP-32257","ERP-1053","ERP-1054","ERP-1055","ERP-9006","ERP-9009","ERP-9010","ERP-30654","ERP-9007","ERP-30227","ERP-6010","ERP-30463","ERP-30207","ERP-33000","ERP-31839","ERP-32261","ERP-32361","ERP-30424","ERP-31340","ERP-6012","ERP-31724","ERP-31040","ERP-31518","ERP-31292","ERP-32199","ERP-8025","ERP-6016","ERP-32766","ERP-31586","ERP-31458","ERP-31038","ERP-30923","ERP-31045","ERP-6017","ERP-32664","ERP-5005","ERP-32579","ERP-8048","ERP-32422","ERP-5014","ERP-32377","ERP-5011","ERP-5012","ERP-8058","ERP-7004","ERP-7011","ERP-30653","ERP-32167","ERP-7006","ERP-31517","ERP-8167","ERP-30257","ERP-8019","ERP-31203","ERP-30911","ERP-9013","ERP-9014","ERP-9028","ERP-30272","ERP-32476","ERP-31204","ERP-8102","ERP-8103","ERP-31929","ERP-31164","ERP-31687","ERP-8140","ERP-8142","ERP-32977","ERP-32857","ERP-8076","ERP-8077","ERP-31215","ERP-8079","ERP-31413","ERP-9018","ERP-8091","ERP-8151","ERP-8145","ERP-31830","ERP-30933","ERP-30643","ERP-8024","ERP-32748","ERP-32948","ERP-31648","ERP-8051","ERP-8053","ERP-31246"]
           with open("/tmp/store.json",encoding="utf-8") as f:
               d=json.load(f)
-          byid={p.get("id"):p for p in (d.get("products") or [])}
-          expected_old={
-              "ERP-30643":"/api/photo?id=catalog-615db3ec9ed2d8ee7af6.webp",
-              "ERP-32748":"/api/photo?id=catalog-615db3ec9ed2d8ee7af6.webp",
-              "ERP-9014":"/api/photo?id=catalog-7b217682974689d8d309.webp",
-              "ERP-9018":"/api/photo?id=catalog-7b217682974689d8d309.webp",
-              "ERP-30257":"/api/photo?id=catalog-d3735b48e534920b9ce7.webp",
-              "ERP-31204":"/api/photo?id=catalog-d3735b48e534920b9ce7.webp",
-          }
-          still_old=[]
-          for product_id,old in expected_old.items():
-              p=byid.get(product_id)
-              if p and (p.get("photo") or "")==old:
-                  still_old.append(product_id)
-          print("attempt status; still_old=",",".join(still_old))
-          if still_old:
-              sys.exit(1)
+          byid={p.get("id"):p for p in d.get("products",[])}
+          base="https://order.bujafood.kr"
+          outdir="/tmp/photo-audit"
+          os.makedirs(outdir,exist_ok=True)
+          rows=[]
+          for idx,pid in enumerate(ids,start=141):
+              p=byid.get(pid)
+              if not p:
+                  rows.append((idx,pid,"[DELETED]","",""))
+                  continue
+              name=str(p.get("name") or "")
+              unit=str(p.get("unit") or "")
+              photo=str(p.get("photo") or "").strip()
+              rows.append((idx,pid,name,unit,photo))
+              if not photo: continue
+              url=photo if photo.startswith("http") else base+photo
+              ext=".img"
+              target=os.path.join(outdir,f"{idx:03d}.jpg")
+              try:
+                  req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0"})
+                  data=urllib.request.urlopen(req,timeout=30).read()
+                  raw=os.path.join(outdir,f"{idx:03d}.raw")
+                  open(raw,"wb").write(data)
+                  subprocess.run(["convert",raw,"-auto-orient",target],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                  os.remove(raw)
+              except Exception as e:
+                  print("DOWNLOAD_FAIL",idx,pid,name,url,e)
+          with open("/tmp/photo-audit/products.tsv","w",encoding="utf-8") as f:
+              for r in rows: f.write("\t".join(map(str,r))+"\n")
+
+          font="/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+          for page in range(8,16):
+              start=141+(page-8)*20
+              end=min(start+19,283)
+              tiles=[]
+              for idx in range(start,end+1):
+                  rec=next((r for r in rows if r[0]==idx),None)
+                  if not rec: continue
+                  _,pid,name,unit,photo=rec
+                  img=os.path.join(outdir,f"{idx:03d}.jpg")
+                  if not os.path.exists(img):
+                      img=os.path.join(outdir,f"{idx:03d}-blank.png")
+                      subprocess.run(["convert","-size","300x200","xc:white","-gravity","center","-font",font,"-pointsize","22","-annotate","+0+0","NO IMAGE",img],check=True)
+                  tile=os.path.join(outdir,f"tile-{idx:03d}.png")
+                  label=f"{idx}. {name}\n{pid}  {unit}"
+                  subprocess.run([
+                      "convert",img,"-thumbnail","300x200^","-gravity","center","-extent","300x200",
+                      "-background","white","-gravity","south","-splice","0x82",
+                      "-font",font,"-pointsize","18","-fill","black","-gravity","south",
+                      "-annotate","+0+8",label,tile
+                  ],check=True)
+                  tiles.append(tile)
+              if tiles:
+                  out=f"/tmp/photo-sheets/page-{page:02d}-{start}-{end}.jpg"
+                  subprocess.run(["montage",*tiles,"-tile","4x","-geometry","+8+8","-background","#eeeeee",out],check=True)
+                  print("SHEET",out)
           PY
-              then
-                python - <<'PY'
-          import json
-          from collections import defaultdict
-          with open("/tmp/store.json",encoding="utf-8") as f:
-              d=json.load(f)
-          ps=d.get("products") or []
-          byid={p.get("id"):p for p in ps}
-          targets=["ERP-30643","ERP-32748","ERP-9014","ERP-9018","ERP-30257","ERP-31204"]
-          print("LIVE_PRODUCT_COUNT",len(ps))
-          print("=== FIXED TARGETS ===")
-          for product_id in targets:
-              p=byid.get(product_id)
-              print(product_id,(p or {}).get("name",""),(p or {}).get("photo",""),sep="\t")
-          PY
-                exit 0
-              fi
-            fi
-            sleep 15
-          done
-          exit 1
+
+          python /tmp/make_sheets.py
+          echo "=== PRODUCT LIST ==="
+          cat /tmp/photo-audit/products.tsv
+
+      - name: Upload contact sheets
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-photo-audit-141-283
+          path: |
+            /tmp/photo-sheets/*.jpg
+            /tmp/photo-audit/products.tsv
+          if-no-files-found: error
