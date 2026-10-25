@@ -854,6 +854,49 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  const current283PhotoCorrectionsV2 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='current_283_photo_corrections_v2'")
+    .first<{ value: string }>();
+  if (current283PhotoCorrectionsV2?.value !== "1") {
+    const corrections: PhotoImportEntry[] = [
+      {
+        key: "catalog-current283-erp-30286.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/3680/images/68_2331128838_r.png?f=webp&s=880x880&t=inside",
+        productIds: ["ERP-30286"],
+      },
+      {
+        key: "catalog-current283-erp-32431.webp",
+        sourceUrl: "https://ecimg.cafe24img.com/pg1775b38841002057/bongedak/web/product/big/20250409/6c1383ee80d90bb508fa68c3427329c5.png",
+        productIds: ["ERP-32431"],
+      },
+    ];
+    const correctionErrors: string[] = [];
+    for (const correction of corrections) {
+      const id = correction.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || (existing.photo || "").trim()) continue;
+      try {
+        await importPhotoEntry(correction);
+      } catch (error) {
+        correctionErrors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    if (correctionErrors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('current_283_photo_corrections_v2','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='current_283_photo_corrections_v2_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('current_283_photo_corrections_v2_error',?)")
+        .bind(correctionErrors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Current 1-283 photo corrections v2 incomplete", correctionErrors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
@@ -883,7 +926,7 @@ export const Route = createFileRoute("/api/store")({
 
       if (url.searchParams.get("current283PhotoStatus") === "1") {
         const database = db();
-        const ids = ["ERP-32199","ERP-31586","ERP-5003","ERP-5004","ERP-32843","ERP-32154","ERP-30436","ERP-30124","ERP-31373","ERP-32878"];
+        const ids = ["ERP-32199","ERP-31586","ERP-5003","ERP-5004","ERP-32843","ERP-32154","ERP-30436","ERP-30124","ERP-31373","ERP-32878","ERP-30286","ERP-32431"];
         const placeholders = ids.map(() => "?").join(",");
         const [rows, doneRow, errorRow] = await Promise.all([
           database.prepare(`SELECT id,name,photo,sort_order FROM products WHERE id IN (${placeholders}) ORDER BY sort_order,name`).bind(...ids).all(),
