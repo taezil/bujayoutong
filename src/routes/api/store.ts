@@ -720,6 +720,34 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  const page11PhotoCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='page11_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (page11PhotoCorrectionsV1?.value !== "1") {
+    const id = "ERP-31133";
+    const existing = await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>();
+    try {
+      if (existing && !(existing.photo || "").trim()) {
+        await importPhotoEntry({
+          key: "catalog-page11-erp-31133.webp",
+          sourceUrl: "https://rshop.rweb-images.com/5AuqVRJgJZsncOirWtWiKZ44bYY%3D/385c804234184a7fb32de4eee05d6970",
+          productIds: [id],
+        });
+      }
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('page11_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='page11_photo_corrections_v1_error'"),
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('page11_photo_corrections_v1_error',?)")
+        .bind(message.slice(0, 1000))
+        .run();
+      console.error("Page 11 photo correction incomplete", error);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
