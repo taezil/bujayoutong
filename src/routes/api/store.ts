@@ -504,6 +504,69 @@ async function ensureCatalogImportV3() {
       .run();
   }
 
+  // User manually reviewed product-management pages 1-7 (first 140 products).
+  // Apply only verified page-8 photo corrections and never touch those protected rows.
+  const page8PhotoCorrections = await database
+    .prepare("SELECT value FROM app_settings WHERE key='page8_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (page8PhotoCorrections?.value !== "1") {
+    const corrections: PhotoImportEntry[] = [
+      {
+        key: "catalog-page8-erp-32829.webp",
+        sourceUrl: "https://cdn-optimized.imweb.me/upload/S20230128803e0b9d46aae/8fdde19286d74.jpg?w=750",
+        productIds: ["ERP-32829"],
+      },
+      {
+        key: "catalog-page8-erp-32832.webp",
+        sourceUrl: "https://cdn-optimized.imweb.me/upload/S20250829e8d96c2258588/3c58ddd217eba.png?w=750",
+        productIds: ["ERP-32832"],
+      },
+      {
+        key: "catalog-page8-erp-31351.webp",
+        sourceUrl: "https://cdn-optimized.imweb.me/upload/S20250829e8d96c2258588/3530a689586c2.png?w=750",
+        productIds: ["ERP-31351"],
+      },
+      {
+        key: "catalog-page8-erp-31410.webp",
+        sourceUrl: "https://cdn.imweb.me/thumbnail/20251118/b8eba1e5f5958.png",
+        productIds: ["ERP-31410"],
+      },
+      {
+        key: "catalog-page8-erp-32478.webp",
+        sourceUrl: "https://seanfoodmall.com/web/upload/NNEditor/20200213/4b4bfe504ccd36154f71cec0f78366a7.jpg",
+        productIds: ["ERP-32478"],
+      },
+      {
+        key: "catalog-page8-erp-32852.webp",
+        sourceUrl: "https://cdn-optimized.imweb.me/upload/S20250829e8d96c2258588/7d2c71515f8c5.png?w=750",
+        productIds: ["ERP-32852"],
+      },
+    ];
+
+    const correctionErrors: string[] = [];
+    for (const correction of corrections) {
+      try {
+        await importPhotoEntry(correction);
+      } catch (error) {
+        const id = correction.productIds[0] || correction.key;
+        correctionErrors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (correctionErrors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('page8_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='page8_photo_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('page8_photo_corrections_v1_error',?)")
+        .bind(correctionErrors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Page 8 photo corrections incomplete", correctionErrors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
@@ -590,13 +653,11 @@ export const Route = createFileRoute("/api/store")({
 
         const database = db();
         const product = await database
-          .prepare("SELECT id,name,photo,sort_order FROM products WHERE id=?")
+          .prepare("SELECT id,name,photo FROM products WHERE id=?")
           .bind(id)
-          .first<{ id: string; name: string; photo: string; sort_order: number }>();
+          .first<{ id: string; name: string; photo: string }>();
         if (!product) return Response.json({ error: "product not found" }, { status: 404 });
-        const force = url.searchParams.get("force") === "1";
-        const forceAllowed = force && Number(product.sort_order) >= 140;
-        if ((product.photo || "").trim() && !forceAllowed) {
+        if ((product.photo || "").trim()) {
           return Response.json({ ok: true, skipped: true, reason: "already has photo", photo: product.photo });
         }
 
