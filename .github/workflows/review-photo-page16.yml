@@ -31,6 +31,23 @@ jobs:
           done
           test -s /tmp/page16.json
           python - <<'PY'
+          import json,sys
+          d=json.load(open("/tmp/page16.json"))
+          expected={
+            "ERP-32219":"/api/photo?id=catalog-admin-page16-301-erp-32219.webp",
+            "ERP-32999":"/api/photo?id=catalog-admin-page16-309-erp-32999.webp",
+            "ERP-31552":"/api/photo?id=catalog-admin-page16-312-erp-31552.webp",
+            "ERP-32743":"/api/photo?id=catalog-admin-page16-314-erp-32743.webp",
+            "ERP-31886":"/api/photo?id=catalog-admin-page16-320-erp-31886.webp",
+          }
+          photos={p["id"]:p.get("photo","") for p in d.get("products") or []}
+          bad={k:(photos.get(k),v) for k,v in expected.items() if photos.get(k)!=v}
+          if bad:
+              print("WAITING_FOR_PAGE16_FIXES",bad)
+              raise SystemExit(1)
+          print("PAGE16_FIXES_OK",len(expected))
+          PY
+          python - <<'PY'
           import json
           d=json.load(open("/tmp/page16.json"))
           print("PAGE",d["page"],"TOTAL",d["total"],"RANGE",d["startIndex"],d["endIndex"])
