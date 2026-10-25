@@ -310,6 +310,20 @@ async function ensureCatalogImportV3() {
     database.prepare("UPDATE products SET photo=?, hidden=0, soldout=0, price_list_visible=1 WHERE id=?").bind("/api/photo?id=catalog-47b62e79a081537bf0ae.webp", "ERP-30544"),
   ]);
 
+  const photoPrecisionReset = await database
+    .prepare("SELECT value FROM app_settings WHERE key='catalog_photo_precision_reset_v1'")
+    .first<{ value: string }>();
+  if (photoPrecisionReset?.value !== "1") {
+    await database.batch([
+      database.prepare(`UPDATE products
+        SET photo=''
+        WHERE id LIKE 'ERP-%'
+          AND photo LIKE '/api/photo?id=catalog-%'
+          AND id NOT IN ('ERP-30588','ERP-30579','ERP-32363','ERP-30365','ERP-30120','ERP-30024','ERP-32244','ERP-32374','ERP-32844','ERP-32845','ERP-32163','ERP-32401','ERP-30364','ERP-31032','ERP-32676','ERP-30544','ERP-32411','ERP-30352','ERP-30076','ERP-31039','ERP-30960','ERP-31019','ERP-32851','ERP-8097','ERP-32077','ERP-32072','ERP-32073','ERP-8047','ERP-8037','ERP-30369','ERP-32476','ERP-30234','ERP-31666')`),
+      database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('catalog_photo_precision_reset_v1','1')"),
+    ]);
+  }
+
   const sellingFixed = await database
     .prepare("SELECT value FROM app_settings WHERE key='erp_products_selling_v1'")
     .first<{ value: string }>();
