@@ -1,0 +1,31 @@
+name: Trigger page 8 photo corrections
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/page8-photo-fixes.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  trigger-corrections:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Wait for current production code and trigger catalog migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://order.bujafood.kr/api/store?photoStatus=1"
+          for i in $(seq 1 50); do
+            if out="$(curl -fsS --connect-timeout 10 --max-time 120 "$URL")"; then
+              echo "$out"
+              # A successful /api/store request executes ensureCatalogImportV3,
+              # including the explicit page-8-only photo correction migration.
+              exit 0
+            fi
+            sleep 15
+          done
+          exit 1
