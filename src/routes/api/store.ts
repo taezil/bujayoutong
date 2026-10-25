@@ -3,6 +3,7 @@ import { getCustomer, isAdmin } from "../../lib/auth.server";
 import { db, ensureDatabase, readStore } from "../../lib/db.server";
 import { bindings } from "../../lib/bindings.server";
 import { CATALOG_SQL_CHUNKS } from "../../catalog-sql.generated";
+import { SAFE_CATALOG_PHOTOS } from "../../catalog-photo-safe.generated";
 
 
 
@@ -322,6 +323,21 @@ async function ensureCatalogImportV3() {
           AND id NOT IN ('ERP-30588','ERP-30579','ERP-32363','ERP-30365','ERP-30120','ERP-30024','ERP-32244','ERP-32374','ERP-32844','ERP-32845','ERP-32163','ERP-32401','ERP-30364','ERP-31032','ERP-32676','ERP-30544','ERP-32411','ERP-30352','ERP-30076','ERP-31039','ERP-30960','ERP-31019','ERP-32851','ERP-8097','ERP-32077','ERP-32072','ERP-32073','ERP-8047','ERP-8037','ERP-30369','ERP-32476','ERP-30234','ERP-31666')`),
       database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('catalog_photo_precision_reset_v1','1')"),
     ]);
+  }
+
+  const safePhotosRestored = await database
+    .prepare("SELECT value FROM app_settings WHERE key='catalog_photo_safe_restore_v1'")
+    .first<{ value: string }>();
+  if (safePhotosRestored?.value !== "1") {
+    const statements = SAFE_CATALOG_PHOTOS.map(([id, photo]) =>
+      database.prepare("UPDATE products SET photo=? WHERE id=?").bind(photo, id),
+    );
+    for (let i = 0; i < statements.length; i += 80) {
+      await database.batch(statements.slice(i, i + 80));
+    }
+    await database
+      .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('catalog_photo_safe_restore_v1','1')")
+      .run();
   }
 
   const sellingFixed = await database
