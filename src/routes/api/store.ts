@@ -926,6 +926,53 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  const original141283DuplicateFixesV2 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='original_141_283_duplicate_fixes_v2'")
+    .first<{ value: string }>();
+  if (original141283DuplicateFixesV2?.value !== "1") {
+    const fixes: Array<PhotoImportEntry & { expectedPhoto: string }> = [
+      {
+        key: "catalog-original-250-erp-9013.webp",
+        sourceUrl: "https://image.auction.co.kr/itemimage/30/b6/db/30b6db2a86.jpg",
+        productIds: ["ERP-9013"],
+        expectedPhoto: "/api/photo?id=catalog-147ad117a97a5076f53f.webp",
+      },
+      {
+        key: "catalog-original-252-erp-9028.webp",
+        sourceUrl: "https://gdimg.gmarket.co.kr/1940186591/still/600?ver=1774963940",
+        productIds: ["ERP-9028"],
+        expectedPhoto: "/api/photo?id=catalog-147ad117a97a5076f53f.webp",
+      },
+    ];
+
+    const errors: string[] = [];
+    for (const fix of fixes) {
+      const id = fix.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || String(existing.photo || "") !== fix.expectedPhoto) continue;
+      try {
+        await importPhotoEntry(fix);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('original_141_283_duplicate_fixes_v2','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='original_141_283_duplicate_fixes_v2_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('original_141_283_duplicate_fixes_v2_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Original 141-283 duplicate photo fixes v2 incomplete", errors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
