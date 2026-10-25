@@ -22,7 +22,7 @@ jobs:
           URL="https://order.bujafood.kr/api/store?catalogPhotoReview=1&page=16"
           for i in $(seq 1 80); do
             if out="$(curl -fsS --connect-timeout 10 --max-time 90 "$URL" 2>/dev/null)"; then
-              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ok=d.get("catalogPhotoReview") is True and d.get("page")==16 and len(d.get("products") or [])==20; raise SystemExit(0 if ok else 1)'; then
+              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ps={p.get("id"):p.get("photo","") for p in d.get("products") or []}; e={"ERP-32219":"/api/photo?id=catalog-admin-page16-301-erp-32219.webp","ERP-32999":"/api/photo?id=catalog-admin-page16-309-erp-32999.webp","ERP-31552":"/api/photo?id=catalog-admin-page16-312-erp-31552.webp","ERP-32743":"/api/photo?id=catalog-admin-page16-314-erp-32743.webp","ERP-31886":"/api/photo?id=catalog-admin-page16-320-erp-31886.webp"}; ok=d.get("catalogPhotoReview") is True and d.get("page")==16 and len(d.get("products") or [])==20 and all(ps.get(k)==v for k,v in e.items()); raise SystemExit(0 if ok else 1)'; then
                 printf '%s' "$out" > /tmp/page16.json
                 break
               fi
