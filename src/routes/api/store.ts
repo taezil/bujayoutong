@@ -293,6 +293,114 @@ async function searchCatalogImageCandidates(query: string) {
   };
 }
 
+
+const PHOTO_AUTOFILL_TOKEN = "buja-photo-20261025-f6e3d9a4";
+const PHOTO_MATCH_TERMS = [
+  "김치왕만두","고기왕만두","군만두","교자만두","야끼만두","동그랑땡","새우튀김","오징어튀김",
+  "치킨까스","돈까스","꿔바로우","탕수육","고로케","감자떡","꿀떡","절편","웨지감자","어묵","순대",
+  "런천미트","갈치","고등어","조기","민어","가자미","아귀","낙지","문어","오징어","쭈꾸미","새우",
+  "골뱅이","해파리","젓갈","김가루","김밥김","다시마","미역줄기","미역","진미채","북어채","명엽채",
+  "쥐어채","가쓰오부시","표고버섯","목이버섯","멸치","갈비","등뼈","목뼈","민찌","제육","돼지머리",
+  "우족","장각","닭도리","오리","두부","곤약","청포묵","메추리알","계란","버터","마가린","단무지",
+  "우엉","땅콩조림","마늘쫑","무말랭이","무쌈","피클","진간장","국간장","간장","식초","된장","쌈장",
+  "청국장","고추장","춘장","당면","칼국수","막국수","스파게티","쫄면","국수","냉면","소스","육수",
+  "장국","액젓","마요네즈","케찹","드레싱","다시다","설탕","전분","소금","후추","파인애플","황도",
+  "후르츠칵테일","참깨","흑미","찰보리","라면","스프","커피","건포도","아몬드","도넛","꽈배기",
+  "찐빵","꽃빵","세제","고무장갑","롤팩","비닐","크리너"
+] as const;
+
+function normalizeCatalogText(value: string) {
+  return value.toLowerCase().replace(/[^0-9a-z가-힣]+/g, "");
+}
+
+function pickCatalogImageCandidate(name: string, candidates: Array<{ url: string; title: string }>) {
+  if (!candidates.length) return null;
+  const normalizedName = normalizeCatalogText(name.replace(/\([^)]*\)/g, " "));
+  const terms = PHOTO_MATCH_TERMS.filter((term) => normalizedName.includes(normalizeCatalogText(term)));
+  let best: { url: string; title: string; score: number } | null = null;
+
+  for (const candidate of candidates) {
+    const haystack = normalizeCatalogText(candidate.title + " " + candidate.url);
+    let score = 0;
+    if (normalizedName.length >= 3 && haystack.includes(normalizedName)) score += 1000;
+    for (const term of terms) {
+      const normalizedTerm = normalizeCatalogText(term);
+      if (normalizedTerm && haystack.includes(normalizedTerm)) score += 50 + normalizedTerm.length;
+    }
+    if (/food|mart|mall|product|goods|shop|coupang|ssg|danawa|식자재|업소용/.test(candidate.title.toLowerCase() + " " + candidate.url.toLowerCase())) score += 4;
+    if (!best || score > best.score) best = { ...candidate, score };
+  }
+
+  if (terms.length && (best?.score ?? 0) < 50) return null;
+  return best;
+}
+
+async function catalogPhotoAutoFillStatus() {
+  const database = db();
+  const manifest = await readPhotoManifest();
+  const targetIds = new Set(manifest.flatMap((entry) => entry.productIds));
+  const [rows, skippedRow] = await Promise.all([
+    database.prepare("SELECT id,name,category,sub,photo FROM products WHERE id LIKE 'ERP-%' ORDER BY sort_order,name").all(),
+    database.prepare("SELECT value FROM app_settings WHERE key='photo_autofill_v1_skipped'").first<{ value: string }>(),
+  ]);
+  const targets = (rows.results as Array<Record<string, unknown>>).filter((row) => targetIds.has(String(row.id)));
+  const withPhotos = targets.filter((row) => String(row.photo ?? "").trim()).length;
+  const skipped = (skippedRow?.value || "").split(",").filter(Boolean);
+  return {
+    targetProducts: targets.length,
+    withPhotos,
+    blankProducts: targets.length - withPhotos,
+    skippedCount: skipped.length,
+    skipped,
+  };
+}
+
+async function runCatalogPhotoAutoFill(limit = 8) {
+  const database = db();
+  const manifest = await readPhotoManifest();
+  const targetIds = new Set(manifest.flatMap((entry) => entry.productIds));
+  const [rows, skippedRow] = await Promise.all([
+    database.prepare("SELECT id,name,category,sub,photo FROM products WHERE id LIKE 'ERP-%' ORDER BY sort_order,name").all(),
+    database.prepare("SELECT value FROM app_settings WHERE key='photo_autofill_v1_skipped'").first<{ value: string }>(),
+  ]);
+  const skipped = new Set((skippedRow?.value || "").split(",").filter(Boolean));
+  const targets = (rows.results as Array<Record<string, unknown>>)
+    .filter((row) => targetIds.has(String(row.id)))
+    .filter((row) => !String(row.photo ?? "").trim())
+    .filter((row) => !skipped.has(String(row.id)))
+    .slice(0, Math.max(1, Math.min(10, limit)));
+
+  const results = await Promise.all(targets.map(async (row) => {
+    const id = String(row.id);
+    const name = String(row.name ?? "");
+    const category = String(row.category ?? "");
+    const sub = String(row.sub ?? "");
+    const query = [name, sub, category, "업소용 대용량 식자재"].filter(Boolean).join(" ");
+    try {
+      const searched = await searchCatalogImageCandidates(query);
+      const picked = pickCatalogImageCandidate(name, searched.candidates);
+      if (!picked) throw new Error("matching image candidate not found");
+      const key = `catalog-auto-${id.toLowerCase().replace(/[^a-z0-9-]/g, "")}.webp`;
+      const imported = await importPhotoEntry({ key, sourceUrl: picked.url, productIds: [id] });
+      return { id, name, ok: true, source: picked.url, title: picked.title, score: picked.score, ...imported };
+    } catch (error) {
+      skipped.add(id);
+      return { id, name, ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }));
+
+  await database
+    .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('photo_autofill_v1_skipped',?)")
+    .bind([...skipped].join(","))
+    .run();
+
+  return {
+    ...(await catalogPhotoAutoFillStatus()),
+    processed: results.length,
+    results,
+  };
+}
+
 async function ensureCatalogImportV3() {
   const database = db();
   await ensureDatabase(database);
@@ -404,6 +512,20 @@ export const Route = createFileRoute("/api/store")({
     try {
       const url = new URL(request.url);
       await ensureCatalogImportV3();
+
+      if (url.searchParams.get("photoAutoFill") === "1") {
+        if (url.searchParams.get("token") !== PHOTO_AUTOFILL_TOKEN) {
+          return Response.json({ error: "forbidden" }, { status: 403 });
+        }
+        const limit = Number(url.searchParams.get("limit") || "8");
+        return Response.json(await runCatalogPhotoAutoFill(limit), { headers: { "Cache-Control": "no-store" } });
+      }
+      if (url.searchParams.get("photoAutoStatus") === "1") {
+        if (url.searchParams.get("token") !== PHOTO_AUTOFILL_TOKEN) {
+          return Response.json({ error: "forbidden" }, { status: 403 });
+        }
+        return Response.json(await catalogPhotoAutoFillStatus(), { headers: { "Cache-Control": "no-store" } });
+      }
 
       if (url.searchParams.get("photoSearchTest") === "1") {
         const query = (url.searchParams.get("q") || "갈비맛치킨꼬치 업소용 대용량 식자재").slice(0, 120);
