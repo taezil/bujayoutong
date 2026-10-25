@@ -591,6 +591,52 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  const page9PhotoCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='page9_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (page9PhotoCorrectionsV1?.value !== "1") {
+    const corrections: PhotoImportEntry[] = [
+      {
+        key: "catalog-page9-erp-32370.webp",
+        sourceUrl: "https://seinsusan.kr/web/product/small/202306/58510470b152bd4ab20adb1ae1108ff4.png",
+        productIds: ["ERP-32370"],
+      },
+      {
+        key: "catalog-page9-erp-32225.webp",
+        sourceUrl: "https://ecimg.cafe24img.com/pg851b80444222023/op98700/web/product/small/20240510/8a5bce3f9d5593b3577451f22481f1a8.jpg",
+        productIds: ["ERP-32225"],
+      },
+      {
+        key: "catalog-page9-erp-32786.webp",
+        sourceUrl: "https://www.fooden.com//_data/product/img/241-000189/3de1d9a57ac90029dd10017d99b22f42.png",
+        productIds: ["ERP-32786"],
+      },
+    ];
+
+    const correctionErrors: string[] = [];
+    for (const correction of corrections) {
+      try {
+        await importPhotoEntry(correction);
+      } catch (error) {
+        const id = correction.productIds[0] || correction.key;
+        correctionErrors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (correctionErrors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('page9_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='page9_photo_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('page9_photo_corrections_v1_error',?)")
+        .bind(correctionErrors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Page 9 photo corrections incomplete", correctionErrors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
@@ -617,6 +663,23 @@ export const Route = createFileRoute("/api/store")({
     try {
       const url = new URL(request.url);
       await ensureCatalogImportV3();
+
+      if (url.searchParams.get("page9PhotoStatus") === "1") {
+        const database = db();
+        const ids = ["ERP-32370","ERP-32225","ERP-32786"];
+        const placeholders = ids.map(() => "?").join(",");
+        const [rows, doneRow, errorRow] = await Promise.all([
+          database.prepare(`SELECT id,name,photo,sort_order FROM products WHERE id IN (${placeholders}) ORDER BY sort_order,name`).bind(...ids).all(),
+          database.prepare("SELECT value FROM app_settings WHERE key='page9_photo_corrections_v1'").first<{ value: string }>(),
+          database.prepare("SELECT value FROM app_settings WHERE key='page9_photo_corrections_v1_error'").first<{ value: string }>(),
+        ]);
+        return Response.json({
+          page9CorrectionStatus: true,
+          done: doneRow?.value === "1",
+          error: errorRow?.value || "",
+          products: rows.results,
+        }, { headers: { "Cache-Control": "no-store" } });
+      }
 
       if (url.searchParams.get("page8PhotoStatus") === "1") {
         const database = db();
