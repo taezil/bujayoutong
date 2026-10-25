@@ -531,6 +531,26 @@ export const Route = createFileRoute("/api/store")({
       const url = new URL(request.url);
       await ensureCatalogImportV3();
 
+      if (url.searchParams.get("photoMap") === "1") {
+        if (url.searchParams.get("token") !== PHOTO_AUTOFILL_TOKEN) {
+          return Response.json({ error: "forbidden" }, { status: 403 });
+        }
+        const database = db();
+        const manifest = await readPhotoManifest();
+        const targetIds = new Set(manifest.flatMap((entry) => entry.productIds));
+        const rows = await database
+          .prepare("SELECT id,name,photo FROM products WHERE id LIKE 'ERP-%' ORDER BY id")
+          .all();
+        const mappings = (rows.results as Array<Record<string, unknown>>)
+          .filter((row) => targetIds.has(String(row.id)))
+          .map((row) => ({
+            id: String(row.id),
+            name: String(row.name ?? ""),
+            photo: String(row.photo ?? ""),
+          }));
+        return Response.json({ count: mappings.length, mappings }, { headers: { "Cache-Control": "no-store" } });
+      }
+
       if (url.searchParams.get("photoBlankList") === "1") {
         if (url.searchParams.get("token") !== PHOTO_AUTOFILL_TOKEN) {
           return Response.json({ error: "forbidden" }, { status: 403 });
