@@ -25,7 +25,8 @@ jobs:
           data=None
           for attempt in range(80):
               try:
-                  with urllib.request.urlopen(url,timeout=90) as r:
+                  req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 (GitHub Actions Catalog Review)","Accept":"application/json"})
+                  with urllib.request.urlopen(req,timeout=90) as r:
                       data=json.loads(r.read())
                   if data.get("catalogPhotoReviewAll") is True and len(data.get("products") or []) >= 700:
                       break
