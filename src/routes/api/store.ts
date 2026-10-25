@@ -169,6 +169,17 @@ async function runPhotoImport(retryOnly = false) {
     .prepare("SELECT COUNT(*) AS count FROM products WHERE id LIKE 'ERP-%' AND photo LIKE '/api/photo?id=catalog-%'")
     .first<{ count: number }>();
 
+  const expectedCatalogIds = new Set<string>();
+  for (const sql of CATALOG_SQL_CHUNKS) {
+    if (!/^INSERT\s+(?:OR\s+REPLACE\s+)?INTO\s+products\b/i.test(sql.trimStart())) continue;
+    for (const match of sql.matchAll(/\('(ERP-[^']+)'/g)) expectedCatalogIds.add(match[1]);
+  }
+  const liveErpIds = new Set(
+    (productRows.results as Array<Record<string, unknown>>).map((row) => String(row.id)),
+  );
+  const catalogMissing = [...expectedCatalogIds].filter((id) => !liveErpIds.has(id));
+  const catalogUnexpected = [...liveErpIds].filter((id) => !expectedCatalogIds.has(id));
+
   return {
     totalSources: manifest.length,
     sourceIndex: index,
@@ -221,6 +232,10 @@ async function photoImportStatus() {
     targetProducts: targetIds.length,
     unlinkedProducts,
     unlinkedDetails,
+    originalCatalogExpected: expectedCatalogIds.size,
+    liveErpProducts: liveErpIds.size,
+    catalogMissing,
+    catalogUnexpected,
     done: doneRow?.value === "1",
   };
 }
@@ -255,11 +270,40 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  const missingPhotoProducts = await database
+    .prepare("SELECT id FROM products WHERE id IN ('ERP-31085','ERP-32576','ERP-31032','ERP-30544')")
+    .all();
+  const existingPhotoProductIds = new Set(
+    (missingPhotoProducts.results as Array<Record<string, unknown>>).map((row) => String(row.id)),
+  );
+  if (existingPhotoProductIds.size < 4) {
+    await database.batch([
+      database.prepare("INSERT OR IGNORE INTO products (id,name,category,sub,unit,price,soldout,photo,sort_order,tax_type,warehouse_zone,description,servings_per_unit,box_contents,servings_per_box,storage_method,price_list_visible,price_display_mode,hidden,promo_price) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .bind("ERP-31085","갈비맛치킨꼬치","냉동식품","튀김·가스","0.5kg",0,0,"/api/photo?id=catalog-5b6813d8b08f39670d92.webp",1003,"taxable","","","","","","",1,"inquiry",0,null),
+      database.prepare("INSERT OR IGNORE INTO products (id,name,category,sub,unit,price,soldout,photo,sort_order,tax_type,warehouse_zone,description,servings_per_unit,box_contents,servings_per_box,storage_method,price_list_visible,price_display_mode,hidden,promo_price) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .bind("ERP-32576","치즈돈까스 (면사랑)","냉동식품","튀김·가스","8kg",84000,0,"/api/photo?id=catalog-0e2dccd17b3c1e85728f.webp",1062,"taxable","","","","4","","",1,"fixed",0,null),
+      database.prepare("INSERT OR IGNORE INTO products (id,name,category,sub,unit,price,soldout,photo,sort_order,tax_type,warehouse_zone,description,servings_per_unit,box_contents,servings_per_box,storage_method,price_list_visible,price_display_mode,hidden,promo_price) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .bind("ERP-31032","치킨너겟 (상도)","냉동식품","튀김·가스","10kg",49000,0,"/api/photo?id=catalog-2c99660f7797ecd82c01.webp",1067,"taxable","","","","10","","",1,"fixed",0,null),
+      database.prepare("INSERT OR IGNORE INTO products (id,name,category,sub,unit,price,soldout,photo,sort_order,tax_type,warehouse_zone,description,servings_per_unit,box_contents,servings_per_box,storage_method,price_list_visible,price_display_mode,hidden,promo_price) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .bind("ERP-30544","치킨너겟(오양)","냉동식품","튀김·가스","10kg",59000,0,"/api/photo?id=catalog-47b62e79a081537bf0ae.webp",1070,"taxable","","","","10","","",1,"fixed",0,null),
+    ]);
+    await database.batch([
+      database.prepare("INSERT INTO pack_options (product_id,label,spec,price,step,sort_order) SELECT ?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM pack_options WHERE product_id=?)")
+        .bind("ERP-31085","봉지","0.5kg",null,1,0,"ERP-31085"),
+      database.prepare("INSERT INTO pack_options (product_id,label,spec,price,step,sort_order) SELECT ?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM pack_options WHERE product_id=?)")
+        .bind("ERP-32576","박스","8kg",84000,1,0,"ERP-32576"),
+      database.prepare("INSERT INTO pack_options (product_id,label,spec,price,step,sort_order) SELECT ?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM pack_options WHERE product_id=?)")
+        .bind("ERP-31032","박스","10kg",49000,1,0,"ERP-31032"),
+      database.prepare("INSERT INTO pack_options (product_id,label,spec,price,step,sort_order) SELECT ?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM pack_options WHERE product_id=?)")
+        .bind("ERP-30544","박스","10kg",59000,1,0,"ERP-30544"),
+    ]);
+  }
+
   await database.batch([
-    database.prepare("UPDATE products SET photo=? WHERE id=?").bind("/api/photo?id=catalog-5b6813d8b08f39670d92.webp", "ERP-31085"),
-    database.prepare("UPDATE products SET photo=? WHERE id=?").bind("/api/photo?id=catalog-0e2dccd17b3c1e85728f.webp", "ERP-32576"),
-    database.prepare("UPDATE products SET photo=? WHERE id=?").bind("/api/photo?id=catalog-2c99660f7797ecd82c01.webp", "ERP-31032"),
-    database.prepare("UPDATE products SET photo=? WHERE id=?").bind("/api/photo?id=catalog-47b62e79a081537bf0ae.webp", "ERP-30544"),
+    database.prepare("UPDATE products SET photo=?, hidden=0, soldout=0, price_list_visible=1 WHERE id=?").bind("/api/photo?id=catalog-5b6813d8b08f39670d92.webp", "ERP-31085"),
+    database.prepare("UPDATE products SET photo=?, hidden=0, soldout=0, price_list_visible=1 WHERE id=?").bind("/api/photo?id=catalog-0e2dccd17b3c1e85728f.webp", "ERP-32576"),
+    database.prepare("UPDATE products SET photo=?, hidden=0, soldout=0, price_list_visible=1 WHERE id=?").bind("/api/photo?id=catalog-2c99660f7797ecd82c01.webp", "ERP-31032"),
+    database.prepare("UPDATE products SET photo=?, hidden=0, soldout=0, price_list_visible=1 WHERE id=?").bind("/api/photo?id=catalog-47b62e79a081537bf0ae.webp", "ERP-30544"),
   ]);
 
   const sellingFixed = await database
