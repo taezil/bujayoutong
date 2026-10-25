@@ -18,7 +18,17 @@ async function readPhotoManifest() {
       const body = new Response(compressed).body;
       if (!body) throw new Error("Photo manifest could not be read");
       const json = await new Response(body.pipeThrough(new DecompressionStream("gzip"))).text();
-      return JSON.parse(json) as PhotoImportEntry[];
+      const parsed = JSON.parse(json) as PhotoImportEntry[];
+      const replacementSources: Record<number, string> = {
+        50: "https://fastmall.co.kr/web/product/small/202509/71dfd22915cc30bf857a281c62cc3f16.jpg",
+        61: "https://asset.m-gs.kr/prod/1046672367/1/550",
+        93: "https://sehyeon.s3.us-east-2.amazonaws.com/010714.jpg",
+      };
+      for (const [rawIndex, sourceUrl] of Object.entries(replacementSources)) {
+        const entry = parsed[Number(rawIndex)];
+        if (entry) entry.sourceUrl = sourceUrl;
+      }
+      return parsed;
     })();
   }
   return photoManifestPromise;
@@ -174,14 +184,20 @@ async function runPhotoImport(retryOnly = false) {
 async function photoImportStatus() {
   const database = db();
   const manifest = await readPhotoManifest();
-  const [indexRow, failuresRow, doneRow, linked] = await Promise.all([
+  const [indexRow, failuresRow, doneRow, linked, productRows] = await Promise.all([
     database.prepare("SELECT value FROM app_settings WHERE key='photo_import_v1_index'").first<{ value: string }>(),
     database.prepare("SELECT value FROM app_settings WHERE key='photo_import_v1_failures'").first<{ value: string }>(),
     database.prepare("SELECT value FROM app_settings WHERE key='photo_import_v1_done'").first<{ value: string }>(),
     database.prepare("SELECT COUNT(*) AS count FROM products WHERE id LIKE 'ERP-%' AND photo LIKE '/api/photo?id=catalog-%'").first<{ count: number }>(),
+    database.prepare("SELECT id, photo FROM products WHERE id LIKE 'ERP-%'").all(),
   ]);
   const index = Number(indexRow?.value || 0) || 0;
   const failures = (failuresRow?.value || "").split(",").filter(Boolean);
+  const photoById = new Map(
+    (productRows.results as Array<Record<string, unknown>>).map((row) => [String(row.id), String(row.photo ?? "")]),
+  );
+  const targetIds = [...new Set(manifest.flatMap((entry) => entry.productIds))];
+  const unlinkedProducts = targetIds.filter((id) => !photoById.get(id)?.startsWith("/api/photo?id=catalog-"));
   return {
     totalSources: manifest.length,
     sourceIndex: index,
@@ -189,6 +205,8 @@ async function photoImportStatus() {
     failedCount: failures.length,
     failures,
     linkedProducts: Number(linked?.count ?? 0),
+    targetProducts: targetIds.length,
+    unlinkedProducts,
     done: doneRow?.value === "1",
   };
 }
