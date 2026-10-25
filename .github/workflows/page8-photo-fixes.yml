@@ -12,19 +12,19 @@ permissions:
 jobs:
   trigger-corrections:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
-      - name: Wait for current production code and trigger catalog migration
+      - name: Wait for deployment and verify page 8 corrections
         shell: bash
         run: |
           set -euo pipefail
-          URL="https://order.bujafood.kr/api/store?photoStatus=1"
-          for i in $(seq 1 50); do
-            if out="$(curl -fsS --connect-timeout 10 --max-time 120 "$URL")"; then
-              echo "$out"
-              # A successful /api/store request executes ensureCatalogImportV3,
-              # including the explicit page-8-only photo correction migration.
-              exit 0
+          URL="https://order.bujafood.kr/api/store?page8PhotoStatus=1"
+          for i in $(seq 1 60); do
+            if out="$(curl -fsS --connect-timeout 10 --max-time 120 "$URL" 2>/dev/null)"; then
+              echo "attempt=$i $out"
+              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ok=d.get("page8CorrectionStatus") is True and d.get("done") is True and len(d.get("products") or []) == 6; raise SystemExit(0 if ok else 1)'; then
+                exit 0
+              fi
             fi
             sleep 15
           done
