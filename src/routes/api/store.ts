@@ -1268,6 +1268,31 @@ export const Route = createFileRoute("/api/store")({
         }, { headers: { "Cache-Control": "no-store" } });
       }
 
+      if (url.searchParams.get("catalogPhotoReview") === "1") {
+        const database = db();
+        const page = Math.max(1, Math.floor(Number(url.searchParams.get("page") || "1")));
+        const pageSize = 20;
+        const offset = (page - 1) * pageSize;
+        const [countRow, rows] = await Promise.all([
+          database.prepare("SELECT COUNT(*) AS count FROM products").first<{ count: number }>(),
+          database
+            .prepare("SELECT id,name,category,sub,unit,photo,sort_order FROM products ORDER BY sort_order,name LIMIT ? OFFSET ?")
+            .bind(pageSize, offset)
+            .all(),
+        ]);
+        const total = Number(countRow?.count ?? 0);
+        return Response.json({
+          catalogPhotoReview: true,
+          page,
+          pageSize,
+          total,
+          pages: Math.max(1, Math.ceil(total / pageSize)),
+          startIndex: offset + 1,
+          endIndex: Math.min(total, offset + pageSize),
+          products: rows.results,
+        }, { headers: { "Cache-Control": "no-store" } });
+      }
+
       if (url.searchParams.get("page15CorrectionStatus") === "1") {
         const database = db();
         const ids = ["ERP-30933","ERP-8024","ERP-30286","ERP-8051","ERP-8053","ERP-32956","ERP-32032","ERP-31325","ERP-32926","ERP-31873","ERP-32959"];
