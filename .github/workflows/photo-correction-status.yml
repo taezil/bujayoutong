@@ -19,18 +19,35 @@ jobs:
         run: |
           set -euo pipefail
           for i in $(seq 1 60); do
-            if out="$(curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store?current283PhotoStatus=1" 2>/dev/null)"; then
-              echo "attempt=$i $out"
-              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ps=d.get("products") or []; ok=d.get("current283PhotoStatus") is True and d.get("done") is True and not d.get("error") and all("이미지수정필요" not in (p.get("name") or "") for p in ps); raise SystemExit(0 if ok else 1)'; then
-                curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store" > /tmp/store.json
-                python - <<'PY'
-          import json
-          with open("/tmp/store.json", encoding="utf-8") as f:
+            if curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store" > /tmp/store.json 2>/dev/null; then
+              echo "attempt=$i"
+              if python - <<'PY'
+          import json,sys
+          with open("/tmp/store.json",encoding="utf-8") as f:
               d=json.load(f)
           ps=d.get("products") or []
-          print("LIVE_PRODUCT_COUNT", len(ps))
+          byid={p.get("id"):p for p in ps}
+          targets=["ERP-30286","ERP-32431"]
+          for product_id in targets:
+              p=byid.get(product_id)
+              if p and not (p.get("photo") or "").strip():
+                  sys.exit(1)
+          flagged=[p for p in ps if "이미지수정필요" in (p.get("name") or "")]
+          if flagged:
+              sys.exit(1)
+          PY
+              then
+                python - <<'PY'
+          import json
+          with open("/tmp/store.json",encoding="utf-8") as f:
+              d=json.load(f)
+          ps=d.get("products") or []
+          print("LIVE_PRODUCT_COUNT",len(ps))
+          for product_id in ["ERP-30286","ERP-32431"]:
+              p=next((x for x in ps if x.get("id")==product_id),None)
+              print("TARGET",product_id,p)
           print("=== CURRENT POSITIONS 141-283 WITH BLANK/FLAGGED ===")
-          for pos,p in enumerate(ps[140:283], start=141):
+          for pos,p in enumerate(ps[140:283],start=141):
               if not (p.get("photo") or "").strip() or "이미지수정필요" in (p.get("name") or ""):
                   print(pos,p.get("id",""),p.get("name",""),p.get("unit",""),p.get("photo",""),sep="\t")
           PY
