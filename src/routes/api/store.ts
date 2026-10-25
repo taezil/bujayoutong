@@ -1049,6 +1049,133 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  // Admin pages 23-25: non-Claude live products only.
+  // Two ambiguous internal rice-cake names (ERP-30622, ERP-30639) are intentionally left blank.
+  const adminPages2325ExtraPhotoCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='admin_pages23_25_extra_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (adminPages2325ExtraPhotoCorrectionsV1?.value !== "1") {
+    const fixes: Array<PhotoImportEntry & { expectedPhoto: string }> = [
+      {
+        key: "catalog-admin-page23-441-erp-31486.webp",
+        sourceUrl: "https://img.cjthemarket.com/images/file/product/20260204/700_124700_1.jpg",
+        productIds: ["ERP-31486"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page23-444-erp-30382.webp",
+        sourceUrl: "https://oasisprodproduct.edge.naverncp.com/2924/detail/1_28d8f8e1-667a-4569-8712-49cedf9df216.jpg",
+        productIds: ["ERP-30382"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page23-448-erp-31736.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/20d1/18b241a3b5596c338b58b51fb5483703bac9f34bd0a1d29bda84074cdcc5.jpeg",
+        productIds: ["ERP-31736"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page23-457-erp-31471.webp",
+        sourceUrl: "https://m.josundal.com/web/product/big/202110/84eca47508743bbae19249191856c2c2.jpg",
+        productIds: ["ERP-31471"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page24-470-erp-33003.webp",
+        sourceUrl: "https://oasisprodproduct.edge.naverncp.com/47331/detail/detail_47331_2_0e5f435f-89ce-4bac-927a-f46649b3e828.png",
+        productIds: ["ERP-33003"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page24-474-erp-32792.webp",
+        sourceUrl: "https://img1.kakaocdn.net/thumb/P750x750%401.5x.fwebp.q82/?fname=https%3A%2F%2Fst.kakaocdn.net%2Fshoppingstore%2Fproduct%2F20251128165118_f3bedb268cf949778cecd590f687201a.png",
+        productIds: ["ERP-32792"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page24-475-erp-32804.webp",
+        sourceUrl: "https://cimg.cowave.kr/image/vendor_inventory/e543/4f187ead75fb4b6fd7fb5a0fcf54fbb90238017790d3be7cd67b7ece89c9.jpg",
+        productIds: ["ERP-32804"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page24-479-erp-31452.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/e4f2/18f7fa6b0f5ad9225571f4a4fae448fd630b583c1198004c98f898630d4c.jpg",
+        productIds: ["ERP-31452"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page25-481-erp-31323.webp",
+        sourceUrl: "https://img.danawa.com/prod_img/500000/951/973/img/6973951_1.jpg?_v=20190621122037",
+        productIds: ["ERP-31323"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page25-484-erp-32068.webp",
+        sourceUrl: "https://image.coupangcdn.com/image/vendor_inventory/24d8/932d48a65ec9b5c25046618077b72a9545c85eee1ee3548023a14aaa2903.jpg",
+        productIds: ["ERP-32068"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page25-485-erp-20001.webp",
+        sourceUrl: "https://img.danawa.com/prod_img/500000/968/909/img/99909968_1.jpg?_v=20260326172516",
+        productIds: ["ERP-20001"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page25-494-erp-32905.webp",
+        sourceUrl: "https://shop-phinf.pstatic.net/20230112_98/16734853614001FvzD_JPEG/SE-2b550ff7-8996-41f7-81d8-563e533365f6.jpg?type=w860",
+        productIds: ["ERP-32905"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page25-495-erp-32174.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/72c9/beb9f3693e515b3b57a494c35d74d0e22c268d9b69e6a1614af03a702c65.png",
+        productIds: ["ERP-32174"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page25-498-erp-30239.webp",
+        sourceUrl: "https://www.costco.co.kr/medias/sys_master/images/hc5/h29/386955082170398.jpg",
+        productIds: ["ERP-30239"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page25-499-erp-32947.webp",
+        sourceUrl: "https://shop.r10s.jp/iitokoshop/cabinet/biiino/item/main-image-3/1705377987179_1.jpg",
+        productIds: ["ERP-32947"],
+        expectedPhoto: "",
+      },
+    ];
+
+    const errors: string[] = [];
+    for (const fix of fixes) {
+      const id = fix.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || String(existing.photo || "") !== fix.expectedPhoto) continue;
+      try {
+        await importPhotoEntry(fix);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_pages23_25_extra_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='admin_pages23_25_extra_photo_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_pages23_25_extra_photo_corrections_v1_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Admin pages 23-25 extra photo corrections incomplete", errors);
+    }
+  }
+
   // Admin pages 20-22: non-Claude live products only; all targets were blank at audit time.
   const adminPages2022ExtraPhotoCorrectionsV1 = await database
     .prepare("SELECT value FROM app_settings WHERE key='admin_pages20_22_extra_photo_corrections_v1'")
