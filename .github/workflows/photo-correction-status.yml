@@ -19,11 +19,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Build
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npm run build
 
       - name: Wait for deployment and verify corrected photos
