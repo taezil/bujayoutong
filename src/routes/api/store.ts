@@ -730,7 +730,7 @@ async function ensureCatalogImportV3() {
       if (existing && !(existing.photo || "").trim()) {
         await importPhotoEntry({
           key: "catalog-page11-erp-31133.webp",
-          sourceUrl: "https://rshop.rweb-images.com/5AuqVRJgJZsncOirWtWiKZ44bYY%3D/385c804234184a7fb32de4eee05d6970",
+          sourceUrl: "https://www.ewangmart.com/data/base/goods/big/8809352250031_1.jpg",
           productIds: [id],
         });
       }
