@@ -245,6 +245,54 @@ async function photoImportStatus() {
   };
 }
 
+async function searchCatalogImageCandidates(query: string) {
+  const searchUrl = "https://www.bing.com/images/search?q=" + encodeURIComponent(query) + "&form=HDRSC3&first=1";
+  const response = await fetch(searchUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/156 Safari/537.36",
+      "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.5",
+    },
+    redirect: "follow",
+  });
+  const html = await response.text();
+  const candidates: Array<{ url: string; title: string }> = [];
+  const seen = new Set<string>();
+
+  const decoded = html
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+
+  for (const match of decoded.matchAll(/"murl":"([^"]+)"[^}]*"t":"([^"]*)"/g)) {
+    const url = match[1]?.replace(/\\u002f/g, "/").replace(/\\//g, "/");
+    const title = match[2] || "";
+    if (url?.startsWith("http") && !seen.has(url)) {
+      seen.add(url);
+      candidates.push({ url, title });
+      if (candidates.length >= 12) break;
+    }
+  }
+  if (!candidates.length) {
+    for (const match of decoded.matchAll(/"murl":"([^"]+)"/g)) {
+      const url = match[1]?.replace(/\\u002f/g, "/").replace(/\\//g, "/");
+      if (url?.startsWith("http") && !seen.has(url)) {
+        seen.add(url);
+        candidates.push({ url, title: "" });
+        if (candidates.length >= 12) break;
+      }
+    }
+  }
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    htmlLength: html.length,
+    candidates,
+  };
+}
+
 async function ensureCatalogImportV3() {
   const database = db();
   await ensureDatabase(database);
@@ -356,6 +404,11 @@ export const Route = createFileRoute("/api/store")({
     try {
       const url = new URL(request.url);
       await ensureCatalogImportV3();
+
+      if (url.searchParams.get("photoSearchTest") === "1") {
+        const query = (url.searchParams.get("q") || "갈비맛치킨꼬치 업소용 대용량 식자재").slice(0, 120);
+        return Response.json(await searchCatalogImageCandidates(query), { headers: { "Cache-Control": "no-store" } });
+      }
 
       if (url.searchParams.get("photoImport") === "1") {
         const retryOnly = url.searchParams.get("retry") === "1";
