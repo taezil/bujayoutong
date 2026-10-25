@@ -35,7 +35,7 @@ async function readPhotoManifest() {
   return photoManifestPromise;
 }
 
-async function importPhotoEntry(entry: PhotoImportEntry) {
+async function importPhotoEntry(entry: PhotoImportEntry, expectedPhotos?: string[]) {
   const database = db();
   const storage = bindings().STORAGE;
   if (!storage) throw new Error("R2 storage binding unavailable");
@@ -106,9 +106,15 @@ async function importPhotoEntry(entry: PhotoImportEntry) {
   if (!object) throw new Error("R2 write failed");
   const photoUrl = `/api/photo?id=${entry.key}`;
   await database.batch(
-    entry.productIds.map((id) =>
-      database.prepare("UPDATE products SET photo=? WHERE id=?").bind(photoUrl, id),
-    ),
+    entry.productIds.map((id) => {
+      if (!expectedPhotos?.length) {
+        return database.prepare("UPDATE products SET photo=? WHERE id=?").bind(photoUrl, id);
+      }
+      const placeholders = expectedPhotos.map(() => "?").join(",");
+      return database
+        .prepare(`UPDATE products SET photo=? WHERE id=? AND COALESCE(photo,'') IN (${placeholders})`)
+        .bind(photoUrl, id, ...expectedPhotos);
+    }),
   );
 
   return { products: entry.productIds.length, transformed, contentType };
@@ -1852,6 +1858,141 @@ async function ensureCatalogImportV3() {
         .bind(errors.join(" | ").slice(0, 1800))
         .run();
       console.error("Admin page 15 photo corrections incomplete", errors);
+    }
+  }
+
+  // Admin pages 15-24 second-pass photo audit (2026-10-26).
+  // Never touch pages 1-14. Every replacement/clear is guarded by the exact
+  // previously generated bad photo path, so a user's manual upload always wins.
+  const adminPages1524PhotoAuditV2 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='admin_pages15_24_photo_audit_v2'")
+    .first<{ value: string }>();
+  if (adminPages1524PhotoAuditV2?.value !== "1") {
+    const replacements: Array<PhotoImportEntry & { expectedPhotos: string[] }> = [
+      {
+        key: "catalog-audit-v2-page15-erp-8053.webp",
+        sourceUrl: "https://gdimg.gmarket.co.kr/206878954/still/600?ver=1653376364",
+        productIds: ["ERP-8053"],
+        expectedPhotos: [
+          "/api/photo?id=catalog-search-erp-8053.webp",
+          "/api/photo?id=catalog-admin-page15-290-erp-8053.webp",
+        ],
+      },
+      {
+        key: "catalog-audit-v2-page15-erp-32956.webp",
+        sourceUrl: "https://gdimg.gmarket.co.kr/962342619/still/600?ver=1682352381",
+        productIds: ["ERP-32956"],
+        expectedPhotos: ["/api/photo?id=catalog-admin-page15-291-erp-32956.webp"],
+      },
+      {
+        key: "catalog-audit-v2-page18-erp-31391.webp",
+        sourceUrl: "https://img.danuri.io/catalog-image/673/303/008/575ab703a0814c0c824313fb93539731.jpg?_v=20260407232924&shrink=360%3A360",
+        productIds: ["ERP-31391"],
+        expectedPhotos: ["/api/photo?id=catalog-admin-page18-359-erp-31391.webp"],
+      },
+      {
+        key: "catalog-audit-v2-page18-erp-31571.webp",
+        sourceUrl: "https://www.jwfood.co.kr/data/file/product01/2040601907_ZOt39D4R_b05f1fd7023136a6e6ae857a7e288d6db36c4881.jpg",
+        productIds: ["ERP-31571"],
+        expectedPhotos: ["/api/photo?id=catalog-admin-page18-360-erp-31571.webp"],
+      },
+      {
+        key: "catalog-audit-v2-page19-erp-31871.webp",
+        sourceUrl: "https://lottemartzetta.com/images-v3/932dcbc7-fca8-4d43-bcde-f73d1ce3cc7d/13c12735-8901-45b9-b1ff-f4e084b1ea25/1280x1280.jpg",
+        productIds: ["ERP-31871"],
+        expectedPhotos: ["/api/photo?id=catalog-admin-page19-374-erp-31871.webp"],
+      },
+      {
+        key: "catalog-audit-v2-page20-erp-31931.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/192/images/11_7511139606_r.jpg",
+        productIds: ["ERP-31931"],
+        expectedPhotos: ["/api/photo?id=catalog-admin-page20-385-erp-31931.webp"],
+      },
+      {
+        key: "catalog-audit-v2-page22-erp-32560.webp",
+        sourceUrl: "https://kabjagi.cafe24.com/web/upload/NNEditor/20240111/mobile/45c4035dc33d739f44f8eed4713f255d_1704962244.jpg",
+        productIds: ["ERP-32560"],
+        expectedPhotos: ["/api/photo?id=catalog-admin-page22-424-erp-32560.webp"],
+      },
+      {
+        key: "catalog-audit-v2-page24-erp-32792.webp",
+        sourceUrl: "https://image.8dogam.com/resized/product/asset/v1/upload/95a1bdc8c4ad43a484ff8cf9fda4c64b.jpeg?ext=jpg&res=3x&type=big",
+        productIds: ["ERP-32792"],
+        expectedPhotos: ["/api/photo?id=catalog-admin-page24-474-erp-32792.webp"],
+      },
+    ];
+
+    const holds: Array<{ id: string; expectedPhotos: string[] }> = [
+      {
+        id: "ERP-30286",
+        expectedPhotos: [
+          "/api/photo?id=catalog-current283-erp-30286.webp",
+          "/api/photo?id=catalog-admin-page15-287-erp-30286.webp",
+        ],
+      },
+      {
+        id: "ERP-31552",
+        expectedPhotos: ["/api/photo?id=catalog-admin-page16-312-erp-31552.webp"],
+      },
+      {
+        id: "ERP-32992",
+        expectedPhotos: ["/api/photo?id=catalog-admin-page17-331-erp-32992.webp"],
+      },
+      {
+        id: "ERP-2008",
+        expectedPhotos: ["/api/photo?id=catalog-admin-page20-388-erp-2008.webp"],
+      },
+      {
+        id: "ERP-31736",
+        expectedPhotos: ["/api/photo?id=catalog-admin-page23-448-erp-31736.webp"],
+      },
+      {
+        id: "ERP-32804",
+        expectedPhotos: ["/api/photo?id=catalog-admin-page24-475-erp-32804.webp"],
+      },
+    ];
+
+    const errors: string[] = [];
+    for (const fix of replacements) {
+      const id = fix.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      const currentPhoto = String(existing?.photo || "");
+      if (!existing || !fix.expectedPhotos.includes(currentPhoto)) continue;
+      try {
+        await importPhotoEntry(
+          { key: fix.key, sourceUrl: fix.sourceUrl, productIds: fix.productIds },
+          fix.expectedPhotos,
+        );
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    for (const hold of holds) {
+      const placeholders = hold.expectedPhotos.map(() => "?").join(",");
+      try {
+        await database
+          .prepare(`UPDATE products SET photo='' WHERE id=? AND COALESCE(photo,'') IN (${placeholders})`)
+          .bind(hold.id, ...hold.expectedPhotos)
+          .run();
+      } catch (error) {
+        errors.push(`${hold.id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_pages15_24_photo_audit_v2','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='admin_pages15_24_photo_audit_v2_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_pages15_24_photo_audit_v2_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Admin pages 15-24 photo audit v2 incomplete", errors);
     }
   }
 
