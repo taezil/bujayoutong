@@ -1076,6 +1076,23 @@ export const Route = createFileRoute("/api/store")({
       const url = new URL(request.url);
       await ensureCatalogImportV3();
 
+      if (url.searchParams.get("visual141283PhotoStatus") === "1") {
+        const database = db();
+        const ids = ["ERP-32409","ERP-30634","ERP-32440","ERP-32644","ERP-30986","ERP-32781","ERP-32016","ERP-31040","ERP-32766"];
+        const placeholders = ids.map(() => "?").join(",");
+        const [rows, doneRow, errorRow] = await Promise.all([
+          database.prepare(`SELECT id,name,photo,sort_order FROM products WHERE id IN (${placeholders}) ORDER BY sort_order,name`).bind(...ids).all(),
+          database.prepare("SELECT value FROM app_settings WHERE key='original_141_283_visual_corrections_v1'").first<{ value: string }>(),
+          database.prepare("SELECT value FROM app_settings WHERE key='original_141_283_visual_corrections_v1_error'").first<{ value: string }>(),
+        ]);
+        return Response.json({
+          visual141283PhotoStatus: true,
+          done: doneRow?.value === "1",
+          error: errorRow?.value || "",
+          products: rows.results,
+        });
+      }
+
       if (url.searchParams.get("current283PhotoStatus") === "1") {
         const database = db();
         const ids = ["ERP-32199","ERP-31586","ERP-5003","ERP-5004","ERP-32843","ERP-32154","ERP-30436","ERP-30124","ERP-31373","ERP-32878"];
