@@ -10,34 +10,23 @@ permissions:
   contents: read
 
 jobs:
-  audit:
+  status:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Audit remaining original-assignment duplicate groups
+      - name: Diagnose live photo response
         shell: bash
         run: |
-          set -euo pipefail
-          curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store" > /tmp/store.json
+          set -euxo pipefail
+          URL="https://order.bujafood.kr/api/photo?id=catalog-page8-erp-32829.webp"
+          curl -fsSL --compressed -A "Mozilla/5.0" -D /tmp/headers.txt "$URL" -o /tmp/photo.bin
+          cat /tmp/headers.txt
+          file /tmp/photo.bin
+          wc -c /tmp/photo.bin
+          xxd -l 128 /tmp/photo.bin
           python - <<'PY'
-          import json
-          with open("/tmp/store.json",encoding="utf-8") as f:
-              d=json.load(f)
-          byid={p.get("id"):p for p in (d.get("products") or [])}
-          groups=[
-            ["ERP-1052","ERP-32257","ERP-1053","ERP-1054","ERP-1055"],
-            ["ERP-1013","ERP-32440"],
-            ["ERP-30185","ERP-30634"],
-            ["ERP-30463","ERP-30207"],
-            ["ERP-31856","ERP-31869"],
-          ]
-          print("LIVE_PRODUCT_COUNT",len(d.get("products") or []))
-          for gi,ids in enumerate(groups,1):
-              print("=== GROUP",gi,"===")
-              for product_id in ids:
-                  p=byid.get(product_id)
-                  if p:
-                      print(product_id,p.get("name",""),p.get("unit",""),p.get("photo",""),sep="\t")
-                  else:
-                      print(product_id,"MISSING",sep="\t")
+          from pathlib import Path
+          p=Path("/tmp/photo.bin").read_bytes()
+          print("FIRST16",p[:16])
+          print("TEXT_HEAD",p[:500].decode("utf-8","replace"))
           PY
