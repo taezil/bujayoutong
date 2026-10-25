@@ -2433,6 +2433,124 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  // Admin product pages 25-34 follow-up: additional products verified after the first pass.
+  // Keep this separate from v1 so a deployed v1 completion flag cannot hide later verified fills.
+  // Blank-only conditional update protects every existing/manual photo.
+  const adminPages2534PhotoFillV2 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='admin_pages25_34_photo_fill_v2'")
+    .first<{ value: string }>();
+  if (adminPages2534PhotoFillV2?.value !== "1") {
+    const fills: PhotoImportEntry[] = [
+      {
+        key: "catalog-pages25-34-v2-erp-31578.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/6878/51ec587316b920edf5a13f27b31ae9177f43cd144dfe340a054dda1f077d.jpg",
+        productIds: ["ERP-31578"],
+      }, // 죽순채
+      {
+        key: "catalog-pages25-34-v2-erp-31579.webp",
+        sourceUrl: "https://cdn-acemall.bizhost.kr/files/goods/1802/daea045825e113caad4f893307ea0b23.jpg",
+        productIds: ["ERP-31579"],
+      }, // 죽순홀
+      {
+        key: "catalog-pages25-34-v2-erp-32958.webp",
+        sourceUrl: "https://seoilfnb.com/web/product/small/202406/2e0ec1d5e6258d82c55355da2e101501.jpg",
+        productIds: ["ERP-32958"],
+      }, // 표고버섯홀
+      {
+        key: "catalog-pages25-34-v2-erp-7009.webp",
+        sourceUrl: "https://eatfood.shop/web/product/small/202304/9d0c12699eece52c9c62cc0a04b3da90.jpg",
+        productIds: ["ERP-7009"],
+      }, // 들깨가루(푸미)
+      {
+        key: "catalog-pages25-34-v2-erp-7010.webp",
+        sourceUrl: "https://eatfood.shop/web/product/small/202304/31674f4b869530c70e92ceac6fb84f15.jpg",
+        productIds: ["ERP-7010"],
+      }, // 들깨개피가루(푸미)
+      {
+        key: "catalog-pages25-34-v2-erp-32961.webp",
+        sourceUrl: "https://gred.s3.ap-northeast-2.amazonaws.com/vendor/2289/images/35_6952638417_r.jpg",
+        productIds: ["ERP-32961"],
+      }, // 슈가파우더
+      {
+        key: "catalog-pages25-34-v2-erp-4017.webp",
+        sourceUrl: "https://gi.esmplus.com/safe4949/1/sogombang_salt/main.jpg",
+        productIds: ["ERP-4017"],
+      }, // 소금(꽃)
+      {
+        key: "catalog-pages25-34-v2-erp-4018.webp",
+        sourceUrl: "https://thumbnail10.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/bfa2/f2936ecfc32e6415b22480ff2fe26510328c2abf3da56ab263bfb61bfd41.jpg",
+        productIds: ["ERP-4018"],
+      }, // 소금(천일염)
+      {
+        key: "catalog-pages25-34-v2-erp-32028.webp",
+        sourceUrl: "https://acemartmall.com/cdn/shop/files/new-sugar-glucose-60g-poong-jeon_grande.jpg?v=1750412643",
+        productIds: ["ERP-32028"],
+      }, // 신당분뉴슈가
+      {
+        key: "catalog-pages25-34-v2-erp-32407.webp",
+        sourceUrl: "https://m.anyonecook.com/web/product/big/202007/00ed1742c2eba9422cdab98fb4ae523a.jpg",
+        productIds: ["ERP-32407"],
+      }, // 신화당
+      {
+        key: "catalog-pages25-34-v2-erp-8179.webp",
+        sourceUrl: "https://sitem.ssgcdn.com/05/47/36/item/1000603364705_i1_1200.jpg",
+        productIds: ["ERP-8179"],
+      }, // 흑설탕
+      {
+        key: "catalog-pages25-34-v2-erp-8003.webp",
+        sourceUrl: "https://cdn.011st.com/11dims/resize/760x760/quality/75/11src/review/72509102/1035772680/727a0a65c213455eaeb0cf744ccb104f.JPG",
+        productIds: ["ERP-8003"],
+      }, // 건 메밀
+      {
+        key: "catalog-pages25-34-v2-erp-30215.webp",
+        sourceUrl: "https://asset.m-gs.kr/prod/1070797290/1/550",
+        productIds: ["ERP-30215"],
+      }, // 고기메밀전병
+      {
+        key: "catalog-pages25-34-v2-erp-30084.webp",
+        sourceUrl: "https://dm.pulmuone.com/upload/img/202306/20230628-Zo9-94UCfKI.jpg",
+        productIds: ["ERP-30084"],
+      }, // 김치메밀전병
+      {
+        key: "catalog-pages25-34-v2-erp-30524.webp",
+        sourceUrl: "https://m.fooden.com//_data/product/img/723-000031/1a4add245063cdf97a4e2ed7e6756630.png",
+        productIds: ["ERP-30524"],
+      }, // 식용색소(노랑)
+      {
+        key: "catalog-pages25-34-v2-erp-8170.webp",
+        sourceUrl: "https://img.danawa.com/prod_img/500000/900/927/img/5927900_1.jpg?_v=20180228141646&shrink=360%3A360",
+        productIds: ["ERP-8170"],
+      }, // 카라멜소스(천우)화미
+    ];
+
+    const errors: string[] = [];
+    for (const fill of fills) {
+      const id = fill.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || String(existing.photo || "").trim()) continue;
+      try {
+        await importPhotoEntry(fill, [""]);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_pages25_34_photo_fill_v2','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='admin_pages25_34_photo_fill_v2_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_pages25_34_photo_fill_v2_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Admin pages 25-34 photo fill v2 incomplete", errors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
