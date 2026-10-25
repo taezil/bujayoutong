@@ -169,17 +169,6 @@ async function runPhotoImport(retryOnly = false) {
     .prepare("SELECT COUNT(*) AS count FROM products WHERE id LIKE 'ERP-%' AND photo LIKE '/api/photo?id=catalog-%'")
     .first<{ count: number }>();
 
-  const expectedCatalogIds = new Set<string>();
-  for (const sql of CATALOG_SQL_CHUNKS) {
-    if (!/^INSERT\s+(?:OR\s+REPLACE\s+)?INTO\s+products\b/i.test(sql.trimStart())) continue;
-    for (const match of sql.matchAll(/\('(ERP-[^']+)'/g)) expectedCatalogIds.add(match[1]);
-  }
-  const liveErpIds = new Set(
-    (productRows.results as Array<Record<string, unknown>>).map((row) => String(row.id)),
-  );
-  const catalogMissing = [...expectedCatalogIds].filter((id) => !liveErpIds.has(id));
-  const catalogUnexpected = [...liveErpIds].filter((id) => !expectedCatalogIds.has(id));
-
   return {
     totalSources: manifest.length,
     sourceIndex: index,
@@ -222,6 +211,21 @@ async function photoImportStatus() {
     photo: productById.get(id)?.photo ?? "",
     expected: expectedById.get(id) ?? "",
   }));
+
+  const expectedCatalogIds = new Set<string>();
+  for (const sql of CATALOG_SQL_CHUNKS) {
+    if (!/^INSERT\s+(?:OR\s+REPLACE\s+)?INTO\s+products\b/i.test(sql.trimStart())) continue;
+    for (const match of sql.matchAll(/\('(ERP-[^']+)'/g)) {
+      const id = match[1];
+      if (id) expectedCatalogIds.add(id);
+    }
+  }
+  const liveErpIds = new Set(
+    (productRows.results as Array<Record<string, unknown>>).map((row) => String(row.id)),
+  );
+  const catalogMissing = [...expectedCatalogIds].filter((id) => !liveErpIds.has(id));
+  const catalogUnexpected = [...liveErpIds].filter((id) => !expectedCatalogIds.has(id));
+
   return {
     totalSources: manifest.length,
     sourceIndex: index,
