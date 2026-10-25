@@ -594,6 +594,23 @@ export const Route = createFileRoute("/api/store")({
       const url = new URL(request.url);
       await ensureCatalogImportV3();
 
+      if (url.searchParams.get("page8PhotoStatus") === "1") {
+        const database = db();
+        const ids = ["ERP-32829","ERP-32832","ERP-31351","ERP-31410","ERP-32478","ERP-32852"];
+        const placeholders = ids.map(() => "?").join(",");
+        const [rows, doneRow, errorRow] = await Promise.all([
+          database.prepare(`SELECT id,name,photo,sort_order FROM products WHERE id IN (${placeholders}) ORDER BY sort_order,name`).bind(...ids).all(),
+          database.prepare("SELECT value FROM app_settings WHERE key='page8_photo_corrections_v1'").first<{ value: string }>(),
+          database.prepare("SELECT value FROM app_settings WHERE key='page8_photo_corrections_v1_error'").first<{ value: string }>(),
+        ]);
+        return Response.json({
+          page8CorrectionStatus: true,
+          done: doneRow?.value === "1",
+          error: errorRow?.value || "",
+          products: rows.results,
+        }, { headers: { "Cache-Control": "no-store" } });
+      }
+
       if (url.searchParams.get("photoMap") === "1") {
         if (url.searchParams.get("token") !== PHOTO_AUTOFILL_TOKEN) {
           return Response.json({ error: "forbidden" }, { status: 403 });
