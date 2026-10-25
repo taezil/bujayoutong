@@ -241,6 +241,19 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  const photoLinksFixed = await database
+    .prepare("SELECT value FROM app_settings WHERE key='catalog_photo_link_fix_v1'")
+    .first<{ value: string }>();
+  if (photoLinksFixed?.value !== "1") {
+    await database.batch([
+      database.prepare("UPDATE products SET photo=? WHERE id=?").bind("/api/photo?id=catalog-5b6813d8b08f39670d92.webp", "ERP-31085"),
+      database.prepare("UPDATE products SET photo=? WHERE id=?").bind("/api/photo?id=catalog-0e2dccd17b3c1e85728f.webp", "ERP-32576"),
+      database.prepare("UPDATE products SET photo=? WHERE id=?").bind("/api/photo?id=catalog-2c99660f7797ecd82c01.webp", "ERP-31032"),
+      database.prepare("UPDATE products SET photo=? WHERE id=?").bind("/api/photo?id=catalog-47b62e79a081537bf0ae.webp", "ERP-30544"),
+      database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('catalog_photo_link_fix_v1','1')"),
+    ]);
+  }
+
   const sellingFixed = await database
     .prepare("SELECT value FROM app_settings WHERE key='erp_products_selling_v1'")
     .first<{ value: string }>();
