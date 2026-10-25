@@ -531,6 +531,64 @@ export const Route = createFileRoute("/api/store")({
       const url = new URL(request.url);
       await ensureCatalogImportV3();
 
+      if (url.searchParams.get("photoBlankList") === "1") {
+        if (url.searchParams.get("token") !== PHOTO_AUTOFILL_TOKEN) {
+          return Response.json({ error: "forbidden" }, { status: 403 });
+        }
+        const database = db();
+        const manifest = await readPhotoManifest();
+        const targetIds = new Set(manifest.flatMap((entry) => entry.productIds));
+        const rows = await database
+          .prepare("SELECT id,name,category,sub,unit,photo FROM products WHERE id LIKE 'ERP-%' ORDER BY sort_order,name")
+          .all();
+        const products = (rows.results as Array<Record<string, unknown>>)
+          .filter((row) => targetIds.has(String(row.id)))
+          .filter((row) => !String(row.photo ?? "").trim())
+          .map((row) => ({
+            id: String(row.id),
+            name: String(row.name ?? ""),
+            category: String(row.category ?? ""),
+            sub: String(row.sub ?? ""),
+            unit: String(row.unit ?? ""),
+          }));
+        return Response.json({ count: products.length, products }, { headers: { "Cache-Control": "no-store" } });
+      }
+
+      if (url.searchParams.get("photoApply") === "1") {
+        if (url.searchParams.get("token") !== PHOTO_AUTOFILL_TOKEN) {
+          return Response.json({ error: "forbidden" }, { status: 403 });
+        }
+        const id = (url.searchParams.get("id") || "").trim();
+        const sourceUrl = (url.searchParams.get("source") || "").trim();
+        if (!/^ERP-[A-Za-z0-9-]+$/.test(id) || !/^https?:\/\//i.test(sourceUrl)) {
+          return Response.json({ error: "invalid input" }, { status: 400 });
+        }
+
+        const manifest = await readPhotoManifest();
+        const targetIds = new Set(manifest.flatMap((entry) => entry.productIds));
+        if (!targetIds.has(id)) return Response.json({ error: "not a photo target" }, { status: 400 });
+
+        const database = db();
+        const product = await database
+          .prepare("SELECT id,name,photo FROM products WHERE id=?")
+          .bind(id)
+          .first<{ id: string; name: string; photo: string }>();
+        if (!product) return Response.json({ error: "product not found" }, { status: 404 });
+        if ((product.photo || "").trim()) {
+          return Response.json({ ok: true, skipped: true, reason: "already has photo", photo: product.photo });
+        }
+
+        const key = `catalog-search-${id.toLowerCase().replace(/[^a-z0-9-]/g, "")}.webp`;
+        const result = await importPhotoEntry({ key, sourceUrl, productIds: [id] });
+        return Response.json({
+          ok: true,
+          id,
+          name: product.name,
+          photo: `/api/photo?id=${key}`,
+          ...result,
+        }, { headers: { "Cache-Control": "no-store" } });
+      }
+
       if (url.searchParams.get("photoAutoFill") === "1") {
         if (url.searchParams.get("token") !== PHOTO_AUTOFILL_TOKEN) {
           return Response.json({ error: "forbidden" }, { status: 403 });
