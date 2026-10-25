@@ -973,6 +973,82 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  // Visual audit of the original 141-283 assignment (admin pages 8+).
+  // Pages 1-7 are intentionally excluded because the user already cleaned those manually.
+  const original141283VisualCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='original_141_283_visual_corrections_v1'")
+    .first<{ value: string }>();
+  if (original141283VisualCorrectionsV1?.value !== "1") {
+    const corrections: PhotoImportEntry[] = [
+      {
+        // The old image showed whole croakers even though this SKU is a fillet.
+        key: "catalog-original-148-croaker-fillet.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/657x657q90trim/image/vendor_inventory/image_audit/stage/manual/9fc6dd70cb754a80f695d2d0c696957fad5875d398c1a88494ccb3d57ba4_1756098202522.jpg",
+        productIds: ["ERP-32409"],
+      },
+      {
+        // These /절단 SKUs were sharing whole salted-mackerel photos.
+        key: "catalog-original-cut-jaban-mackerel.webp",
+        sourceUrl: "https://m.gorebob.com/web/product/extra/big/201905/ea4bce31cc53051e11244e3de553d7c8.jpg",
+        productIds: ["ERP-30634", "ERP-32440"],
+      },
+      {
+        // The old three images were generic distributor placeholder shots.
+        key: "catalog-original-cleaned-baby-octopus.webp",
+        sourceUrl: "https://gi.esmplus.com/jjang55490/%EC%97%B0%EC%B2%B4%EB%A5%98/pro_%EC%AD%88%EA%BE%B8%EB%AF%B8200g_01.png",
+        productIds: ["ERP-32644", "ERP-30986", "ERP-32781"],
+      },
+      {
+        // This 900 g shrimp SKU was using a visibly 200 g pack image.
+        key: "catalog-original-182-cocktail-shrimp-900g.webp",
+        sourceUrl: "https://s3.ap-northeast-2.amazonaws.com/gred/vendor/1653/images/39_1661329203.jpg",
+        productIds: ["ERP-32016"],
+      },
+      {
+        // Raw pork strips are more accurate than the cooked japchae dish that was shown.
+        key: "catalog-original-216-pork-strips.webp",
+        sourceUrl: "https://m.xn--299ayyo6jh9g9pm93g.kr/web/product/extra/big/202406/537eedf33b459583b28430fd567ef46b.jpg",
+        productIds: ["ERP-31040"],
+      },
+      {
+        // 소불고기헤드 is head meat; the old photo was a bottle of bulgogi marinade.
+        key: "catalog-original-222-beef-head-meat.webp",
+        sourceUrl: "https://gdimg.gmarket.co.kr/3133257833/more/02/800?ver=177396",
+        productIds: ["ERP-32766"],
+      },
+    ];
+
+    const correctionErrors: string[] = [];
+    for (const correction of corrections) {
+      try {
+        const existingIds: string[] = [];
+        for (const id of correction.productIds) {
+          const existing = await database.prepare("SELECT id FROM products WHERE id=?").bind(id).first<{ id: string }>();
+          if (existing?.id) existingIds.push(id);
+        }
+        if (!existingIds.length) continue;
+        await importPhotoEntry({ ...correction, productIds: existingIds });
+      } catch (error) {
+        correctionErrors.push(
+          `${correction.productIds.join(",")}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    if (correctionErrors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('original_141_283_visual_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='original_141_283_visual_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('original_141_283_visual_corrections_v1_error',?)")
+        .bind(correctionErrors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Original 141-283 visual corrections incomplete", correctionErrors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
