@@ -1,0 +1,25 @@
+name: Bing Image Debug
+
+on:
+  push:
+    paths:
+      - ".github/workflows/bing-image-debug.yml"
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Capture Bing image HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 60 --get --data-urlencode "q=새우튀김 업소용 대용량 식자재" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/156 Safari/537.36" \
+            -H "Accept-Language: ko-KR,ko;q=0.9,en;q=0.5" \
+            "https://www.bing.com/images/search" -o bing-search.html
+          wc -c bing-search.html
+      - name: Upload HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: bing-image-html
+          path: bing-search.html
