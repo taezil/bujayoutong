@@ -545,11 +545,18 @@ async function ensureCatalogImportV3() {
 
     const correctionErrors: string[] = [];
     for (const correction of corrections) {
+      const id = correction.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      // The live catalog can change while the user is manually cleaning products.
+      // Missing products are not errors and must not make every store request retry old photo imports.
+      if (!existing) continue;
+      if ((existing.photo || "").includes(`/api/photo?id=${correction.key}`)) continue;
       try {
         await importPhotoEntry(correction);
       } catch (error) {
-        const id = correction.productIds[0] || correction.key;
-        correctionErrors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+        correctionErrors.push(`${id || correction.key}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
