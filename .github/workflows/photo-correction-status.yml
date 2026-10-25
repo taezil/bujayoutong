@@ -1,5 +1,4 @@
 name: Photo correction status debug
-# page11-verification-v2
 
 on:
   push:
@@ -13,28 +12,31 @@ permissions:
 jobs:
   status:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
-      - name: Read current live product pages
+      - name: Wait for deploy and verify current 1-283 corrections
         shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq 1 30); do
-            if curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store" > /tmp/store.json 2>/dev/null; then
-              python - <<'PY'
+          for i in $(seq 1 60); do
+            if out="$(curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store?current283PhotoStatus=1" 2>/dev/null)"; then
+              echo "attempt=$i $out"
+              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ps=d.get("products") or []; ok=d.get("current283PhotoStatus") is True and d.get("done") is True and not d.get("error") and all("이미지수정필요" not in (p.get("name") or "") for p in ps); raise SystemExit(0 if ok else 1)'; then
+                curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store" > /tmp/store.json
+                python - <<'PY'
           import json
           with open("/tmp/store.json", encoding="utf-8") as f:
               d=json.load(f)
           ps=d.get("products") or []
           print("LIVE_PRODUCT_COUNT", len(ps))
-          for page in range(11, 16):
-              a=(page-1)*20; b=min(page*20,len(ps))
-              print(f"=== LIVE PAGE {page} positions {a+1}-{b} ===")
-              for pos,p in enumerate(ps[a:b], start=a+1):
-                  print(pos, p.get("id",""), p.get("name",""), p.get("unit",""), p.get("photo",""), sep="\t")
+          print("=== CURRENT POSITIONS 141-283 WITH BLANK/FLAGGED ===")
+          for pos,p in enumerate(ps[140:283], start=141):
+              if not (p.get("photo") or "").strip() or "이미지수정필요" in (p.get("name") or ""):
+                  print(pos,p.get("id",""),p.get("name",""),p.get("unit",""),p.get("photo",""),sep="\t")
           PY
-              exit 0
+                exit 0
+              fi
             fi
-            sleep 10
+            sleep 15
           done
           exit 1
