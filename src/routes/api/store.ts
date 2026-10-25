@@ -1996,6 +1996,325 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  // Live admin products 481-566 (pages 25-29 at 20 rows/page).
+  // This range comes from the user's 566-product assignment sheet, not the larger historical catalog source.
+  // Blank fills only run while photo is still blank; replacements/clears only run while the exact audited
+  // generated photo is still present. Any manual user photo wins.
+  const liveProducts481566PhotoAuditV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='live_products_481_566_photo_audit_v1'")
+    .first<{ value: string }>();
+  if (liveProducts481566PhotoAuditV1?.value !== "1") {
+    const blankFills: PhotoImportEntry[] = [
+      {
+        key: "catalog-live-483-erp-31794.webp",
+        sourceUrl: "https://poly-stadium.com/html/upload/save_image/0613153244_64880d8c3d74d.jpg",
+        productIds: ["ERP-31794"],
+      }, // 483 비닐봉투 30리터(50cm)
+      {
+        key: "catalog-live-484-erp-30534.webp",
+        sourceUrl: "https://m.hanjujubang.com/web/product/big/202111/4ac040bfa284ba0481ea11c46b37b4f6.jpg",
+        productIds: ["ERP-30534"],
+      }, // 484 비닐봉투 50리터(70cm)
+      {
+        key: "catalog-live-485-erp-30541.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/287643065500616-d2e0ac22-cce0-43fd-9055-45775c6235cf.jpg",
+        productIds: ["ERP-30541"],
+      }, // 485 비닐봉투 70/80리터(100cm)파랑
+      {
+        key: "catalog-live-486-erp-31840.webp",
+        sourceUrl: "https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/cat/25/5/3/2/5/9/6/natkE/440532596_1.jpg",
+        productIds: ["ERP-31840"],
+      }, // 486 비닐봉투 70/80리터(100cm)흰색
+      {
+        key: "catalog-live-492-erp-32025.webp",
+        sourceUrl: "https://img.dongwonmall.com/dwmall/static_root/product_img/main/0038094/003809445_1_a.jpg?f=webp&q=80",
+        productIds: ["ERP-32025"],
+      }, // 492 세이프핸즈/고무장갑(L)
+      {
+        key: "catalog-live-493-erp-32024.webp",
+        sourceUrl: "https://img.dongwonmall.com/dwmall/static_root/product_img/main/0038094/003809445_1_a.jpg?f=webp&q=80",
+        productIds: ["ERP-32024"],
+      }, // 493 세이프핸즈/고무장갑(M)
+      {
+        key: "catalog-live-494-erp-31820.webp",
+        sourceUrl: "https://img.dongwonmall.com/dwmall/static_root/product_img/main/0038094/003809445_1_a.jpg?f=webp&q=80",
+        productIds: ["ERP-31820"],
+      }, // 494 세이프핸즈/고무장갑(S)
+      {
+        key: "catalog-live-514-erp-30612.webp",
+        sourceUrl: "https://m.sjmro.co.kr/web/product/big/202111/019f083befcbb9349f3d8449946657a0.jpg",
+        productIds: ["ERP-30612"],
+      }, // 514 피비원
+      {
+        key: "catalog-live-515-erp-30676.webp",
+        sourceUrl: "https://ecimg.cafe24img.com/pg707b04087142059/parado99/web/product/extra/big/20240416/b8e1aaf7ab39df8f2348b4e70d6a245d.png",
+        productIds: ["ERP-30676"],
+      }, // 515 하이퐁(엘지)
+      {
+        key: "catalog-live-525-erp-30690.webp",
+        sourceUrl: "https://img.danawa.com/prod_img/500000/496/288/img/55288496_1.jpg?_v=20250829072227&shrink=360%3A360",
+        productIds: ["ERP-30690"],
+      }, // 525 생강가루70%복합(화미)
+      {
+        key: "catalog-live-529-erp-8008.webp",
+        sourceUrl: "https://image.homeplus.kr/rtd/c32bc559-2e31-451f-abe9-73669302a1df?w=750",
+        productIds: ["ERP-8008"],
+      }, // 529 곤약
+      {
+        key: "catalog-live-531-erp-30671.webp",
+        sourceUrl: "https://cdn-acemall.bizhost.kr/files/goods/30198/1656379328_2.jpg",
+        productIds: ["ERP-30671"],
+      }, // 531 순두부
+      {
+        key: "catalog-live-534-erp-32788.webp",
+        sourceUrl: "https://tfs.ourhome.co.kr/tfsfile/GoodImages/41095171_1.jpg",
+        productIds: ["ERP-32788"],
+      }, // 534 청포묵
+      {
+        key: "catalog-live-536-erp-31423.webp",
+        sourceUrl: "https://cdn-acemall.bizhost.kr/files/goods/30837/1686790228_2.jpg",
+        productIds: ["ERP-31423"],
+      }, // 536 팩두부
+      {
+        key: "catalog-live-537-erp-30362.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/6135/97a75f83844d55888661e31a53341e70029b6e7764fbb67b5fac73eecd0b.jpg",
+        productIds: ["ERP-30362"],
+      }, // 537 계란/대란
+      {
+        key: "catalog-live-538-erp-30414.webp",
+        sourceUrl: "https://image.coupangcdn.com/image/retail/images/123076081610037-db6638d2-a4e0-4cc8-a6a8-3760c52602ae.png",
+        productIds: ["ERP-30414"],
+      }, // 538 계란/왕란
+      {
+        key: "catalog-live-539-erp-30192.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/3663/43309e77adbb595f760a9f651581a4391b42a92e8bde89bed229c14dd53d.jpg",
+        productIds: ["ERP-30192"],
+      }, // 539 깐메추리알A
+      {
+        key: "catalog-live-540-erp-30350.webp",
+        sourceUrl: "https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/cat/25/9/1/8/8/2/7/UPPGT/13918827_2.jpg",
+        productIds: ["ERP-30350"],
+      }, // 540 버터
+      {
+        key: "catalog-live-541-erp-30635.webp",
+        sourceUrl: "https://gred.s3.ap-northeast-2.amazonaws.com/vendor/2314/images/21_4681404497.jpg",
+        productIds: ["ERP-30635"],
+      }, // 541 파운드마아가린(오뚜기)
+      {
+        key: "catalog-live-542-erp-9002.webp",
+        sourceUrl: "https://megakfood.com/cdn/shop/products/8801253122561_460x%402x.jpg?v=1617988084",
+        productIds: ["ERP-9002"],
+      }, // 542 김밥용단무지
+      {
+        key: "catalog-live-544-erp-9001.webp",
+        sourceUrl: "https://leemart.sg/cdn/shop/products/0000008602566_i1_1200-400x400.jpg?v=1681458692&width=1946",
+        productIds: ["ERP-9001"],
+      }, // 544 반달단무지
+      {
+        key: "catalog-live-545-erp-9015.webp",
+        sourceUrl: "https://www.ebaromarket.or.kr/goods_img/444/Limg/20250421_103853.jpg",
+        productIds: ["ERP-9015"],
+      }, // 545 반찬 고들빼기무침
+      {
+        key: "catalog-live-546-erp-32272.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/3351/images/107_5391759107_r.jpg",
+        productIds: ["ERP-32272"],
+      }, // 546 반찬 고추잎무침
+      {
+        key: "catalog-live-547-erp-31543.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/2455/images/11_9421854920_r.jpg?f=webp&s=876x876&t=inside",
+        productIds: ["ERP-31543"],
+      }, // 547 반찬 김밥우엉
+      {
+        key: "catalog-live-548-erp-9019.webp",
+        sourceUrl: "https://fastmall.co.kr/web/product/big/202601/d5b90030afcb8ed16386f4f1e34e4504.jpg",
+        productIds: ["ERP-9019"],
+      }, // 548 반찬 땅콩조림
+      {
+        key: "catalog-live-549-erp-31125.webp",
+        sourceUrl: "https://cdn.imweb.me/thumbnail/20211227/a79dcf47b2c20.jpg",
+        productIds: ["ERP-31125"],
+      }, // 549 반찬 마늘쫑지
+      {
+        key: "catalog-live-551-erp-9023.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/1517/images/33_7309385929_r.jpg",
+        productIds: ["ERP-9023"],
+      }, // 551 반찬 무말랭이무침
+      {
+        key: "catalog-live-553-erp-9025.webp",
+        sourceUrl: "https://fastmall.co.kr/web/product/big/202601/bcf42be89568e23534bbfb125718c9ba.jpg",
+        productIds: ["ERP-9025"],
+      }, // 553 반찬 알마늘
+      {
+        key: "catalog-live-556-erp-30189.webp",
+        sourceUrl: "https://img.danawa.com/prod_img/500000/331/137/img/32137331_1.jpg?_v=20240115082346&shrink=360%3A360",
+        productIds: ["ERP-30189"],
+      }, // 556 반찬 양념마늘쫑무침
+      {
+        key: "catalog-live-557-erp-30325.webp",
+        sourceUrl: "https://www.jiyoon.co.kr/product_image/banchandanji/yungunjorim_4kg_1.jpg",
+        productIds: ["ERP-30325"],
+      }, // 557 반찬 연근조림
+      {
+        key: "catalog-live-558-erp-9027.webp",
+        sourceUrl: "https://www.jiyoon.co.kr/product_image/banchandanji/danji_obokchae_4kg_1.jpg",
+        productIds: ["ERP-9027"],
+      }, // 558 반찬 오복채
+      {
+        key: "catalog-live-559-erp-9029.webp",
+        sourceUrl: "https://shop3.daumcdn.net/thumb/R500x500/?fname=http%3A%2F%2Fshop3.daumcdn.net%2Fshophow%2Fp%2FM32740609546.jpg%3Fut%3D20251218233503",
+        productIds: ["ERP-9029"],
+      }, // 559 반찬 콩조림
+      {
+        key: "catalog-live-560-erp-31908.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/d86b/cfdeccbc0c8e00129303482a811d7db520e5963030f71831513807bed68c.jpg",
+        productIds: ["ERP-31908"],
+      }, // 560 반찬/무쌈(와사비)
+      {
+        key: "catalog-live-561-erp-30451.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/1622/images/610_0163477413_r.jpg",
+        productIds: ["ERP-30451"],
+      }, // 561 오이피클
+      {
+        key: "catalog-live-563-erp-30203.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/3663/43309e77adbb595f760a9f651581a4391b42a92e8bde89bed229c14dd53d.jpg",
+        productIds: ["ERP-30203"],
+      }, // 563 깐 메추리알(행사)
+      {
+        key: "catalog-live-564-erp-4008.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/2019/images/75_4332217662_r.jpg",
+        productIds: ["ERP-4008"],
+      }, // 564 다시멸치
+      {
+        key: "catalog-live-566-erp-32161.webp",
+        sourceUrl: "https://cdn-acemall.bizhost.kr/files/goods/4009/2_418_13af0b571b1c1d8d0db422d536bc71c9.jpg",
+        productIds: ["ERP-32161"],
+      }, // 566 조각정육행사용/수입
+    ];
+    const replacements: Array<{ entry: PhotoImportEntry; expectedPhoto: string }> = [
+      {
+        entry: {
+          key: "catalog-live-498-erp-8096.webp",
+          sourceUrl: "https://img.danawa.com/prod_img/500000/344/848/img/2848344_1.jpg?_v=20251207052103&shrink=360%3A360",
+          productIds: ["ERP-8096"],
+        },
+        expectedPhoto: "/api/photo?id=catalog-447934e56c50133f6f4b.webp",
+      }, // 498 수세미다목적3M/5입(경인)
+      {
+        entry: {
+          key: "catalog-live-508-erp-30166.webp",
+          sourceUrl: "https://asset.m-gs.kr/prod/20148493/1/550",
+          productIds: ["ERP-30166"],
+        },
+        expectedPhoto: "/api/photo?id=catalog-447934e56c50133f6f4b.webp",
+      }, // 508 은박수세미(경인)
+      {
+        entry: {
+          key: "catalog-live-511-erp-8098.webp",
+          sourceUrl: "https://asset.m-gs.kr/prod/26386040/1/550",
+          productIds: ["ERP-8098"],
+        },
+        expectedPhoto: "/api/photo?id=catalog-447934e56c50133f6f4b.webp",
+      }, // 511 철수세미3M(경인)
+      {
+        entry: {
+          key: "catalog-live-518-erp-4022.webp",
+          sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/e0da/28596b46de0768fa5d844e0e09661f9dfe8fa02cd3a716e63cc34724fe7d.jpg",
+          productIds: ["ERP-4022"],
+        },
+        expectedPhoto: "/api/photo?id=catalog-64aba286ebdfa1c27d2a.webp",
+      }, // 518 2종혼합야채(당근,감자)
+      {
+        entry: {
+          key: "catalog-live-519-erp-32211.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/1517/images/38_1723427721.jpg",
+          productIds: ["ERP-32211"],
+        },
+        expectedPhoto: "/api/photo?id=catalog-64aba286ebdfa1c27d2a.webp",
+      }, // 519 4종혼합야채
+      {
+        entry: {
+          key: "catalog-live-552-erp-9024.webp",
+          sourceUrl: "https://m.food-k.co.kr/web/product/big/202404/924949b4367494e8559e377018749dbe.jpg",
+          productIds: ["ERP-9024"],
+        },
+        expectedPhoto: "/api/photo?id=catalog-147ad117a97a5076f53f.webp",
+      }, // 552 반찬 산고추지
+      {
+        entry: {
+          key: "catalog-live-555-erp-9026.webp",
+          sourceUrl: "https://img.danawa.com/prod_img/500000/756/655/img/4655756_1.jpg?_v=20180813164648&shrink=360%3A360",
+          productIds: ["ERP-9026"],
+        },
+        expectedPhoto: "/api/photo?id=catalog-7b217682974689d8d309.webp",
+      }, // 555 반찬 양념깻잎
+      {
+        entry: {
+          key: "catalog-live-565-erp-31106.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/2570/images/78_8739186608_r.png",
+          productIds: ["ERP-31106"],
+        },
+        expectedPhoto: "/api/photo?id=catalog-7b217682974689d8d309.webp",
+      }, // 565 생김치/행사(중국산)
+    ];
+    const clearAndHold = [
+      { id: "ERP-31480", expectedPhoto: "/api/photo?id=catalog-447934e56c50133f6f4b.webp" }, // 501 쓰리세븐평판수세미(경인)
+      { id: "ERP-30191", expectedPhoto: "/api/photo?id=catalog-147ad117a97a5076f53f.webp" }, // 554 반찬 양념고추무침
+    ] as const;
+
+    const errors: string[] = [];
+
+    for (const fill of blankFills) {
+      const id = fill.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || String(existing.photo || "").trim()) continue;
+      try {
+        await importPhotoEntry(fill, [""]);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    for (const fix of replacements) {
+      const id = fix.entry.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || String(existing.photo || "") !== fix.expectedPhoto) continue;
+      try {
+        await importPhotoEntry(fix.entry, [fix.expectedPhoto]);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    for (const hold of clearAndHold) {
+      try {
+        await database
+          .prepare("UPDATE products SET photo='' WHERE id=? AND COALESCE(photo,'')=?")
+          .bind(hold.id, hold.expectedPhoto)
+          .run();
+      } catch (error) {
+        errors.push(`${hold.id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('live_products_481_566_photo_audit_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='live_products_481_566_photo_audit_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('live_products_481_566_photo_audit_v1_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Live products 481-566 photo audit incomplete", errors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
