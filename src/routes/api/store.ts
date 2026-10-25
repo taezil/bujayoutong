@@ -1163,6 +1163,34 @@ export const Route = createFileRoute("/api/store")({
         }, { headers: { "Cache-Control": "no-store" } });
       }
 
+      if (url.searchParams.get("photoReviewPage") === "1") {
+        if (url.searchParams.get("token") !== PHOTO_AUTOFILL_TOKEN) {
+          return Response.json({ error: "forbidden" }, { status: 403 });
+        }
+        const database = db();
+        const page = Math.max(1, Math.floor(Number(url.searchParams.get("page") || "1")));
+        const pageSize = Math.max(1, Math.min(100, Math.floor(Number(url.searchParams.get("pageSize") || "20"))));
+        const offset = (page - 1) * pageSize;
+        const [countRow, rows] = await Promise.all([
+          database.prepare("SELECT COUNT(*) AS count FROM products").first<{ count: number }>(),
+          database
+            .prepare("SELECT id,name,category,sub,unit,photo,sort_order,hidden,soldout FROM products ORDER BY sort_order,name LIMIT ? OFFSET ?")
+            .bind(pageSize, offset)
+            .all(),
+        ]);
+        const total = Number(countRow?.count ?? 0);
+        return Response.json({
+          photoReviewPage: true,
+          page,
+          pageSize,
+          total,
+          pages: Math.max(1, Math.ceil(total / pageSize)),
+          startIndex: offset + 1,
+          endIndex: Math.min(total, offset + pageSize),
+          products: rows.results,
+        }, { headers: { "Cache-Control": "no-store" } });
+      }
+
       if (url.searchParams.get("photoMap") === "1") {
         if (url.searchParams.get("token") !== PHOTO_AUTOFILL_TOKEN) {
           return Response.json({ error: "forbidden" }, { status: 403 });
