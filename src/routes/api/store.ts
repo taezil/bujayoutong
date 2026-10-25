@@ -1049,6 +1049,73 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  // Admin product page 16: only fill products not present in Claude's 284-566 assignment.
+  // All five were blank in the live audit; a manual user upload made after the audit wins.
+  const adminPage16PhotoCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='admin_page16_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (adminPage16PhotoCorrectionsV1?.value !== "1") {
+    const fixes: Array<PhotoImportEntry & { expectedPhoto: string }> = [
+      {
+        key: "catalog-admin-page16-301-erp-32219.webp",
+        sourceUrl: "https://img-cf.kurly.com/hdims/resize/%3E1010x/quality/90/src/shop/data/goodsview/20240417/gv10000816448_1.jpg",
+        productIds: ["ERP-32219"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page16-309-erp-32999.webp",
+        sourceUrl: "https://m.jiwonfoodmall.com/web/upload/NNEditor/20250325/ab216a8498e3fff4108efa55ff05b627.jpg",
+        productIds: ["ERP-32999"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page16-312-erp-31552.webp",
+        sourceUrl: "https://fastmall.co.kr/web/product/small/202509/32dea29a857f25614559cc141d7b96bb.jpg",
+        productIds: ["ERP-31552"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page16-314-erp-32743.webp",
+        sourceUrl: "https://img.danawa.com/prod_img/500000/005/085/img/17085005_1.jpg?_v=20250919061330&shrink=360%3A360",
+        productIds: ["ERP-32743"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page16-320-erp-31886.webp",
+        sourceUrl: "https://gi.esmplus.com/food0077/food007/%EB%8C%80%EC%83%81/%EB%8C%80%EC%83%81%20%EC%89%90%ED%94%84%EC%9B%90%20%EB%96%A1%EB%B3%B6%EC%9D%B4%EC%86%8C%EC%8A%A4%2010kg.jpg",
+        productIds: ["ERP-31886"],
+        expectedPhoto: "",
+      },
+    ];
+
+    const errors: string[] = [];
+    for (const fix of fixes) {
+      const id = fix.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || String(existing.photo || "") !== fix.expectedPhoto) continue;
+      try {
+        await importPhotoEntry(fix);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_page16_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='admin_page16_photo_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_page16_photo_corrections_v1_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Admin page 16 photo corrections incomplete", errors);
+    }
+  }
+
   // Admin product page 15 (live rows 281-300 on 2026-10-26).
   // Pages 1-14 are protected because the user manually reviewed them.
   // Each fix is guarded by the exact photo seen during the live audit so a concurrent
