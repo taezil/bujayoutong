@@ -266,7 +266,7 @@ async function searchCatalogImageCandidates(query: string) {
     .replace(/&gt;/g, ">");
 
   for (const match of decoded.matchAll(/"murl":"([^"]+)"[^}]*"t":"([^"]*)"/g)) {
-    const url = match[1]?.replace(/\\u002f/g, "/").replace(/\\//g, "/");
+    const url = match[1]?.replaceAll("\\u002f", "/").replaceAll("\\/", "/");
     const title = match[2] || "";
     if (url?.startsWith("http") && !seen.has(url)) {
       seen.add(url);
@@ -276,7 +276,7 @@ async function searchCatalogImageCandidates(query: string) {
   }
   if (!candidates.length) {
     for (const match of decoded.matchAll(/"murl":"([^"]+)"/g)) {
-      const url = match[1]?.replace(/\\u002f/g, "/").replace(/\\//g, "/");
+      const url = match[1]?.replaceAll("\\u002f", "/").replaceAll("\\/", "/");
       if (url?.startsWith("http") && !seen.has(url)) {
         seen.add(url);
         candidates.push({ url, title: "" });
