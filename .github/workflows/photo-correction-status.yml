@@ -12,21 +12,97 @@ permissions:
 jobs:
   status:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - name: Diagnose live photo response
+      - name: Install image tools
         shell: bash
         run: |
-          set -euxo pipefail
-          URL="https://order.bujafood.kr/api/photo?id=catalog-page8-erp-32829.webp"
-          curl -fsSL --compressed -A "Mozilla/5.0" -D /tmp/headers.txt "$URL" -o /tmp/photo.bin
-          cat /tmp/headers.txt
-          file /tmp/photo.bin
-          wc -c /tmp/photo.bin
-          xxd -l 128 /tmp/photo.bin
-          python - <<'PY'
-          from pathlib import Path
-          p=Path("/tmp/photo.bin").read_bytes()
-          print("FIRST16",p[:16])
-          print("TEXT_HEAD",p[:500].decode("utf-8","replace"))
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-pil fonts-noto-cjk
+
+      - name: Build live contact sheets for original 141-283 assignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/photo-sheets
+          curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store" > /tmp/store.json
+
+          cat > /tmp/make_sheets.py <<'PY'
+          import io, json, os, urllib.request
+          from PIL import Image, ImageOps, ImageDraw, ImageFont
+
+          ids=["ERP-30329","ERP-31856","ERP-30102","ERP-1024","ERP-32829","ERP-32832","ERP-31351","ERP-32409","ERP-33007","ERP-30112","ERP-31410","ERP-30185","ERP-30634","ERP-1013","ERP-32440","ERP-1051","ERP-30349","ERP-32478","ERP-30397","ERP-32852","ERP-31869","ERP-1063","ERP-32428","ERP-30942","ERP-32974","ERP-31962","ERP-31964","ERP-32775","ERP-31966","ERP-32978","ERP-32255","ERP-32655","ERP-31697","ERP-1027","ERP-31263","ERP-1045","ERP-30740","ERP-32644","ERP-30986","ERP-32781","ERP-31321","ERP-32016","ERP-32197","ERP-8013","ERP-32399","ERP-1021","ERP-1072","ERP-9012","ERP-31247","ERP-1073","ERP-30233","ERP-1074","ERP-32085","ERP-1052","ERP-32257","ERP-1053","ERP-1054","ERP-1055","ERP-9006","ERP-9009","ERP-9010","ERP-30654","ERP-9007","ERP-30227","ERP-6010","ERP-30463","ERP-30207","ERP-33000","ERP-31839","ERP-32261","ERP-32361","ERP-30424","ERP-31340","ERP-6012","ERP-31724","ERP-31040","ERP-31518","ERP-31292","ERP-32199","ERP-8025","ERP-6016","ERP-32766","ERP-31586","ERP-31458","ERP-31038","ERP-30923","ERP-31045","ERP-6017","ERP-32664","ERP-5005","ERP-32579","ERP-8048","ERP-32422","ERP-5014","ERP-32377","ERP-5011","ERP-5012","ERP-8058","ERP-7004","ERP-7011","ERP-30653","ERP-32167","ERP-7006","ERP-31517","ERP-8167","ERP-30257","ERP-8019","ERP-31203","ERP-30911","ERP-9013","ERP-9014","ERP-9028","ERP-30272","ERP-32476","ERP-31204","ERP-8102","ERP-8103","ERP-31929","ERP-31164","ERP-31687","ERP-8140","ERP-8142","ERP-32977","ERP-32857","ERP-8076","ERP-8077","ERP-31215","ERP-8079","ERP-31413","ERP-9018","ERP-8091","ERP-8151","ERP-8145","ERP-31830","ERP-30933","ERP-30643","ERP-8024","ERP-32748","ERP-32948","ERP-31648","ERP-8051","ERP-8053","ERP-31246"]
+          with open("/tmp/store.json",encoding="utf-8") as f:
+              d=json.load(f)
+          byid={p.get("id"):p for p in d.get("products",[])}
+          base="https://order.bujafood.kr"
+          rows=[]
+          decoded={}
+          for idx,pid in enumerate(ids,start=141):
+              p=byid.get(pid)
+              if not p:
+                  rows.append((idx,pid,"[DELETED]","",""))
+                  continue
+              name=str(p.get("name") or "")
+              unit=str(p.get("unit") or "")
+              photo=str(p.get("photo") or "").strip()
+              rows.append((idx,pid,name,unit,photo))
+              if not photo: continue
+              url=photo if photo.startswith("http") else base+photo
+              try:
+                  req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0"})
+                  data=urllib.request.urlopen(req,timeout=30).read()
+                  img=Image.open(io.BytesIO(data)).convert("RGB")
+                  decoded[idx]=img.copy()
+                  print("OK",idx,pid,name,img.size,img.format if hasattr(img,"format") else "")
+              except Exception as e:
+                  print("DOWNLOAD_FAIL",idx,pid,name,url,repr(e))
+
+          with open("/tmp/products.tsv","w",encoding="utf-8") as f:
+              for r in rows: f.write("\t".join(map(str,r))+"\n")
+
+          font_path="/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+          font=ImageFont.truetype(font_path,18)
+          small=ImageFont.truetype(font_path,15)
+          tile_w,tile_h=320,300
+          image_h=210
+          gap=8
+
+          for page in range(8,16):
+              start=141+(page-8)*20
+              end=min(start+19,283)
+              subset=[r for r in rows if start <= r[0] <= end]
+              cols=4
+              rr=(len(subset)+cols-1)//cols
+              sheet=Image.new("RGB",(cols*tile_w+(cols+1)*gap,rr*tile_h+(rr+1)*gap),(235,235,235))
+              for pos,(idx,pid,name,unit,photo) in enumerate(subset):
+                  tile=Image.new("RGB",(tile_w,tile_h),"white")
+                  if idx in decoded:
+                      fitted=ImageOps.fit(decoded[idx],(tile_w,image_h),method=Image.Resampling.LANCZOS)
+                      tile.paste(fitted,(0,0))
+                  else:
+                      draw=ImageDraw.Draw(tile)
+                      draw.text((tile_w//2,image_h//2),"NO IMAGE",font=font,fill="black",anchor="mm")
+                  draw=ImageDraw.Draw(tile)
+                  display=name
+                  if len(display)>28: display=display[:27]+"…"
+                  draw.text((tile_w//2,228),f"{idx}. {display}",font=font,fill="black",anchor="mm")
+                  draw.text((tile_w//2,258),f"{pid}  {unit}",font=small,fill="black",anchor="mm")
+                  x=gap+(pos%cols)*tile_w+(pos%cols)*gap
+                  y=gap+(pos//cols)*tile_h+(pos//cols)*gap
+                  sheet.paste(tile,(x,y))
+              out=f"/tmp/photo-sheets/page-{page:02d}-{start}-{end}.jpg"
+              sheet.save(out,quality=88,optimize=True)
+              print("SHEET",out)
           PY
+
+          python /tmp/make_sheets.py
+
+      - name: Upload contact sheets
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-photo-audit-141-283-pillow
+          path: |
+            /tmp/photo-sheets/*.jpg
+            /tmp/products.tsv
+          if-no-files-found: error
