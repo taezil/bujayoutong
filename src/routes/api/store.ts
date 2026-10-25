@@ -748,6 +748,112 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  const current283PhotoCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='current_283_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (current283PhotoCorrectionsV1?.value !== "1") {
+    const fillIfBlank: PhotoImportEntry[] = [
+      {
+        key: "catalog-current283-erp-5003.webp",
+        sourceUrl: "https://www.k-and-e29.com/shopping/up_img/1761987296-329486_1.jpg",
+        productIds: ["ERP-5003"],
+      },
+      {
+        key: "catalog-current283-erp-5004.webp",
+        sourceUrl: "https://m.chorokdeul.com/web/product/big/201703/167_shop1_492133.jpg",
+        productIds: ["ERP-5004"],
+      },
+      {
+        key: "catalog-current283-erp-32843.webp",
+        sourceUrl: "https://images.onetimepim.com/acc-144/images/606039.png?twic=v1%2Fresize-max%3D800x-%2Fresize-max%3D-x800%2Foutput%3Dwebp",
+        productIds: ["ERP-32843"],
+      },
+      {
+        key: "catalog-current283-erp-32154.webp",
+        sourceUrl: "https://alwholesale.ae/cdn/shop/files/pilgrims_drumstic2_1024x1024.jpg?v=1743755150",
+        productIds: ["ERP-32154"],
+      },
+      {
+        key: "catalog-current283-erp-30436.webp",
+        sourceUrl: "https://gfoodninea.speedgabia.com/foodnine/list/s140956_1.jpg",
+        productIds: ["ERP-30436"],
+      },
+      {
+        key: "catalog-current283-erp-30124.webp",
+        sourceUrl: "https://img.danuri.io/catalog-image/937/208/015/8ae0c942c7d748fead4fe543500a696d.jpg?_v=20260410024618",
+        productIds: ["ERP-30124"],
+      },
+      {
+        key: "catalog-current283-erp-31373.webp",
+        sourceUrl: "https://static.megamart.com/product/image/0530/05303106/05303106_1_960.jpg",
+        productIds: ["ERP-31373"],
+      },
+      {
+        key: "catalog-current283-erp-32878.webp",
+        sourceUrl: "https://news.nateimg.co.kr/orgImg/wh/2025/05/28/1222640_1425441_2046.jpg",
+        productIds: ["ERP-32878"],
+      },
+    ];
+
+    const replaceFlagged: PhotoImportEntry[] = [
+      {
+        key: "catalog-current283-erp-32199.webp",
+        sourceUrl: "https://m.xn--299ayyo6jh9g9pm93g.kr/web/product/big/202405/912821c138cabafe6bed6e6c08e19595.jpg",
+        productIds: ["ERP-32199"],
+      },
+      {
+        key: "catalog-current283-erp-31586.webp",
+        sourceUrl: "https://img-cdn.meatbox.co.kr/m/images/itemImage/2020/12/28/10/41/thumb_product_25950_1_20201228104150.jpg",
+        productIds: ["ERP-31586"],
+      },
+    ];
+
+    const correctionErrors: string[] = [];
+    for (const correction of fillIfBlank) {
+      const id = correction.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || (existing.photo || "").trim()) continue;
+      try {
+        await importPhotoEntry(correction);
+      } catch (error) {
+        correctionErrors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    for (const correction of replaceFlagged) {
+      const id = correction.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT name FROM products WHERE id=?").bind(id).first<{ name: string }>()
+        : null;
+      if (!existing || !String(existing.name || "").includes("이미지수정필요")) continue;
+      try {
+        await importPhotoEntry(correction);
+        const cleanName = String(existing.name || "")
+          .replace(/\s*\/\s*이미지수정필요\s*/g, " ")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+        await database.prepare("UPDATE products SET name=? WHERE id=?").bind(cleanName, id).run();
+      } catch (error) {
+        correctionErrors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (correctionErrors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('current_283_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='current_283_photo_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('current_283_photo_corrections_v1_error',?)")
+        .bind(correctionErrors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Current 1-283 photo corrections incomplete", correctionErrors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
@@ -774,6 +880,23 @@ export const Route = createFileRoute("/api/store")({
     try {
       const url = new URL(request.url);
       await ensureCatalogImportV3();
+
+      if (url.searchParams.get("current283PhotoStatus") === "1") {
+        const database = db();
+        const ids = ["ERP-32199","ERP-31586","ERP-5003","ERP-5004","ERP-32843","ERP-32154","ERP-30436","ERP-30124","ERP-31373","ERP-32878"];
+        const placeholders = ids.map(() => "?").join(",");
+        const [rows, doneRow, errorRow] = await Promise.all([
+          database.prepare(`SELECT id,name,photo,sort_order FROM products WHERE id IN (${placeholders}) ORDER BY sort_order,name`).bind(...ids).all(),
+          database.prepare("SELECT value FROM app_settings WHERE key='current_283_photo_corrections_v1'").first<{ value: string }>(),
+          database.prepare("SELECT value FROM app_settings WHERE key='current_283_photo_corrections_v1_error'").first<{ value: string }>(),
+        ]);
+        return Response.json({
+          current283PhotoStatus: true,
+          done: doneRow?.value === "1",
+          error: errorRow?.value || "",
+          products: rows.results,
+        }, { headers: { "Cache-Control": "no-store" } });
+      }
 
       if (url.searchParams.get("page10PhotoStatus") === "1") {
         const database = db();
