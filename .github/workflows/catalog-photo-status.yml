@@ -1,0 +1,21 @@
+name: Catalog Photo Status Snapshot
+
+on:
+  push:
+    paths:
+      - ".github/workflows/catalog-photo-status.yml"
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch current photo status
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 60 "https://order.bujafood.kr/api/store?photoAutoStatus=1&token=buja-photo-20261025-f6e3d9a4" | tee photo-status.json
+      - name: Upload status
+        uses: actions/upload-artifact@v4
+        with:
+          name: photo-status
+          path: photo-status.json
