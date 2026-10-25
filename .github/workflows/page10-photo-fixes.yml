@@ -1,0 +1,31 @@
+name: Trigger page 10 photo corrections
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/page10-photo-fixes.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  trigger-corrections:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Wait for deployment and verify page 10 corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://order.bujafood.kr/api/store?page10PhotoStatus=1"
+          for i in $(seq 1 60); do
+            if out="$(curl -fsS --connect-timeout 10 --max-time 120 "$URL" 2>/dev/null)"; then
+              echo "attempt=$i $out"
+              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ps=d.get("products") or []; ok=d.get("page10CorrectionStatus") is True and d.get("done") is True and not d.get("error") and len(ps) == 9 and all((p.get("photo") or "").startswith("/api/photo?id=catalog-page10-") for p in ps); raise SystemExit(0 if ok else 1)'; then
+                exit 0
+              fi
+            fi
+            sleep 15
+          done
+          exit 1
