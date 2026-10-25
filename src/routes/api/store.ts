@@ -637,6 +637,82 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  const page10PhotoCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='page10_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (page10PhotoCorrectionsV1?.value !== "1") {
+    const corrections: PhotoImportEntry[] = [
+      {
+        key: "catalog-page10-erp-33023.webp",
+        sourceUrl: "https://cdn.011st.com/11src/product/8926377105/B.webp?180852565=",
+        productIds: ["ERP-33023"],
+      },
+      {
+        key: "catalog-page10-erp-33024.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/3604838363584295-6efeebb8-02f1-45ca-9846-73be4094f98f.jpg",
+        productIds: ["ERP-33024"],
+      },
+      {
+        key: "catalog-page10-erp-32439.webp",
+        sourceUrl: "https://image.coupangcdn.com/image/retail/images/3043017785244780-0ffe4106-9cb7-4b82-ad07-12559c3f7803.jpg",
+        productIds: ["ERP-32439"],
+      },
+      {
+        key: "catalog-page10-erp-32665.webp",
+        sourceUrl: "https://ecimg.cafe24img.com/pg851b80444222023/op98700/web/product/big/20250521/f8eca52f1892150878f8af615a46bada.jpg",
+        productIds: ["ERP-32665"],
+      },
+      {
+        key: "catalog-page10-erp-32468.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/ee0e/6ecbc78cf63e42fea25369b21fac12571a1298a20ce790ae2aa86b063b52.png",
+        productIds: ["ERP-32468"],
+      },
+      {
+        key: "catalog-page10-erp-32192.webp",
+        sourceUrl: "https://m.seinsusan.kr/web/product/big/202308/87728bf8f9b1dd65c470ca1ccc7bfa7e.png",
+        productIds: ["ERP-32192"],
+      },
+      {
+        key: "catalog-page10-erp-31895.webp",
+        sourceUrl: "https://static.chabyulhwa.com/products/images/720x720x80/202407/%EC%9A%B0%EB%A0%81%EC%82%B4%20%EC%8D%B8%EB%84%A4%EC%9D%BC_7fd5e2a2-5d8e-4d87-9346-ee91c6f3fd01.png",
+        productIds: ["ERP-31895"],
+      },
+      {
+        key: "catalog-page10-erp-32780.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/2578/images/78_2814119592_r.jpg",
+        productIds: ["ERP-32780"],
+      },
+      {
+        key: "catalog-page10-erp-32195.webp",
+        sourceUrl: "https://m.wandojb.co.kr/web/product/big/201908/4df3cac7655b29f329817e86162a0aba.jpg",
+        productIds: ["ERP-32195"],
+      },
+    ];
+
+    const correctionErrors: string[] = [];
+    for (const correction of corrections) {
+      try {
+        await importPhotoEntry(correction);
+      } catch (error) {
+        const id = correction.productIds[0] || correction.key;
+        correctionErrors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (correctionErrors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('page10_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='page10_photo_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('page10_photo_corrections_v1_error',?)")
+        .bind(correctionErrors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Page 10 photo corrections incomplete", correctionErrors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
@@ -663,6 +739,23 @@ export const Route = createFileRoute("/api/store")({
     try {
       const url = new URL(request.url);
       await ensureCatalogImportV3();
+
+      if (url.searchParams.get("page10PhotoStatus") === "1") {
+        const database = db();
+        const ids = ["ERP-33023","ERP-33024","ERP-32439","ERP-32665","ERP-32468","ERP-32192","ERP-31895","ERP-32780","ERP-32195"];
+        const placeholders = ids.map(() => "?").join(",");
+        const [rows, doneRow, errorRow] = await Promise.all([
+          database.prepare(`SELECT id,name,photo,sort_order FROM products WHERE id IN (${placeholders}) ORDER BY sort_order,name`).bind(...ids).all(),
+          database.prepare("SELECT value FROM app_settings WHERE key='page10_photo_corrections_v1'").first<{ value: string }>(),
+          database.prepare("SELECT value FROM app_settings WHERE key='page10_photo_corrections_v1_error'").first<{ value: string }>(),
+        ]);
+        return Response.json({
+          page10CorrectionStatus: true,
+          done: doneRow?.value === "1",
+          error: errorRow?.value || "",
+          products: rows.results,
+        }, { headers: { "Cache-Control": "no-store" } });
+      }
 
       if (url.searchParams.get("page9PhotoStatus") === "1") {
         const database = db();
