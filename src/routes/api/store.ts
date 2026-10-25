@@ -567,6 +567,30 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  const page8PhotoCorrectionsV2 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='page8_photo_corrections_v2'")
+    .first<{ value: string }>();
+  if (page8PhotoCorrectionsV2?.value !== "1") {
+    try {
+      await importPhotoEntry({
+        key: "catalog-page8-erp-1063.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/3841/images/65_5581092641_r.jpg",
+        productIds: ["ERP-1063"],
+      });
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('page8_photo_corrections_v2','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='page8_photo_corrections_v2_error'"),
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('page8_photo_corrections_v2_error',?)")
+        .bind(message.slice(0, 1000))
+        .run();
+      console.error("Page 8 photo correction v2 incomplete", error);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
@@ -596,17 +620,19 @@ export const Route = createFileRoute("/api/store")({
 
       if (url.searchParams.get("page8PhotoStatus") === "1") {
         const database = db();
-        const ids = ["ERP-32829","ERP-32832","ERP-31351","ERP-31410","ERP-32478","ERP-32852"];
+        const ids = ["ERP-32829","ERP-32832","ERP-31351","ERP-31410","ERP-32478","ERP-32852","ERP-1063"];
         const placeholders = ids.map(() => "?").join(",");
-        const [rows, doneRow, errorRow] = await Promise.all([
+        const [rows, doneRow, errorRow, doneV2Row, errorV2Row] = await Promise.all([
           database.prepare(`SELECT id,name,photo,sort_order FROM products WHERE id IN (${placeholders}) ORDER BY sort_order,name`).bind(...ids).all(),
           database.prepare("SELECT value FROM app_settings WHERE key='page8_photo_corrections_v1'").first<{ value: string }>(),
           database.prepare("SELECT value FROM app_settings WHERE key='page8_photo_corrections_v1_error'").first<{ value: string }>(),
+          database.prepare("SELECT value FROM app_settings WHERE key='page8_photo_corrections_v2'").first<{ value: string }>(),
+          database.prepare("SELECT value FROM app_settings WHERE key='page8_photo_corrections_v2_error'").first<{ value: string }>(),
         ]);
         return Response.json({
           page8CorrectionStatus: true,
-          done: doneRow?.value === "1",
-          error: errorRow?.value || "",
+          done: doneRow?.value === "1" && doneV2Row?.value === "1",
+          error: [errorRow?.value || "", errorV2Row?.value || ""].filter(Boolean).join(" | "),
           products: rows.results,
         }, { headers: { "Cache-Control": "no-store" } });
       }
