@@ -1,0 +1,31 @@
+name: Catalog Photo Final Snapshot
+
+on:
+  push:
+    paths:
+      - ".github/workflows/catalog-photo-final-snapshot.yml"
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for photo map endpoint and fetch
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://order.bujafood.kr/api/store"
+          TOKEN="buja-photo-20261025-f6e3d9a4"
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 60 "$BASE?photoMap=1&token=$TOKEN" -o final-photo-map.json; then
+              if grep -q '"mappings"' final-photo-map.json; then
+                cat final-photo-map.json
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          exit 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-photo-map
+          path: final-photo-map.json
