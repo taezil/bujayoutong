@@ -258,30 +258,39 @@ async function searchCatalogImageCandidates(query: string) {
   const candidates: Array<{ url: string; title: string }> = [];
   const seen = new Set<string>();
 
-  const decoded = html
+  const decodeHtml = (value: string) => value
     .replace(/&quot;/g, '"')
     .replace(/&amp;/g, "&")
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
 
-  for (const match of decoded.matchAll(/"murl":"([^"]+)"[^}]*"t":"([^"]*)"/g)) {
-    const url = match[1]?.replaceAll("\\u002f", "/").replaceAll("\\/", "/");
-    const title = match[2] || "";
-    if (url?.startsWith("http") && !seen.has(url)) {
+  // Current Bing image results store per-card metadata in the m="..." attribute.
+  for (const attr of html.matchAll(/\sm="([^"]+)"/g)) {
+    const metadata = decodeHtml(attr[1] || "");
+    const urlMatch = metadata.match(/"murl":"([^"]+)"/);
+    if (!urlMatch) continue;
+    const titleMatch = metadata.match(/"t":"([^"]*)"/);
+    const url = (urlMatch[1] || "").replaceAll("\\u002f", "/").replaceAll("\\/", "/");
+    const title = decodeHtml(titleMatch?.[1] || "");
+    if (url.startsWith("http") && !seen.has(url)) {
       seen.add(url);
       candidates.push({ url, title });
-      if (candidates.length >= 12) break;
+      if (candidates.length >= 20) break;
     }
   }
+
+  // Fallback: Bing detail links expose mediaurl even if card metadata changes.
   if (!candidates.length) {
-    for (const match of decoded.matchAll(/"murl":"([^"]+)"/g)) {
-      const url = match[1]?.replaceAll("\\u002f", "/").replaceAll("\\/", "/");
-      if (url?.startsWith("http") && !seen.has(url)) {
-        seen.add(url);
-        candidates.push({ url, title: "" });
-        if (candidates.length >= 12) break;
-      }
+    for (const match of html.matchAll(/[?&]mediaurl=([^&"']+)/g)) {
+      try {
+        const url = decodeURIComponent(decodeHtml(match[1] || ""));
+        if (url.startsWith("http") && !seen.has(url)) {
+          seen.add(url);
+          candidates.push({ url, title: query });
+          if (candidates.length >= 20) break;
+        }
+      } catch {}
     }
   }
 
@@ -292,7 +301,6 @@ async function searchCatalogImageCandidates(query: string) {
     candidates,
   };
 }
-
 
 const PHOTO_AUTOFILL_TOKEN = "buja-photo-20261025-f6e3d9a4";
 const PHOTO_MATCH_TERMS = [
@@ -494,6 +502,16 @@ async function ensureCatalogImportV3() {
     await database
       .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('catalog_photo_safe_restore_v1','1')")
       .run();
+  }
+
+  const photoAutofillParserV2 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
+    .first<{ value: string }>();
+  if (photoAutofillParserV2?.value !== "1") {
+    await database.batch([
+      database.prepare("DELETE FROM app_settings WHERE key='photo_autofill_v1_skipped'"),
+      database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('photo_autofill_parser_v2','1')"),
+    ]);
   }
 
   const sellingFixed = await database
