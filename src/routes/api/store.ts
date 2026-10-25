@@ -854,6 +854,78 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  const original141283DuplicateFixesV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='original_141_283_duplicate_fixes_v1'")
+    .first<{ value: string }>();
+  if (original141283DuplicateFixesV1?.value !== "1") {
+    const fixes: Array<PhotoImportEntry & { expectedPhoto: string }> = [
+      {
+        key: "catalog-original-276-erp-30643.webp",
+        sourceUrl: "https://static.chabyulhwa.com/products/images/720x720x80/archive/20230614/bulk/4012984/4012984_0.png",
+        productIds: ["ERP-30643"],
+        expectedPhoto: "/api/photo?id=catalog-615db3ec9ed2d8ee7af6.webp",
+      },
+      {
+        key: "catalog-original-278-erp-32748.webp",
+        sourceUrl: "https://img.danawa.com/prod_img/500000/001/371/img/7371001_1.jpg?_v=20221110093240",
+        productIds: ["ERP-32748"],
+        expectedPhoto: "/api/photo?id=catalog-615db3ec9ed2d8ee7af6.webp",
+      },
+      {
+        key: "catalog-original-251-erp-9014.webp",
+        sourceUrl: "https://cdn.imweb.me/thumbnail/20210910/5e72623d66a0d.png",
+        productIds: ["ERP-9014"],
+        expectedPhoto: "/api/photo?id=catalog-7b217682974689d8d309.webp",
+      },
+      {
+        key: "catalog-original-270-erp-9018.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/1631/images/99_8223152758_r.jpg",
+        productIds: ["ERP-9018"],
+        expectedPhoto: "/api/photo?id=catalog-7b217682974689d8d309.webp",
+      },
+      {
+        key: "catalog-original-246-erp-30257.webp",
+        sourceUrl: "https://cdn.imweb.me/thumbnail/20210911/fec06f4127f1b.jpg",
+        productIds: ["ERP-30257"],
+        expectedPhoto: "/api/photo?id=catalog-d3735b48e534920b9ce7.webp",
+      },
+      {
+        key: "catalog-original-255-erp-31204.webp",
+        sourceUrl: "https://gred.s3.ap-northeast-2.amazonaws.com/vendor/1388/images/83_1240621053.jpg",
+        productIds: ["ERP-31204"],
+        expectedPhoto: "/api/photo?id=catalog-d3735b48e534920b9ce7.webp",
+      },
+    ];
+
+    const errors: string[] = [];
+    for (const fix of fixes) {
+      const id = fix.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      // Never overwrite a photo the user changed while this cleanup is running.
+      if (!existing || String(existing.photo || "") !== fix.expectedPhoto) continue;
+      try {
+        await importPhotoEntry(fix);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('original_141_283_duplicate_fixes_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='original_141_283_duplicate_fixes_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('original_141_283_duplicate_fixes_v1_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Original 141-283 duplicate photo fixes incomplete", errors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
