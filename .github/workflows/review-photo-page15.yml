@@ -1,10 +1,10 @@
-name: Review catalog photo page 15
+name: Review catalog photo page 16
 
 on:
   push:
     branches: [main]
     paths:
-      - ".github/workflows/review-photo-page15.yml"
+      - ".github/workflows/review-photo-page16.yml"
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Wait for deployment and fetch live page 15
+      - name: Wait for deployment and fetch live page 16
         shell: bash
         run: |
           set -euo pipefail
@@ -29,32 +29,32 @@ jobs:
           print(m.group(1))
           PY
           )"
-          URL="https://order.bujafood.kr/api/store?photoReviewPage=1&page=15&pageSize=20&token=$TOKEN"
+          URL="https://order.bujafood.kr/api/store?photoReviewPage=1&page=16&pageSize=20&token=$TOKEN"
           for i in $(seq 1 60); do
             if out="$(curl -fsS --connect-timeout 10 --max-time 60 "$URL" 2>/dev/null)"; then
-              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ok=d.get("photoReviewPage") is True and d.get("page")==15 and len(d.get("products") or [])==20; raise SystemExit(0 if ok else 1)'; then
-                printf '%s' "$out" > /tmp/page15.json
+              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ok=d.get("photoReviewPage") is True and d.get("page")==16 and len(d.get("products") or [])==20; raise SystemExit(0 if ok else 1)'; then
+                printf '%s' "$out" > /tmp/page16.json
                 break
               fi
             fi
             sleep 10
           done
-          test -s /tmp/page15.json
+          test -s /tmp/page16.json
           python - <<'PY'
           import json
-          d=json.load(open("/tmp/page15.json"))
+          d=json.load(open("/tmp/page16.json"))
           print("PAGE",d["page"],"TOTAL",d["total"],"RANGE",d["startIndex"],d["endIndex"])
           for i,p in enumerate(d["products"], d["startIndex"]):
               print(f'{i:03d}\t{p["id"]}\t{p["name"]}\t{p.get("unit","")}\t{p.get("photo","")}')
           PY
 
-      - name: Download live page 15 photos
+      - name: Download live page 16 photos
         shell: python
         run: |
           import json, pathlib, urllib.request
-          root=pathlib.Path("page15-review")
+          root=pathlib.Path("page16-review")
           root.mkdir(exist_ok=True)
-          d=json.load(open("/tmp/page15.json"))
+          d=json.load(open("/tmp/page16.json"))
           for i,p in enumerate(d["products"], d["startIndex"]):
               photo=(p.get("photo") or "").strip()
               if not photo:
@@ -72,6 +72,6 @@ jobs:
       - name: Upload live review bundle
         uses: actions/upload-artifact@v4
         with:
-          name: page15-live-review
-          path: page15-review
+          name: page16-live-review
+          path: page16-review
           retention-days: 2
