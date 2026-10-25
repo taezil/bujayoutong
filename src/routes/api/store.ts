@@ -590,11 +590,13 @@ export const Route = createFileRoute("/api/store")({
 
         const database = db();
         const product = await database
-          .prepare("SELECT id,name,photo FROM products WHERE id=?")
+          .prepare("SELECT id,name,photo,sort_order FROM products WHERE id=?")
           .bind(id)
-          .first<{ id: string; name: string; photo: string }>();
+          .first<{ id: string; name: string; photo: string; sort_order: number }>();
         if (!product) return Response.json({ error: "product not found" }, { status: 404 });
-        if ((product.photo || "").trim()) {
+        const force = url.searchParams.get("force") === "1";
+        const forceAllowed = force && Number(product.sort_order) >= 140;
+        if ((product.photo || "").trim() && !forceAllowed) {
           return Response.json({ ok: true, skipped: true, reason: "already has photo", photo: product.photo });
         }
 
