@@ -1049,6 +1049,146 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  // Admin pages 17-19: fill only live products that are NOT in Claude's 284-566 ERP list.
+  // All audited targets were blank. A user's manual upload always wins because the import
+  // runs only while the current photo is still exactly the audited empty string.
+  const adminPages1719ExtraPhotoCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='admin_pages17_19_extra_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (adminPages1719ExtraPhotoCorrectionsV1?.value !== "1") {
+    const fixes: Array<PhotoImportEntry & { expectedPhoto: string }> = [
+      {
+        key: "catalog-admin-page17-321-erp-32575.webp",
+        sourceUrl: "https://www.sajofoodist.co.kr/product_img/8809627599247.jpg",
+        productIds: ["ERP-32575"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page17-324-erp-31388.webp",
+        sourceUrl: "https://baking25.com/web/product/big/shop1_0b54101873caecfeaada1fdb2d2f9e41.JPG",
+        productIds: ["ERP-31388"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page17-329-erp-32275.webp",
+        sourceUrl: "https://cdn.imweb.me/thumbnail/20211226/ec66d45e909be.jpg",
+        productIds: ["ERP-32275"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page17-330-erp-30495.webp",
+        sourceUrl: "https://m.food-k.co.kr/web/product/big/202103/479d27516390c5470d32cc17597a2f14.jpg",
+        productIds: ["ERP-30495"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page17-331-erp-32992.webp",
+        sourceUrl: "https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/263861063762405-5cfa48a9-8629-4033-8724-07b1caf76c12.jpg",
+        productIds: ["ERP-32992"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page17-333-erp-30223.webp",
+        sourceUrl: "https://shop-phinf.pstatic.net/20230503_212/1683118138150QNGLu_JPEG/KakaoTalk_20230503_205319502.jpg?type=w860",
+        productIds: ["ERP-30223"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page18-341-erp-32968.webp",
+        sourceUrl: "https://ecimg.cafe24img.com/pg495b91623015012/saucelab/web/product/big/20231012/4b31a607b31480c232a2abda7701c32d.png",
+        productIds: ["ERP-32968"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page18-342-erp-32600.webp",
+        sourceUrl: "https://makeshop-multi-images.akamaized.net/nakayamafood/itemimages/000000001133_FuFzoUt.jpg",
+        productIds: ["ERP-32600"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page18-355-erp-31460.webp",
+        sourceUrl: "https://shop.bellfoods.co.jp/cdn/shop/files/142781965.jpg?v=1724834078&width=550",
+        productIds: ["ERP-31460"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page18-356-erp-32810.webp",
+        sourceUrl: "https://s3.ap-northeast-2.amazonaws.com/gred/vendor/1517/images/17_4314350619_r.jpg",
+        productIds: ["ERP-32810"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page18-357-erp-32941.webp",
+        sourceUrl: "https://m.withmeat1201.com/web/product/big/202104/707fe610b5e6d6c8bc7f1d4cff6d9249.jpg",
+        productIds: ["ERP-32941"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page18-359-erp-31391.webp",
+        sourceUrl: "https://foodtalktalk.com/web/product/images/wstory/2025/06/0060/1000782098_00_0.jpg",
+        productIds: ["ERP-31391"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page18-360-erp-31571.webp",
+        sourceUrl: "https://st.kakaocdn.net/shoppingstore/product/20260329155612_5a6d0c3c76a14353913002aec1f498be.jpg",
+        productIds: ["ERP-31571"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page19-361-erp-32483.webp",
+        sourceUrl: "https://m.splusmarket.com/web/product/extra/big/202407/ab684386d41f45542a9443d4b0720ac9.jpg",
+        productIds: ["ERP-32483"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page19-364-erp-32885.webp",
+        sourceUrl: "https://content.foodspring.co.kr/vendor/1769/images/75_6131247999_r.jpg",
+        productIds: ["ERP-32885"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page19-374-erp-31871.webp",
+        sourceUrl: "https://images.emarteveryday.co.kr/images/productreview/SQI3tNFFAwtasvgP/SglP8Db7CghCEGsN.jpg",
+        productIds: ["ERP-31871"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page19-375-erp-32914.webp",
+        sourceUrl: "https://godomall.speedycdn.net/71b53f11bc182bb6fe531a760f3a2a00/goods/1000000289/image/detail/1000000289_detail_078.jpg",
+        productIds: ["ERP-32914"],
+        expectedPhoto: "",
+      },
+    ];
+
+    const errors: string[] = [];
+    for (const fix of fixes) {
+      const id = fix.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || String(existing.photo || "") !== fix.expectedPhoto) continue;
+      try {
+        await importPhotoEntry(fix);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_pages17_19_extra_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='admin_pages17_19_extra_photo_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_pages17_19_extra_photo_corrections_v1_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Admin pages 17-19 extra photo corrections incomplete", errors);
+    }
+  }
+
   // Admin product page 16: only fill products not present in Claude's 284-566 assignment.
   // All five were blank in the live audit; a manual user upload made after the audit wins.
   const adminPage16PhotoCorrectionsV1 = await database
