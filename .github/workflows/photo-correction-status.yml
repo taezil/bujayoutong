@@ -10,34 +10,34 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
-      - name: Wait for deploy and verify pepper photo split
+      - name: Audit remaining original-assignment duplicate groups
         shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq 1 60); do
-            if curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store" > /tmp/store.json 2>/dev/null; then
-              if python - <<'PY'
-          import json,sys
+          curl -fsS --connect-timeout 10 --max-time 120 "https://order.bujafood.kr/api/store" > /tmp/store.json
+          python - <<'PY'
+          import json
           with open("/tmp/store.json",encoding="utf-8") as f:
               d=json.load(f)
           byid={p.get("id"):p for p in (d.get("products") or [])}
-          old="/api/photo?id=catalog-147ad117a97a5076f53f.webp"
-          targets=["ERP-9013","ERP-9028"]
-          still_old=[i for i in targets if i in byid and (byid[i].get("photo") or "")==old]
-          print("still_old=",",".join(still_old))
-          if still_old: sys.exit(1)
-          for i in targets:
-              p=byid.get(i)
-              print(i,(p or {}).get("name",""),(p or {}).get("photo",""),sep="\t")
+          groups=[
+            ["ERP-1052","ERP-32257","ERP-1053","ERP-1054","ERP-1055"],
+            ["ERP-1013","ERP-32440"],
+            ["ERP-30185","ERP-30634"],
+            ["ERP-30463","ERP-30207"],
+            ["ERP-31856","ERP-31869"],
+          ]
+          print("LIVE_PRODUCT_COUNT",len(d.get("products") or []))
+          for gi,ids in enumerate(groups,1):
+              print("=== GROUP",gi,"===")
+              for product_id in ids:
+                  p=byid.get(product_id)
+                  if p:
+                      print(product_id,p.get("name",""),p.get("unit",""),p.get("photo",""),sep="\t")
+                  else:
+                      print(product_id,"MISSING",sep="\t")
           PY
-              then
-                exit 0
-              fi
-            fi
-            sleep 15
-          done
-          exit 1
