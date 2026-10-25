@@ -1049,6 +1049,115 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  // Admin page 27: non-Claude live products only.
+  // ERP-32294 (겨자원액 2.2kg) is intentionally skipped until an exact source photo is found.
+  const adminPage27ExtraPhotoCorrectionsV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='admin_page27_extra_photo_corrections_v1'")
+    .first<{ value: string }>();
+  if (adminPage27ExtraPhotoCorrectionsV1?.value !== "1") {
+    const fixes: Array<PhotoImportEntry & { expectedPhoto: string }> = [
+      {
+        key: "catalog-admin-page27-521-erp-32987.webp",
+        sourceUrl: "https://seoulrecipe.com/cdn/shop/files/CrushedPearJuice1_1200x1200.jpg?v=1714102913",
+        productIds: ["ERP-32987"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page27-522-erp-33008.webp",
+        sourceUrl: "https://image.officedepot.co.kr/item/W81022/4.jpg",
+        productIds: ["ERP-33008"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page27-524-erp-33016.webp",
+        sourceUrl: "https://images.emarteveryday.co.kr/images/app/webapps/evd_web2/share/SKU/mall/10/96/8801045339610_1.png",
+        productIds: ["ERP-33016"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page27-525-erp-33017.webp",
+        sourceUrl: "https://img-cf.kurly.com/hdims/resize/%3E720x/quality/90/src/shop/data/goodsview/20240424/gv00000818887_1.jpg",
+        productIds: ["ERP-33017"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page27-526-erp-33012.webp",
+        sourceUrl: "https://image.officedepot.co.kr/item/10030006051698/4.JPG",
+        productIds: ["ERP-33012"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page27-527-erp-33014.webp",
+        sourceUrl: "https://taescm.t-woong.co.kr/mall/img/prd/det_img/53606_det.jpg",
+        productIds: ["ERP-33014"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page27-528-erp-33015.webp",
+        sourceUrl: "https://taescm.t-woong.co.kr/mall/img/prd/det_img/53605_det.jpg",
+        productIds: ["ERP-33015"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page27-529-erp-33020.webp",
+        sourceUrl: "https://image.woodongs.com/imgsvr/item/GD_8801045254913_001.jpg",
+        productIds: ["ERP-33020"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page27-530-erp-33019.webp",
+        sourceUrl: "https://image.woodongs.com/imgsvr/item/GD_8801045552132_001.jpg",
+        productIds: ["ERP-33019"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page27-531-erp-33018.webp",
+        sourceUrl: "https://image.ohousecdn.com/i/bucketplace-v2-development/uploads/openapi/20754653/1779957206483.jpg?c=c&h=640&w=640",
+        productIds: ["ERP-33018"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page27-536-erp-30311.webp",
+        sourceUrl: "https://static.y-mart.de/media/4e95eada1f525deb3ec932e0c74dc7e8/8801037019667-800.webp",
+        productIds: ["ERP-30311"],
+        expectedPhoto: "",
+      },
+      {
+        key: "catalog-admin-page27-540-erp-30342.webp",
+        sourceUrl: "https://image.auction.co.kr/itemimage/14/7c/a9/147ca98a86.jpg",
+        productIds: ["ERP-30342"],
+        expectedPhoto: "",
+      },
+    ];
+
+    const errors: string[] = [];
+    for (const fix of fixes) {
+      const id = fix.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      if (!existing || String(existing.photo || "") !== fix.expectedPhoto) continue;
+      try {
+        await importPhotoEntry(fix);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_page27_extra_photo_corrections_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='admin_page27_extra_photo_corrections_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_page27_extra_photo_corrections_v1_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Admin page 27 extra photo corrections incomplete", errors);
+    }
+  }
+
   // Admin page 26: non-Claude live products only; audited targets were blank.
   const adminPage26ExtraPhotoCorrectionsV1 = await database
     .prepare("SELECT value FROM app_settings WHERE key='admin_page26_extra_photo_corrections_v1'")
