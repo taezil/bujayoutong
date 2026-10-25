@@ -22,7 +22,7 @@ jobs:
           for i in $(seq 1 60); do
             if out="$(curl -fsS --connect-timeout 10 --max-time 120 "$URL" 2>/dev/null)"; then
               echo "attempt=$i $out"
-              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ok=d.get("page8CorrectionStatus") is True and d.get("done") is True and len(d.get("products") or []) == 6; raise SystemExit(0 if ok else 1)'; then
+              if printf '%s' "$out" | python -c 'import json,sys; d=json.load(sys.stdin); ok=d.get("page8CorrectionStatus") is True and d.get("done") is True and len(d.get("products") or []) == 7; raise SystemExit(0 if ok else 1)'; then
                 exit 0
               fi
             fi
