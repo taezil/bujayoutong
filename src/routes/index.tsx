@@ -41,7 +41,6 @@ const CART_STORAGE_KEY = "buja-simple-cart-v1";
 const SENT_STORAGE_KEY = "buja-simple-cart-sent-v1";
 const HISTORY_STORAGE_KEY = "buja-simple-history-v1";
 const ALL = "전체";
-const ORIGINAL_CATEGORY_SPRITE = "https://d2ol7oe51mr4n9.cloudfront.net/user_3JnJRxic6O4O0nSQoboWXwqNyL6/b9c9806b-e218-4c5b-b737-b41e0463fcfa.png";
 
 
 /* ---------- 검색 ---------- */
@@ -214,16 +213,7 @@ function formatWhen(iso: string) {
   return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", weekday: "short", hour: "numeric", minute: "2-digit" }).format(date);
 }
 
-function CategoryTilePhoto({ name, src, useOriginalSprite }: { name: string; src: string; useOriginalSprite: boolean }) {
-  if (useOriginalSprite) {
-    return (
-      <span
-        className={`od-tile-img category-photo category-${name}`}
-        style={{ backgroundImage: `url("${ORIGINAL_CATEGORY_SPRITE}")` }}
-        aria-hidden="true"
-      />
-    );
-  }
+function CategoryTilePhoto({ src }: { src: string }) {
   return (
     <span className="od-tile-img category-photo">
       {src
@@ -504,7 +494,7 @@ function OrderPage() {
         <nav className="od-tiles od-home-tiles" aria-label="카테고리">
           {categoryNames.map((name) => (
             <button type="button" key={name} className={`od-tile ${name === promo ? "promo" : ""}`} onClick={() => openCategory(name)}>
-              <CategoryTilePhoto name={name} src={categoryCover[name] || ""} useOriginalSprite={name === "냉동수산" && !store.categoryImages?.[name]} />
+              <CategoryTilePhoto src={categoryCover[name] || ""} />
               <span className="od-tile-name">{name}</span>
             </button>
           ))}
@@ -551,7 +541,7 @@ function OrderPage() {
               className={`od-tile ${category === name ? "selected" : ""} ${name === promo ? "promo" : ""}`}
               onClick={() => { setCategory(name); setSub(ALL); window.scrollTo({ top: 0 }); }}
             >
-              <CategoryTilePhoto name={name} src={categoryCover[name] || ""} useOriginalSprite={name === "냉동수산" && !store.categoryImages?.[name]} />
+              <CategoryTilePhoto src={categoryCover[name] || ""} />
               <span className="od-tile-name">{name}</span>
             </button>
           ))}
