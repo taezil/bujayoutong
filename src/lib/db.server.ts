@@ -274,6 +274,65 @@ export async function ensureDatabase(database: D1Database = db()) {
   await ensureColumn(database, "pack_options", "spec", "TEXT NOT NULL DEFAULT ''");
   await ensureOperationsSchema(database);
 
+  const frozenSeafoodCategoryPhotoV2 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='frozen_seafood_category_photo_v2'")
+    .first<{ value: string }>();
+  if (frozenSeafoodCategoryPhotoV2?.value !== "1") {
+    try {
+      const storage = bindings().STORAGE;
+      if (!storage) throw new Error("R2 storage binding unavailable");
+      const key = "category-frozen-seafood-v2.webp";
+      let object = await storage.head(key);
+      if (!object) {
+        const sourceUrl = "https://m.happysoosan.co.kr/web/product/big/202404/dbc87fee94f6c58611926f51bedb7656.jpg";
+        let response = await fetch(sourceUrl, {
+          headers: {
+            "Accept": "image/webp,image/*,*/*;q=0.8",
+            "User-Agent": "Mozilla/5.0 (compatible; BujaFoodCategory/1.0)",
+          },
+          cf: {
+            image: {
+              width: 800,
+              height: 800,
+              fit: "cover",
+              format: "webp",
+              quality: 88,
+              metadata: "none",
+            },
+          },
+        } as any);
+        if (!response.ok || !(response.headers.get("content-type") || "").startsWith("image/")) {
+          response = await fetch(sourceUrl, {
+            headers: {
+              "Accept": "image/*,*/*;q=0.8",
+              "User-Agent": "Mozilla/5.0 (compatible; BujaFoodCategory/1.0)",
+            },
+            redirect: "follow",
+          });
+        }
+        if (!response.ok) throw new Error(`upstream ${response.status}`);
+        const contentType = response.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+        const bytes = await response.arrayBuffer();
+        if (!bytes.byteLength) throw new Error("empty category image");
+        await storage.put(key, bytes, {
+          httpMetadata: {
+            contentType: contentType.includes("webp") ? "image/webp" : contentType,
+            cacheControl: "public, max-age=31536000, immutable",
+          },
+          customMetadata: { source: sourceUrl },
+        });
+        object = await storage.head(key);
+      }
+      if (!object) throw new Error("R2 category image write failed");
+      await database.batch([
+        database.prepare("UPDATE categories SET image=? WHERE name='냉동수산'").bind(`/api/photo?id=${key}`),
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('frozen_seafood_category_photo_v2','1')"),
+      ]);
+    } catch (error) {
+      console.error("Frozen seafood category image repair failed", error);
+    }
+  }
+
   const excelCatalogImported = await database
     .prepare("SELECT value FROM app_settings WHERE key = 'excel_catalog_import_v1'")
     .first<{ value: string }>();
