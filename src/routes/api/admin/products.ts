@@ -19,18 +19,10 @@ export const Route = createFileRoute("/api/admin/products")({
         const id = cleanText(body.id, 80);
         if (!id) throw new Error("상품 ID가 없습니다.");
 
-        // order_items stores its own product name/unit/price snapshot and does not
-        // reference products with a foreign key, so catalog products can be
-        // removed without destroying historical order records.
-        const inventoryHistory = await database
-          .prepare("SELECT 1 FROM inventory_ledger WHERE product_id = ? LIMIT 1")
-          .bind(id)
-          .first();
-        if (inventoryHistory) {
-          throw new Error("재고 이력이 있는 상품은 삭제할 수 없습니다. 숨김 처리해 주세요.");
-        }
-
+        // Past order_items keep their own product snapshot.
+        // Remove linked inventory rows first, then remove the catalog product.
         await database.batch([
+          database.prepare("DELETE FROM inventory_ledger WHERE product_id = ?").bind(id),
           database.prepare("DELETE FROM pack_options WHERE product_id = ?").bind(id),
           database.prepare("DELETE FROM inventory_stock WHERE product_id = ?").bind(id),
           database.prepare("DELETE FROM products WHERE id = ?").bind(id),
