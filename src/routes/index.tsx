@@ -313,14 +313,15 @@ function OrderPage() {
         .map((product) => product.photo);
 
       if (name === "냉동수산") {
-        const preferredIds = ["ERP-30514", "ERP-30102", "ERP-1024", "ERP-32399", "ERP-1021", "ERP-1072"];
+        const preferredIds = ["ERP-32399", "ERP-1021", "ERP-1072", "ERP-1024"];
         const preferredPhotos = preferredIds
           .map((id) => store.products.find((product) => product.id === id)?.photo)
           .filter((photo): photo is string => Boolean(photo));
         covers[name] = unique([
-          ...preferredPhotos,
-          ...productPhotos,
           store.categoryImages?.[name],
+          "/api/photo?id=category-frozen-seafood-v2.webp",
+          ...preferredPhotos,
+          ...productPhotos.filter((photo) => photo !== "/api/photo?id=catalog-5daf8a49637b59ad9fba.webp"),
         ]);
       } else {
         covers[name] = unique([
