@@ -2602,7 +2602,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .od-cartbar-text strong { font-size: 17px; }
 .od-cartbar-text small { overflow: hidden; font-size: 13px; opacity: .9; white-space: nowrap; text-overflow: ellipsis; }
 .od-cartbar-go { flex: 0 0 auto; padding: 11px 14px; border-radius: 12px; background: var(--od-orange-deep); font-size: 16px; font-weight: 900; white-space: nowrap; }
-.od-tabbar { display: grid; grid-template-columns: repeat(4, 1fr); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--od-line); background: #fff; }
+.od-tabbar { display: grid; grid-template-columns: repeat(3, 1fr); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--od-line); background: #fff; }
 .od-tabbar button { min-height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: none; color: #8a9099; font-size: 13px; font-weight: 800; cursor: pointer; }
 .od-tabbar button.active { color: var(--od-orange-deep); }
 .od-tab-icon { position: relative; display: grid; place-items: center; }
