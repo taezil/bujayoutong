@@ -301,8 +301,8 @@ function OrderPage() {
     return promo ? [promo, ...rest] : rest;
   }, [store.categories, promo]);
 
-  // 카테고리 타일 사진 후보. 냉동수산은 깨진 과거 대표이미지를 건너뛰고
-  // 현재 운영 중인 냉동수산 상품사진을 우선 사용하며, 404면 다음 후보로 자동 전환한다.
+  // 카테고리 타일 사진 후보. 냉동수산은 업로드한 전용 대표이미지를 최우선으로 사용하고
+  // 문제가 있으면 DB 대표이미지/상품사진 순으로 자동 전환한다.
   const categoryPhotoCandidates = useMemo(() => {
     const covers: Record<string, string[]> = {};
     const unique = (values: Array<string | undefined>) => Array.from(new Set(values.filter((value): value is string => Boolean(value))));
@@ -318,8 +318,8 @@ function OrderPage() {
           .map((id) => store.products.find((product) => product.id === id)?.photo)
           .filter((photo): photo is string => Boolean(photo));
         covers[name] = unique([
+          "/assets/category-frozen-seafood-20261026.webp",
           store.categoryImages?.[name],
-          "/api/photo?id=category-frozen-seafood-v2.webp",
           ...preferredPhotos,
           ...productPhotos.filter((photo) => photo !== "/api/photo?id=catalog-5daf8a49637b59ad9fba.webp"),
         ]);
