@@ -2315,6 +2315,196 @@ async function ensureCatalogImportV3() {
     }
   }
 
+  // Claude-reviewed side-dish photos from uploaded 284-566 result workbook (rows 542-560).
+  // Only replace blank/known automated photos. Any manual user photo wins.
+  const claudeSideDishPhotosV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='claude_side_dish_photos_20261026_v1'")
+    .first<{ value: string }>();
+  if (claudeSideDishPhotosV1?.value !== "1") {
+    const fixes: Array<{ entry: PhotoImportEntry; expectedPhotos: string[] }> = [
+      {
+        entry: {
+          key: "catalog-claude-side-542-erp-9002.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/1862/images/63_5104965706_r.png?f=webp&s=880x880&t=inside",
+          productIds: ["ERP-9002"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-542-erp-9002.webp"],
+      }, // 542 김밥용단무지
+      {
+        entry: {
+          key: "catalog-claude-side-543-erp-9004.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/3358/images/16_0493425163.jpg?f=webp",
+          productIds: ["ERP-9004"],
+        },
+        expectedPhotos: [""],
+      }, // 543 무짠지(유진)
+      {
+        entry: {
+          key: "catalog-claude-side-544-erp-9001.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/52/images/74_1227024018_r.jpg?f=webp",
+          productIds: ["ERP-9001"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-544-erp-9001.webp"],
+      }, // 544 반달단무지
+      {
+        entry: {
+          key: "catalog-claude-side-545-erp-9015.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/2285/images/210_6256104390.jpg?f=webp&s=880x880&t=inside",
+          productIds: ["ERP-9015"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-545-erp-9015.webp"],
+      }, // 545 반찬 고들빼기무침
+      {
+        entry: {
+          key: "catalog-claude-side-546-erp-32272.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/93/images/79_0868152177_r.jpg?f=webp",
+          productIds: ["ERP-32272"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-546-erp-32272.webp"],
+      }, // 546 반찬 고추잎무침
+      {
+        entry: {
+          key: "catalog-claude-side-547-erp-31543.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/93/images/11_2714771125_r.jpg?f=webp&s=880x880&t=inside",
+          productIds: ["ERP-31543"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-547-erp-31543.webp"],
+      }, // 547 반찬 김밥우엉
+      {
+        entry: {
+          key: "catalog-claude-side-548-erp-9019.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/1517/images/71_6754537092_r.jpg?f=webp",
+          productIds: ["ERP-9019"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-548-erp-9019.webp"],
+      }, // 548 반찬 땅콩조림
+      {
+        entry: {
+          key: "catalog-claude-side-549-erp-31125.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/4654/images/45_7349449508_r.jpg?f=webp",
+          productIds: ["ERP-31125"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-549-erp-31125.webp"],
+      }, // 549 반찬 마늘쫑지
+      {
+        entry: {
+          key: "catalog-claude-side-550-erp-9022.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/1886/images/105_0799904063_r.png?f=webp",
+          productIds: ["ERP-9022"],
+        },
+        expectedPhotos: [""],
+      }, // 550 반찬 모둠콩
+      {
+        entry: {
+          key: "catalog-claude-side-551-erp-9023.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/318/images/41_0764569411_r.jpg?f=webp",
+          productIds: ["ERP-9023"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-551-erp-9023.webp"],
+      }, // 551 반찬 무말랭이무침
+      {
+        entry: {
+          key: "catalog-claude-side-552-erp-9024.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/1769/images/83_7370100989_r.jpeg?f=webp",
+          productIds: ["ERP-9024"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-552-erp-9024.webp","/api/photo?id=catalog-147ad117a97a5076f53f.webp"],
+      }, // 552 반찬 산고추지
+      {
+        entry: {
+          key: "catalog-claude-side-553-erp-9025.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/867/images/47_5047527100_r.jpg?f=webp",
+          productIds: ["ERP-9025"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-553-erp-9025.webp"],
+      }, // 553 반찬 알마늘
+      {
+        entry: {
+          key: "catalog-claude-side-554-erp-30191.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/1498/images/107_8212479948_r.JPG?f=webp",
+          productIds: ["ERP-30191"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-147ad117a97a5076f53f.webp"],
+      }, // 554 반찬 양념고추무침
+      {
+        entry: {
+          key: "catalog-claude-side-555-erp-9026.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/1388/images/95_6744670331_r.png?f=webp",
+          productIds: ["ERP-9026"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-555-erp-9026.webp","/api/photo?id=catalog-7b217682974689d8d309.webp"],
+      }, // 555 반찬 양념깻잎
+      {
+        entry: {
+          key: "catalog-claude-side-556-erp-30189.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/171/images/31_1727515784_r.jpg?f=webp",
+          productIds: ["ERP-30189"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-556-erp-30189.webp"],
+      }, // 556 반찬 양념마늘쫑무침
+      {
+        entry: {
+          key: "catalog-claude-side-557-erp-30325.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/1631/images/54_3764834472_r.png?f=webp",
+          productIds: ["ERP-30325"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-557-erp-30325.webp"],
+      }, // 557 반찬 연근조림
+      {
+        entry: {
+          key: "catalog-claude-side-558-erp-9027.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/1824/images/59_8240869878_r.jpg?f=webp",
+          productIds: ["ERP-9027"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-558-erp-9027.webp"],
+      }, // 558 반찬 오복채
+      {
+        entry: {
+          key: "catalog-claude-side-559-erp-9029.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/867/images/56_3072505425_r.jpg?f=webp",
+          productIds: ["ERP-9029"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-559-erp-9029.webp"],
+      }, // 559 반찬 콩조림
+      {
+        entry: {
+          key: "catalog-claude-side-560-erp-31908.webp",
+          sourceUrl: "https://content.foodspring.co.kr/vendor/1388/images/109_4526119608_r.jpg?f=webp",
+          productIds: ["ERP-31908"],
+        },
+        expectedPhotos: ["","/api/photo?id=catalog-live-560-erp-31908.webp"],
+      }, // 560 반찬/무쌈(와사비)
+    ];
+
+    const errors: string[] = [];
+    for (const fix of fixes) {
+      const id = fix.entry.productIds[0] || "";
+      const existing = id
+        ? await database.prepare("SELECT photo FROM products WHERE id=?").bind(id).first<{ photo: string }>()
+        : null;
+      const currentPhoto = String(existing?.photo || "");
+      if (!existing || !fix.expectedPhotos.includes(currentPhoto)) continue;
+      try {
+        await importPhotoEntry(fix.entry, fix.expectedPhotos);
+      } catch (error) {
+        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (errors.length === 0) {
+      await database.batch([
+        database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('claude_side_dish_photos_20261026_v1','1')"),
+        database.prepare("DELETE FROM app_settings WHERE key='claude_side_dish_photos_20261026_v1_error'"),
+      ]);
+    } else {
+      await database
+        .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('claude_side_dish_photos_20261026_v1_error',?)")
+        .bind(errors.join(" | ").slice(0, 1800))
+        .run();
+      console.error("Claude side-dish photo import incomplete", errors);
+    }
+  }
+
   const photoAutofillParserV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='photo_autofill_parser_v2'")
     .first<{ value: string }>();
