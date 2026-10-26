@@ -213,11 +213,28 @@ function formatWhen(iso: string) {
   return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", weekday: "short", hour: "numeric", minute: "2-digit" }).format(date);
 }
 
-function CategoryTilePhoto({ src }: { src: string }) {
+function CategoryTilePhoto({ candidates }: { candidates: string[] }) {
+  const clean = candidates.filter(Boolean);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const signature = clean.join("|");
+
+  useEffect(() => {
+    setPhotoIndex(0);
+  }, [signature]);
+
+  const src = clean[photoIndex] ?? "";
   return (
     <span className="od-tile-img category-photo">
       {src
-        ? <img src={src} alt="" loading="eager" decoding="async" />
+        ? (
+          <img
+            src={src}
+            alt=""
+            loading="eager"
+            decoding="async"
+            onError={() => setPhotoIndex((current) => current + 1)}
+          />
+        )
         : <img src={BUJA_MARK_DATA} alt="" className="mark" />}
     </span>
   );
@@ -306,14 +323,34 @@ function OrderPage() {
     return promo ? [promo, ...rest] : rest;
   }, [store.categories, promo]);
 
-  // 카테고리 타일 사진: 관리자가 올린 사진 → 없으면 그 카테고리 첫 상품 사진
-  const categoryCover = useMemo(() => {
-    const covers: Record<string, string> = {};
+  // 카테고리 타일 사진 후보. 냉동수산은 깨진 과거 대표이미지를 건너뛰고
+  // 현재 운영 중인 냉동수산 상품사진을 우선 사용하며, 404면 다음 후보로 자동 전환한다.
+  const categoryPhotoCandidates = useMemo(() => {
+    const covers: Record<string, string[]> = {};
+    const unique = (values: Array<string | undefined>) => Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+
     for (const name of categoryNames) {
-      covers[name] = store.categoryImages?.[name]
-        || CATEGORY_IMAGE_DATA[name]
-        || store.products.find((product) => product.category === name && product.photo)?.photo
-        || "";
+      const productPhotos = store.products
+        .filter((product) => product.category === name && product.photo)
+        .map((product) => product.photo);
+
+      if (name === "냉동수산") {
+        const preferredIds = ["ERP-30514", "ERP-30102", "ERP-1024", "ERP-32399", "ERP-1021", "ERP-1072"];
+        const preferredPhotos = preferredIds
+          .map((id) => store.products.find((product) => product.id === id)?.photo)
+          .filter((photo): photo is string => Boolean(photo));
+        covers[name] = unique([
+          ...preferredPhotos,
+          ...productPhotos,
+          store.categoryImages?.[name],
+        ]);
+      } else {
+        covers[name] = unique([
+          store.categoryImages?.[name],
+          CATEGORY_IMAGE_DATA[name],
+          ...productPhotos,
+        ]);
+      }
     }
     return covers;
   }, [categoryNames, store.categoryImages, store.products]);
@@ -494,7 +531,7 @@ function OrderPage() {
         <nav className="od-tiles od-home-tiles" aria-label="카테고리">
           {categoryNames.map((name) => (
             <button type="button" key={name} className={`od-tile ${name === promo ? "promo" : ""}`} onClick={() => openCategory(name)}>
-              <CategoryTilePhoto src={categoryCover[name] || ""} />
+              <CategoryTilePhoto candidates={categoryPhotoCandidates[name] || []} />
               <span className="od-tile-name">{name}</span>
             </button>
           ))}
@@ -541,7 +578,7 @@ function OrderPage() {
               className={`od-tile ${category === name ? "selected" : ""} ${name === promo ? "promo" : ""}`}
               onClick={() => { setCategory(name); setSub(ALL); window.scrollTo({ top: 0 }); }}
             >
-              <CategoryTilePhoto src={categoryCover[name] || ""} />
+              <CategoryTilePhoto candidates={categoryPhotoCandidates[name] || []} />
               <span className="od-tile-name">{name}</span>
             </button>
           ))}
