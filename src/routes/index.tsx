@@ -34,12 +34,10 @@ type CartLine = {
   step: number;
 };
 
-type HistoryEntry = { id: string; at: string; lines: CartLine[] };
-type Tab = "home" | "category" | "promo" | "recent";
+type Tab = "home" | "category" | "promo";
 
 const CART_STORAGE_KEY = "buja-simple-cart-v1";
 const SENT_STORAGE_KEY = "buja-simple-cart-sent-v1";
-const HISTORY_STORAGE_KEY = "buja-simple-history-v1";
 const ALL = "전체";
 
 
@@ -207,12 +205,6 @@ function writeStorage(key: string, value: string | null) {
   }
 }
 
-function formatWhen(iso: string) {
-  const date = new Date(iso);
-  if (!Number.isFinite(date.getTime())) return "";
-  return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", weekday: "short", hour: "numeric", minute: "2-digit" }).format(date);
-}
-
 function CategoryTilePhoto({ candidates }: { candidates: string[] }) {
   const clean = candidates.filter(Boolean);
   const [photoIndex, setPhotoIndex] = useState(0);
@@ -249,7 +241,6 @@ function OrderPage() {
   const [sub, setSub] = useState(ALL);
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [detail, setDetail] = useState<Product | null>(null);
   const [zoomPhoto, setZoomPhoto] = useState<{ src: string; name: string } | null>(null);
@@ -262,7 +253,8 @@ function OrderPage() {
   const recipient = (store.sms || "").replace(/[^0-9+]/g, "");
   const productById = useMemo(() => new Map(store.products.map((product) => [product.id, product])), [store.products]);
 
-  // 저장된 장바구니·최근주문 불러오기 (현재 판매 중인 상품만, 이름/규격은 최신 정보로)
+  // 저장된 장바구니만 불러온다.
+  // 기존 최근주문 데이터(buja-simple-history-v1)는 삭제하지 않고 각 기기에 그대로 보존한다.
   useEffect(() => {
     const raw = readStorage(CART_STORAGE_KEY);
     if (raw) {
@@ -271,15 +263,6 @@ function OrderPage() {
         setCart(reconcile(Array.isArray(saved) ? saved : []).lines);
       } catch {
         writeStorage(CART_STORAGE_KEY, null);
-      }
-    }
-    const rawHistory = readStorage(HISTORY_STORAGE_KEY);
-    if (rawHistory) {
-      try {
-        const saved = JSON.parse(rawHistory) as HistoryEntry[];
-        if (Array.isArray(saved)) setHistory(saved.filter((entry) => entry && Array.isArray(entry.lines)).slice(0, 20));
-      } catch {
-        writeStorage(HISTORY_STORAGE_KEY, null);
       }
     }
     if (readStorage(SENT_STORAGE_KEY)) setAskSent(true);
@@ -292,11 +275,6 @@ function OrderPage() {
     if (!hydrated) return;
     writeStorage(CART_STORAGE_KEY, cart.length ? JSON.stringify(cart) : null);
   }, [cart, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    writeStorage(HISTORY_STORAGE_KEY, history.length ? JSON.stringify(history) : null);
-  }, [history, hydrated]);
 
   useEffect(() => {
     if (!toast) return;
@@ -469,30 +447,9 @@ function OrderPage() {
     writeStorage(SENT_STORAGE_KEY, null);
     setAskSent(false);
     if (sent && cart.length) {
-      const entry: HistoryEntry = { id: String(Date.now()), at: new Date().toISOString(), lines: cart };
-      setHistory((current) => [entry, ...current].slice(0, 20));
       setCart([]);
-      setToast({ id: Date.now(), text: "주문해 주셔서 감사합니다. 최근주문에 저장했습니다." });
+      setToast({ id: Date.now(), text: "주문해 주셔서 감사합니다." });
     }
-  }
-
-  function reorder(entry: HistoryEntry) {
-    const { lines, skipped } = reconcile(entry.lines);
-    if (!lines.length) {
-      setToast({ id: Date.now(), text: "지금 주문할 수 있는 상품이 없습니다." });
-      return;
-    }
-    setCart((current) => {
-      const next = [...current];
-      for (const line of lines) {
-        const index = next.findIndex((item) => item.key === line.key);
-        if (index >= 0) next[index] = line;
-        else next.push(line);
-      }
-      return next;
-    });
-    setToast({ id: Date.now(), text: skipped ? `${lines.length}품목 담았습니다 (품절·판매중지 ${skipped}품목 제외)` : `${lines.length}품목을 장바구니에 담았습니다` });
-    setCartOpen(true);
   }
 
   function goTab(next: Tab, nextCategory?: string) {
@@ -596,35 +553,6 @@ function OrderPage() {
         </section>
       </>
     );
-  } else {
-    content = (
-      <section className="od-section">
-        <div className="od-section-head"><h2>최근 주문</h2><span>{history.length}건</span></div>
-        <p className="od-recent-help">이 휴대폰에서 문자로 보낸 주문이 저장됩니다. <b>다시 담기</b>를 누르면 같은 상품이 장바구니에 담깁니다.</p>
-        {history.length ? (
-          <div className="od-recent-list">
-            {history.map((entry) => (
-              <article className="od-recent" key={entry.id}>
-                <div className="od-recent-head">
-                  <strong>{formatWhen(entry.at)}</strong>
-                  <span>{entry.lines.length}품목</span>
-                </div>
-                <ul>
-                  {entry.lines.slice(0, 4).map((line) => <li key={line.key}>{line.productName} <b>{line.quantity}{line.optionLabel}</b></li>)}
-                  {entry.lines.length > 4 && <li className="more">외 {entry.lines.length - 4}품목</li>}
-                </ul>
-                <div className="od-recent-actions">
-                  <button type="button" className="od-primary" onClick={() => reorder(entry)}>다시 담기</button>
-                  <button type="button" className="od-ghost" onClick={() => setHistory((current) => current.filter((item) => item.id !== entry.id))}>삭제</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="od-empty">아직 보낸 주문이 없습니다.<br />주문을 보내면 여기에 저장됩니다.</div>
-        )}
-      </section>
-    );
   }
 
   return (
@@ -667,7 +595,6 @@ function OrderPage() {
           <TabButton active={!searching && tab === "home"} label="홈" onClick={() => goTab("home")} icon={<HomeIcon />} />
           <TabButton active={!searching && tab === "category"} label="카테고리" onClick={() => goTab("category")} icon={<GridIcon />} />
           <TabButton active={!searching && tab === "promo"} label="행사상품" onClick={() => goTab("promo")} icon={<TagIcon />} />
-          <TabButton active={!searching && tab === "recent"} label="최근주문" onClick={() => goTab("recent")} icon={<ReceiptIcon />} />
         </nav>
       </div>
 
@@ -748,7 +675,7 @@ function OrderPage() {
         <div className="od-backdrop center">
           <section className="od-sent" role="dialog" aria-modal="true" aria-label="주문 전송 확인">
             <h2>주문 문자를 보내셨나요?</h2>
-            <p>보내셨다면 장바구니를 비우고<br />최근주문에 저장해 드릴게요.</p>
+            <p>보내셨다면 장바구니를 비워드릴게요.</p>
             <button type="button" className="od-send" onClick={() => answerSent(true)}>네, 보냈어요</button>
             <button type="button" className="od-continue" onClick={() => answerSent(false)}>아니요, 아직이요</button>
           </section>
@@ -892,4 +819,3 @@ function SearchIcon() { return <Svg><circle cx="11" cy="11" r="7" /><path d="m20
 function HomeIcon() { return <Svg><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M10 21v-6h4v6" /></Svg>; }
 function GridIcon() { return <Svg><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></Svg>; }
 function TagIcon() { return <Svg><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" /><circle cx="7.5" cy="7.5" r="1.5" /></Svg>; }
-function ReceiptIcon() { return <Svg><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2Z" /><path d="M9 8h6M9 12h6M9 16h4" /></Svg>; }
