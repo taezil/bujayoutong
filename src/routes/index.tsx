@@ -278,22 +278,19 @@ function OrderPage() {
 
   async function loadPrivateStore() {
     setError("");
-    const statusResponse = await fetch("/api/customer/status", { cache: "no-store" });
+    // 로그인 확인과 상품 요청을 동시에 보냄 (비로그인이면 서버가 상품 요청을 401로 거절)
+    const [statusResponse, storeResponse] = await Promise.all([
+      fetch("/api/customer/status", { cache: "no-store" }),
+      fetch("/api/store", { cache: "no-store" }),
+    ]);
     const status = await statusResponse.json() as { authenticated?: boolean; customer?: CustomerProfile | null };
-    if (!status.authenticated || !status.customer) {
+    if (!status.authenticated || !status.customer || storeResponse.status === 401) {
       setCustomer(null);
       setStore(null);
       setChecked(true);
       return;
     }
 
-    const storeResponse = await fetch("/api/store", { cache: "no-store" });
-    if (storeResponse.status === 401) {
-      setCustomer(null);
-      setStore(null);
-      setChecked(true);
-      return;
-    }
     const json = await storeResponse.json() as StoreData & { error?: string };
     if (!storeResponse.ok) throw new Error(json.error || "상품을 불러오지 못했습니다.");
     setCustomer(status.customer);

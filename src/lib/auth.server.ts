@@ -349,13 +349,21 @@ async function readCustomerSession(request: Request): Promise<CustomerSessionSta
   if (!token) return null;
   await ensureDatabase();
   const tokenHash = await sha256(token);
+  // 세션 + 계정 상태 + 연결된 배송처 목록을 쿼리 1번으로 확인 (상품사진 요청마다 실행되므로 가볍게)
   const session = await db().prepare(`
-    SELECT s.customer_id, s.customer_user_id, u.active AS user_active
+    SELECT s.customer_id, s.customer_user_id, u.active AS user_active,
+      (SELECT group_concat(id, ',') FROM (
+        SELECT c.id AS id
+        FROM customer_user_customers m
+        JOIN customers c ON c.id = m.customer_id
+        WHERE m.customer_user_id = s.customer_user_id AND c.active = 1
+        ORDER BY m.sort_order, c.code
+      )) AS allowed_ids
     FROM customer_sessions s
     LEFT JOIN customer_users u ON u.id = s.customer_user_id
     WHERE s.token_hash = ? AND s.expires_at > datetime('now')
     LIMIT 1
-  `).bind(tokenHash).first<{ customer_id: string; customer_user_id: string; user_active: number | null }>();
+  `).bind(tokenHash).first<{ customer_id: string; customer_user_id: string; user_active: number | null; allowed_ids: string | null }>();
   if (!session) return null;
 
   const customerUserId = String(session.customer_user_id ?? "");
@@ -363,7 +371,7 @@ async function readCustomerSession(request: Request): Promise<CustomerSessionSta
 
   if (customerUserId) {
     if (Number(session.user_active ?? 0) !== 1) return null;
-    const allowedIds = await allowedCustomerIds(customerUserId);
+    const allowedIds = String(session.allowed_ids ?? "").split(",").filter(Boolean);
     if (!allowedIds.length) return null;
     if (!allowedIds.includes(customerId)) {
       customerId = allowedIds[0];

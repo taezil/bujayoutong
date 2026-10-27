@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getCustomer, getStaff, isAdmin } from "../../lib/auth.server";
+import { sha256 } from "../../lib/password.server";
 import { db, ensureDatabase, readStore } from "../../lib/db.server";
 import { bindings } from "../../lib/bindings.server";
 import { CATALOG_SQL_CHUNKS } from "../../catalog-sql.generated";
@@ -413,6 +414,32 @@ async function runCatalogPhotoAutoFill(limit = 8) {
     processed: results.length,
     results,
   };
+}
+
+/*
+ * 상품사진 보정·카탈로그 1회성 작업.
+ * 예전에는 /api/store 를 부를 때마다(거래처 화면 포함) 60여 개 확인 쿼리를 돌렸고, 원본 사진이 404인
+ * 보정 묶음은 "완료" 표시가 안 돼 매번 외부 쇼핑몰에서 사진을 다시 내려받아 첫 화면이 5~10초 걸렸습니다.
+ * 이제 관리자 화면에서만, 그리고 이 작업 코드가 바뀌었을 때만 1회 실행합니다.
+ */
+let catalogMaintenanceReady = false;
+
+async function ensureCatalogMaintenance() {
+  if (catalogMaintenanceReady) return;
+  const database = db();
+  await ensureDatabase(database);
+  const signature = await sha256(ensureCatalogImportV3.toString());
+  const row = await database
+    .prepare("SELECT value FROM app_settings WHERE key='catalog_maintenance_signature'")
+    .first<{ value: string }>();
+  if (row?.value !== signature) {
+    await ensureCatalogImportV3();
+    await database
+      .prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('catalog_maintenance_signature',?)")
+      .bind(signature)
+      .run();
+  }
+  catalogMaintenanceReady = true;
 }
 
 async function ensureCatalogImportV3() {
@@ -2550,7 +2577,7 @@ export const Route = createFileRoute("/api/store")({
         return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 403, headers: { "Cache-Control": "no-store" } });
       }
 
-      await ensureCatalogImportV3();
+      if (adminViewer) await ensureCatalogMaintenance();
 
       if (url.searchParams.get("visual141283PhotoStatus") === "1") {
         const database = db();

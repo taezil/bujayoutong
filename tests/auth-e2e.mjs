@@ -193,27 +193,33 @@ async function main() {
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE });
   const page = await context.newPage();
   const productRequests = [];
-  page.on("request", (r) => { if (r.url().includes("/api/store")) productRequests.push(r.url()); });
+  page.on("response", (r) => { if (r.url().includes("/api/store")) productRequests.push(r.status()); });
 
   try {
     await page.goto("/");
     await page.getByRole("heading", { name: "거래처 전용 주문" }).waitFor({ timeout: 20000 });
     await page.waitForTimeout(1500);
-    check("[화면] 비로그인 / → 로그인 화면만", (await page.locator(".od-card, .od-search").count()) === 0 && productRequests.length === 0,
-      `cards ${await page.locator(".od-card").count()}, store calls ${productRequests.length}`);
+    check("[화면] 비로그인 / → 로그인 화면만", (await page.locator(".od-card, .od-search").count()) === 0 && productRequests.every((code) => code === 401),
+      `cards ${await page.locator(".od-card").count()}, store responses ${JSON.stringify(productRequests)}`);
     const idMode = await page.locator('input[name="username"]').getAttribute("inputmode");
     const pwMode = await page.locator('input[name="password"]').getAttribute("inputmode");
     check("[화면] 아이디/비밀번호 숫자 키패드", idMode === "numeric" && pwMode === "numeric", `${idMode}/${pwMode}`);
 
+    const t0 = Date.now();
+    await page.reload();
+    await page.locator('input[name="username"]').waitFor({ timeout: 20000 });
+    check("[속도] 비로그인 로그인화면 표시 3초 이내", Date.now() - t0 < 3000, `${Date.now() - t0}ms`);
     await page.fill('input[name="username"]', "12013");
     await page.fill('input[name="password"]', "12013");
     await page.getByRole("button", { name: "로그인" }).click();
     await page.locator(".od-search input").waitFor({ timeout: 30000 });
     check("[화면] 로그인 후 / 상품 주문화면", page.url() === `${BASE}/`, page.url());
 
+    const t1 = Date.now();
     await page.reload();
     await page.locator(".od-search input").waitFor({ timeout: 30000 });
     check("[화면] 새로고침해도 로그인 유지", true);
+    check("[속도] 로그인 상태 새로고침 → 상품화면 3초 이내", Date.now() - t1 < 3000, `${Date.now() - t1}ms`);
 
     const banner = page.locator(".od-location-banner");
     await banner.waitFor({ timeout: 10000 });
