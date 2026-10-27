@@ -289,6 +289,74 @@ export async function getCustomer(request: Request): Promise<CustomerSummary | n
   };
 }
 
+export async function getCustomerLocations(request: Request): Promise<CustomerSummary[]> {
+  await ensureDatabase();
+  const token = parseCookie(request, CUSTOMER_COOKIE_NAME);
+  if (!token) return [];
+  const tokenHash = await sha256(token);
+  const session = await db().prepare(
+    "SELECT customer_id,customer_user_id FROM customer_sessions WHERE token_hash=? AND expires_at>datetime('now') LIMIT 1",
+  ).bind(tokenHash).first<{ customer_id: string; customer_user_id: string }>();
+  if (!session) return [];
+
+  if (!session.customer_user_id) {
+    const current = await getCustomer(request);
+    return current ? [current] : [];
+  }
+
+  const rows = await db().prepare(`
+    SELECT c.id,c.code,c.name,c.phone,c.business_number,c.address,c.store_phone,c.region,c.price_group,c.active,
+           COALESCE(u.display_name,'') AS login_name,
+           COALESCE((SELECT SUM(amount) FROM receivable_ledger r WHERE r.customer_id=c.id),0) AS receivable
+    FROM customer_user_customers m
+    JOIN customers c ON c.id=m.customer_id
+    LEFT JOIN customer_users u ON u.id=m.customer_user_id AND u.active=1
+    WHERE m.customer_user_id=? AND c.active=1
+    ORDER BY CASE WHEN c.id=? THEN 0 ELSE 1 END, m.sort_order, c.code
+  `).bind(session.customer_user_id, session.customer_id).all<Record<string, unknown>>();
+
+  return rows.results.map((row) => ({
+    id: String(row.id),
+    code: String(row.code),
+    name: String(row.name),
+    phone: String(row.phone ?? ""),
+    businessNumber: String(row.business_number ?? ""),
+    address: String(row.address ?? ""),
+    storePhone: String(row.store_phone ?? ""),
+    region: String(row.region ?? ""),
+    priceGroup: String(row.price_group ?? "A") === "B" ? "B" : "A",
+    active: Number(row.active ?? 0) === 1,
+    receivable: Number(row.receivable ?? 0),
+    loginName: String(row.login_name ?? ""),
+  }));
+}
+
+export async function switchCustomerLocation(request: Request, customerId: string) {
+  await ensureDatabase();
+  const token = parseCookie(request, CUSTOMER_COOKIE_NAME);
+  if (!token) throw new Error("로그인이 필요합니다.");
+  const tokenHash = await sha256(token);
+  const session = await db().prepare(
+    "SELECT customer_id,customer_user_id FROM customer_sessions WHERE token_hash=? AND expires_at>datetime('now') LIMIT 1",
+  ).bind(tokenHash).first<{ customer_id: string; customer_user_id: string }>();
+  if (!session) throw new Error("로그인이 필요합니다.");
+  if (session.customer_id === customerId) return;
+  if (!session.customer_user_id) throw new Error("이 계정에는 다른 배송처가 연결되어 있지 않습니다.");
+
+  const allowed = await db().prepare(`
+    SELECT c.id
+    FROM customer_user_customers m
+    JOIN customers c ON c.id=m.customer_id
+    WHERE m.customer_user_id=? AND m.customer_id=? AND c.active=1
+    LIMIT 1
+  `).bind(session.customer_user_id, customerId).first();
+  if (!allowed) throw new Error("선택할 수 없는 배송처입니다.");
+
+  await db().prepare(
+    "UPDATE customer_sessions SET customer_id=?,last_seen_at=datetime('now') WHERE token_hash=?",
+  ).bind(customerId, tokenHash).run();
+}
+
 export async function logoutCustomer(request: Request) {
   const token = parseCookie(request, CUSTOMER_COOKIE_NAME);
   if (!token) return;
