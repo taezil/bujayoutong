@@ -16,6 +16,7 @@ async function post(path:string,body:Record<string,unknown>){
   const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   const j=await r.json() as {error?:string};
   if(!r.ok) throw new Error(j.error||"계정 작업에 실패했습니다.");
+  return j;
 }
 
 function AccountsPage(){
@@ -26,7 +27,8 @@ function AccountsPage(){
   const[customerId,setCustomerId]=useState("");
   const[displayName,setDisplayName]=useState("");
   const[username,setUsername]=useState("");
-  const[pin,setPin]=useState("");
+  const[password,setPassword]=useState("");
+  const[createdCredential,setCreatedCredential]=useState<{customerName:string;displayName:string;username:string;password:string}|null>(null);
   const[error,setError]=useState("");
 
   async function load(){
@@ -48,8 +50,21 @@ function AccountsPage(){
   useEffect(()=>{void load().catch(e=>setError(e instanceof Error?e.message:"계정정보를 불러오지 못했습니다."));},[]);
 
   async function act(path:string,body:Record<string,unknown>){
-    try{setError("");await post(path,body);await load();}
-    catch(e){setError(e instanceof Error?e.message:"계정 작업에 실패했습니다.");}
+    try{setError("");const result=await post(path,body);await load();return result;}
+    catch(e){setError(e instanceof Error?e.message:"계정 작업에 실패했습니다.");return null;}
+  }
+  async function createCustomerUser(){
+    const selected=customers.find(row=>row.id===customerId);
+    const result=await act("/api/admin/customer-users",{action:"create",customerId,displayName,username,password});
+    if(!result)return;
+    setCreatedCredential({customerName:selected?.name||"",displayName:displayName.trim(),username:username.trim(),password});
+    setDisplayName("");setUsername("");setPassword("");
+  }
+  async function copyCreatedCredential(){
+    if(!createdCredential)return;
+    const message=`[부자유통 단가표 로그인]\n주소: https://order.bujafood.kr/price-list\n거래처: ${createdCredential.customerName}\n아이디: ${createdCredential.username}\n비밀번호: ${createdCredential.password}\n\n한 번 로그인하면 같은 휴대폰에서는 자동 로그인됩니다.`;
+    try{await navigator.clipboard.writeText(message);}
+    catch{window.prompt("아래 내용을 복사해 전달해 주세요.",message);}
   }
   async function logout(){
     await Promise.allSettled([
@@ -85,21 +100,22 @@ function AccountsPage(){
       </section>
 
       <section className="account-section">
-        <div className="account-section-head"><div><p>CUSTOMER</p><h2>거래처 직원 계정</h2><small>직원은 거래처번호 없이 아이디 + PIN만으로 로그인합니다. 아이디는 전체 거래처에서 중복 사용할 수 없습니다.</small></div><span>{customerUsers.length}명</span></div>
+        <div className="account-section-head"><div><p>CUSTOMER</p><h2>거래처 직원 계정</h2><small>식당별로 아이디 + 비밀번호를 만들어 전달합니다. 아이디는 전체 거래처에서 중복 사용할 수 없습니다.</small></div><span>{customerUsers.length}명</span></div>
         <div className="customer-user-create">
           <select value={customerId} onChange={e=>setCustomerId(e.target.value)}>{customers.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
           <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="직원 이름 예: 사장님 / 점장"/>
           <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase())} placeholder="로그인 아이디 예: 8518"/>
-          <input value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,"").slice(0,6))} inputMode="numeric" placeholder="PIN 6자리"/>
-          <button disabled={!customerId||!displayName.trim()||!username.trim()||pin.length!==6} onClick={()=>void act("/api/admin/customer-users",{action:"create",customerId,displayName,username,pin}).then(()=>{setDisplayName("");setUsername("");setPin("");})}>+ 거래처 직원 추가</button>
+          <input value={password} onChange={e=>setPassword(e.target.value.slice(0,64))} type="text" autoComplete="new-password" placeholder="비밀번호 6자 이상"/>
+          <button disabled={!customerId||!displayName.trim()||!username.trim()||password.trim().length<6} onClick={()=>void createCustomerUser()}>+ 거래처 계정 추가</button>
         </div>
+        {createdCredential&&<div className="customer-credential-card"><div><b>계정이 생성되었습니다.</b><span>{createdCredential.customerName} · {createdCredential.displayName}</span><code>아이디 {createdCredential.username} / 비밀번호 {createdCredential.password}</code></div><button type="button" onClick={()=>void copyCreatedCredential()}>로그인 정보 복사</button></div>}
         <div className="accounts-grid">
           {customerUsers.map(row=><article className={`account-card ${!Boolean(row.active)?"disabled":""}`} key={row.id}>
             <div><span className="role-customer">거래처</span><h3>{row.display_name}</h3><p>{row.customer_code} · {row.customer_name}</p><p>아이디 {row.username}</p></div>
             <div className="account-card-actions">
               <button onClick={()=>{const v=prompt("새 직원 이름",row.display_name);if(v)void act("/api/admin/customer-users",{action:"update",id:row.id,username:row.username,displayName:v});}}>이름 변경</button>
               <button onClick={()=>{const v=prompt("새 직원 아이디",row.username);if(v&&v.trim()!==row.username)void act("/api/admin/customer-users",{action:"update",id:row.id,username:v.trim(),displayName:row.display_name});}}>아이디 변경</button>
-              <button onClick={()=>{const v=prompt("새 6자리 PIN");if(v)void act("/api/admin/customer-users",{action:"reset-pin",id:row.id,pin:v});}}>PIN 변경</button>
+              <button onClick={()=>{const v=prompt("새 비밀번호 (6~64자)");if(v)void act("/api/admin/customer-users",{action:"reset-password",id:row.id,password:v});}}>비밀번호 변경</button>
               <button onClick={()=>void act("/api/admin/customer-users",{action:"toggle",id:row.id,active:!Boolean(row.active)})}>{Boolean(row.active)?"계정중지":"계정사용"}</button>
             </div>
           </article>)}
