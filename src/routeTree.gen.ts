@@ -44,6 +44,7 @@ import { Route as ApiCustomerDashboardRouteImport } from './routes/api/customer/
 import { Route as ApiCustomerLoginRouteImport } from './routes/api/customer/login'
 import { Route as ApiCustomerLogoutRouteImport } from './routes/api/customer/logout'
 import { Route as ApiCustomerStatusRouteImport } from './routes/api/customer/status'
+import { Route as ApiCustomerSwitchRouteImport } from './routes/api/customer/switch'
 import { Route as ApiDriverDataRouteImport } from './routes/api/driver/data'
 import { Route as ApiDriverOrderRouteImport } from './routes/api/driver/order'
 import { Route as ApiStaffLoginRouteImport } from './routes/api/staff/login'
@@ -225,6 +226,11 @@ const ApiCustomerStatusRoute = ApiCustomerStatusRouteImport.update({
   path: '/api/customer/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCustomerSwitchRoute = ApiCustomerSwitchRouteImport.update({
+  id: '/api/customer/switch',
+  path: '/api/customer/switch',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDriverDataRoute = ApiDriverDataRouteImport.update({
   id: '/api/driver/data',
   path: '/api/driver/data',
@@ -287,6 +293,7 @@ export interface FileRoutesByFullPath {
   '/api/customer/login': typeof ApiCustomerLoginRoute
   '/api/customer/logout': typeof ApiCustomerLogoutRoute
   '/api/customer/status': typeof ApiCustomerStatusRoute
+  '/api/customer/switch': typeof ApiCustomerSwitchRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
@@ -329,6 +336,7 @@ export interface FileRoutesByTo {
   '/api/customer/login': typeof ApiCustomerLoginRoute
   '/api/customer/logout': typeof ApiCustomerLogoutRoute
   '/api/customer/status': typeof ApiCustomerStatusRoute
+  '/api/customer/switch': typeof ApiCustomerSwitchRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
@@ -372,6 +380,7 @@ export interface FileRoutesById {
   '/api/customer/login': typeof ApiCustomerLoginRoute
   '/api/customer/logout': typeof ApiCustomerLogoutRoute
   '/api/customer/status': typeof ApiCustomerStatusRoute
+  '/api/customer/switch': typeof ApiCustomerSwitchRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
@@ -416,6 +425,7 @@ export interface FileRouteTypes {
     | '/api/customer/login'
     | '/api/customer/logout'
     | '/api/customer/status'
+    | '/api/customer/switch'
     | '/api/driver/data'
     | '/api/driver/order'
     | '/api/staff/login'
@@ -458,6 +468,7 @@ export interface FileRouteTypes {
     | '/api/customer/login'
     | '/api/customer/logout'
     | '/api/customer/status'
+    | '/api/customer/switch'
     | '/api/driver/data'
     | '/api/driver/order'
     | '/api/staff/login'
@@ -500,6 +511,7 @@ export interface FileRouteTypes {
     | '/api/customer/login'
     | '/api/customer/logout'
     | '/api/customer/status'
+    | '/api/customer/switch'
     | '/api/driver/data'
     | '/api/driver/order'
     | '/api/staff/login'
@@ -543,6 +555,7 @@ export interface RootRouteChildren {
   ApiCustomerLoginRoute: typeof ApiCustomerLoginRoute
   ApiCustomerLogoutRoute: typeof ApiCustomerLogoutRoute
   ApiCustomerStatusRoute: typeof ApiCustomerStatusRoute
+  ApiCustomerSwitchRoute: typeof ApiCustomerSwitchRoute
   ApiDriverDataRoute: typeof ApiDriverDataRoute
   ApiDriverOrderRoute: typeof ApiDriverOrderRoute
   ApiStaffLoginRoute: typeof ApiStaffLoginRoute
@@ -797,6 +810,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCustomerStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/customer/switch': {
+      id: '/api/customer/switch'
+      path: '/api/customer/switch'
+      fullPath: '/api/customer/switch'
+      preLoaderRoute: typeof ApiCustomerSwitchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/driver/data': {
       id: '/api/driver/data'
       path: '/api/driver/data'
@@ -871,6 +891,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCustomerLoginRoute: ApiCustomerLoginRoute,
   ApiCustomerLogoutRoute: ApiCustomerLogoutRoute,
   ApiCustomerStatusRoute: ApiCustomerStatusRoute,
+  ApiCustomerSwitchRoute: ApiCustomerSwitchRoute,
   ApiDriverDataRoute: ApiDriverDataRoute,
   ApiDriverOrderRoute: ApiDriverOrderRoute,
   ApiStaffLoginRoute: ApiStaffLoginRoute,
