@@ -279,48 +279,75 @@ export async function ensureDatabase(database: D1Database = db()) {
   await ensureColumn(database, "pack_options", "spec", "TEXT NOT NULL DEFAULT ''");
   await ensureOperationsSchema(database);
 
-  const test12013Seeded = await database
-    .prepare("SELECT value FROM app_settings WHERE key='customer_login_12013_v1'")
+  const test12013SeededV2 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='customer_login_12013_v2'")
     .first<{ value: string }>();
-  if (test12013Seeded?.value !== "1") {
-    const customer12013 = await database
+  if (test12013SeededV2?.value !== "1") {
+    const existingCustomer = await database
       .prepare("SELECT id FROM customers WHERE code='00124' LIMIT 1")
       .first<{ id: string }>();
-    if (customer12013?.id) {
-      const existing12013 = await database
-        .prepare("SELECT id FROM customer_users WHERE lower(username)='12013' LIMIT 1")
-        .first<{ id: string }>();
-      const userId = existing12013?.id || "CU-00124-12013";
-      if (!existing12013) {
-        await database.prepare(
-          "INSERT INTO customer_users(id,customer_id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,?,1)",
-        ).bind(
-          userId,
-          customer12013.id,
-          "12013",
-          "태승급식소",
-          "d122aed430315df44876524820de4584",
-          "eda528fa61bbe951e230aac2be2f6489f502de51bcdcb02219ec945362867f27",
-        ).run();
-      } else {
-        await database.prepare(
-          "UPDATE customer_users SET customer_id=?,auth_salt=?,auth_hash=?,active=1,updated_at=datetime('now') WHERE id=?",
-        ).bind(
-          customer12013.id,
-          "d122aed430315df44876524820de4584",
-          "eda528fa61bbe951e230aac2be2f6489f502de51bcdcb02219ec945362867f27",
-          userId,
-        ).run();
-      }
-      await database.batch([
-        database.prepare(
-          "INSERT OR IGNORE INTO customer_user_customers(customer_user_id,customer_id,sort_order) VALUES(?,?,0)",
-        ).bind(userId, customer12013.id),
-        database.prepare(
-          "INSERT OR REPLACE INTO app_settings(key,value) VALUES('customer_login_12013_v1','1')",
-        ),
-      ]);
+
+    const customerId = existingCustomer?.id || "C-ERP-00124";
+    if (!existingCustomer) {
+      await database.prepare(`
+        INSERT INTO customers
+          (id,code,name,phone,business_number,address,store_phone,region,price_group,active)
+        VALUES (?,?,?,?,?,?,?,?,?,1)
+      `).bind(
+        customerId,
+        "00124",
+        "태승급식소 120-13/2단지",
+        "010-9426-9139",
+        "131-17-92909",
+        "인천광역시 남동구 남동서로 64(고잔동, (주)태승정공)",
+        "",
+        "2단지",
+        "A",
+      ).run();
     }
+
+    const existing12013 = await database
+      .prepare("SELECT id FROM customer_users WHERE lower(username)='12013' LIMIT 1")
+      .first<{ id: string }>();
+    const userId = existing12013?.id || "CU-00124-12013";
+
+    if (!existing12013) {
+      await database.prepare(
+        "INSERT INTO customer_users(id,customer_id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,?,1)",
+      ).bind(
+        userId,
+        customerId,
+        "12013",
+        "태승급식소",
+        "d122aed430315df44876524820de4584",
+        "eda528fa61bbe951e230aac2be2f6489f502de51bcdcb02219ec945362867f27",
+      ).run();
+    } else {
+      await database.prepare(
+        "UPDATE customer_users SET customer_id=?,display_name=?,auth_salt=?,auth_hash=?,active=1,updated_at=datetime('now') WHERE id=?",
+      ).bind(
+        customerId,
+        "태승급식소",
+        "d122aed430315df44876524820de4584",
+        "eda528fa61bbe951e230aac2be2f6489f502de51bcdcb02219ec945362867f27",
+        userId,
+      ).run();
+    }
+
+    await database.batch([
+      database.prepare(
+        "DELETE FROM customer_user_customers WHERE customer_user_id=?",
+      ).bind(userId),
+      database.prepare(
+        "INSERT INTO customer_user_customers(customer_user_id,customer_id,sort_order) VALUES(?,?,0)",
+      ).bind(userId, customerId),
+      database.prepare(
+        "DELETE FROM customer_sessions WHERE customer_user_id=?",
+      ).bind(userId),
+      database.prepare(
+        "INSERT OR REPLACE INTO app_settings(key,value) VALUES('customer_login_12013_v2','1')",
+      ),
+    ]);
   }
 
   const frozenSeafoodCategoryPhotoV2 = await database
