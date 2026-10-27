@@ -5,6 +5,7 @@ import type { PackOption, Product, StoreData } from "../lib/db.server";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
 import { CATEGORY_IMAGE_DATA } from "../category-images";
 import { customerShortLabel, normalizeLoginId, orderTitle } from "../lib/customer-login-id";
+import { thumbUrl } from "../lib/photo-url";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ name: "robots", content: "noindex,nofollow" }] }),
@@ -250,7 +251,7 @@ function CategoryTilePhoto({ candidates }: { candidates: string[] }) {
     setPhotoIndex(0);
   }, [signature]);
 
-  const src = clean[photoIndex] ?? "";
+  const src = clean[photoIndex] ? thumbUrl(clean[photoIndex]) : "";
   return (
     <span className="od-tile-img category-photo">
       {src
@@ -985,7 +986,7 @@ function OrderApp({ store }: { store: StoreData }) {
                 const product = productById.get(line.productId);
                 return (
                   <div className="od-cart-line" key={line.key}>
-                    <div className="od-cart-thumb">{product?.photo ? <img src={product.photo} alt="" loading="lazy" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</div>
+                    <div className="od-cart-thumb">{product?.photo ? <img src={thumbUrl(product.photo)} alt="" loading="lazy" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</div>
                     <div className="od-cart-info">
                       <strong>{line.productName}</strong>
                       <span>{line.spec ? `${line.spec} / ` : ""}{line.optionLabel}</span>
@@ -1069,7 +1070,7 @@ function ProductCard({ product, promo, quantityFor, onQuantity, onOpen }: CardPr
     <article className={`od-card ${product.soldout ? "soldout" : ""}`}>
       <button type="button" className="od-card-photo" onClick={() => onOpen(product)} aria-label={`${product.name} 자세히 보기`}>
         {product.photo
-          ? <img src={product.photo} alt="" loading="lazy" decoding="async" />
+          ? <img src={thumbUrl(product.photo)} alt="" loading="lazy" decoding="async" />
           : <span className="od-photo-empty"><img src={BUJA_MARK_DATA} alt="" />사진 준비중</span>}
         {isPromo && <em className="od-badge">행사</em>}
         {product.soldout && <b className="od-soldout-cover">품절</b>}

@@ -170,6 +170,7 @@ async function main() {
 
   /* ---------- 관리자 ---------- */
   let adminReady = false;
+  let adminClient = null;
   try {
     const salt = "ci-admin-salt";
     const hash = pbkdf2Sync("ci-admin-password", salt, 100000, 32, "sha256").toString("hex");
@@ -180,6 +181,7 @@ async function main() {
   }
   if (adminReady) {
     const admin = new Client();
+    adminClient = admin;
     const al = await admin.json("/api/admin/login", { method: "POST", json: { username: "admin", password: "ci-admin-password" } });
     check("관리자 로그인", al.status === 200, `${al.status} ${JSON.stringify(al.body)}`);
     const adminStore = await admin.json("/api/store?all=1");
@@ -195,6 +197,36 @@ async function main() {
     check("이미 연결된 배송처(85-15)는 일괄생성 대상 아님", !p8515);
     const pOther = pending.find((r) => r.customerId === "C-CI-OTHER");
     check("미연결 거래처 9-9 → 아이디 99", pOther?.loginId === "99", JSON.stringify(pOther));
+    // 썸네일: 관리자가 원본+썸네일 업로드 → 거래처는 size=thumb 로 썸네일 수신, 없으면 원본(짧은 캐시)
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+    const upForm = new FormData();
+    upForm.append("file", new Blob([png], { type: "image/png" }), "a.png");
+    const up = await admin.json("/api/photo", { method: "POST", body: upForm });
+    const photoUrl = up.body?.url || "";
+    check("관리자 사진 업로드", up.status === 200 && photoUrl.startsWith("/api/photo?id="), `${up.status} ${JSON.stringify(up.body)}`);
+    const before = await customer.req(`${photoUrl}&size=thumb`);
+    check("썸네일 없으면 원본을 짧은 캐시로", before.status === 200 && (before.headers.get("cache-control") || "").includes("max-age=600"), `${before.status} ${before.headers.get("cache-control")}`);
+    const thumbForm = new FormData();
+    const tiny = Buffer.from("UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=", "base64");
+    thumbForm.append("file", new Blob([tiny], { type: "image/webp" }), "t.webp");
+    thumbForm.append("thumbOf", photoUrl.split("id=")[1]);
+    const tu = await admin.json("/api/photo", { method: "POST", body: thumbForm });
+    check("썸네일 업로드", tu.status === 200, `${tu.status} ${JSON.stringify(tu.body)}`);
+    const after = await customer.req(`${photoUrl}&size=thumb`);
+    check("썸네일 수신(webp, 장기 캐시)", after.status === 200 && after.headers.get("content-type") === "image/webp" && (after.headers.get("cache-control") || "").includes("immutable"), `${after.status} ${after.headers.get("content-type")}`);
+    const etag = after.headers.get("etag");
+    const again = await customer.req(`${photoUrl}&size=thumb`, { headers: { "if-none-match": etag } });
+    check("같은 사진 재요청 → 304", again.status === 304, `${again.status}`);
+    const list = await admin.json("/api/photo?thumbList=1");
+    check("썸네일 목록(관리자)", list.status === 200 && (list.body?.thumbs ?? []).includes(photoUrl.split("id=")[1]), `${list.status}`);
+    const listDenied = await customer.req("/api/photo?thumbList=1");
+    check("썸네일 목록은 거래처 불가", listDenied.status === 403, `${listDenied.status}`);
+    const badThumb = new FormData();
+    badThumb.append("file", new Blob([tiny], { type: "image/webp" }), "t.webp");
+    badThumb.append("thumbOf", "no-such-original.webp");
+    const bt = await admin.json("/api/photo", { method: "POST", body: badThumb });
+    check("원본 없는 썸네일 거절", bt.status === 400, `${bt.status}`);
+
     const adminPage = await admin.req("/admin");
     check("관리자 /admin 페이지 200", adminPage.status === 200, `${adminPage.status}`);
     const accountsPage = await admin.req("/admin/accounts");
@@ -302,9 +334,29 @@ async function main() {
   } catch (error) {
     check("[화면] 브라우저 시나리오 진행", false, String(error.message || error).slice(0, 400));
     await page.screenshot({ path: "e2e-failure.png", fullPage: true }).catch(() => {});
-  } finally {
-    await browser.close();
   }
+
+  if (adminClient) {
+    const adminContext = await browser.newContext({ baseURL: BASE });
+    await adminContext.addCookies([...adminClient.cookies].map(([name, value]) => ({ name, value, url: BASE })));
+    const adminPage = await adminContext.newPage();
+    try {
+      await adminPage.goto("/admin");
+      const button = adminPage.getByRole("button", { name: "목록용 썸네일 만들기" });
+      await button.waitFor({ timeout: 60000 });
+      await button.click();
+      const done = adminPage.locator(".adm-thumb-tool span", { hasText: /완료|이미 있습니다/ });
+      await done.waitFor({ timeout: 240000 });
+      const text = await done.innerText();
+      const made = Number((text.match(/완료: (\d+)개/) || [])[1] || 0);
+      check("[관리자] 썸네일 일괄 생성 버튼 동작", made > 0 || text.includes("이미 있습니다"), text);
+      const second = await (async () => { await button.click(); await adminPage.waitForTimeout(500); await adminPage.locator(".adm-thumb-tool span", { hasText: /완료|이미 있습니다/ }).waitFor({ timeout: 120000 }); return adminPage.locator(".adm-thumb-tool span").innerText(); })();
+      check("[관리자] 다시 누르면 없는 것만(이미 만든 건 건너뜀)", /이미 있습니다|완료: 0개/.test(second), second);
+    } catch (error) {
+      check("[관리자] 썸네일 도구 진행", false, String(error.message || error).slice(0, 300));
+    }
+  }
+  await browser.close();
 
   /* ---------- 7. 로그아웃 후 서버 차단 ---------- */
   const lo = await customer.json("/api/customer/logout", { method: "POST" });

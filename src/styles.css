@@ -4110,3 +4110,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .delivery-location-list label { grid-template-columns: minmax(0,1fr) auto auto; }
   .delivery-location-list span { grid-column: 1 / -1; }
 }
+
+/* 목록용 썸네일 만들기 (관리자 상품관리) */
+.adm-thumb-tool { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 10px; padding: 10px 12px; border: 1px solid #e3e8e4; border-radius: 10px; background: #f7faf8; }
+.adm-thumb-tool button { border: 0; border-radius: 8px; padding: 8px 14px; background: #0b6a39; color: #fff; font-weight: 700; cursor: pointer; }
+.adm-thumb-tool button:disabled { opacity: .7; cursor: progress; }
+.adm-thumb-tool span { color: #4a5a50; font-size: 13px; }

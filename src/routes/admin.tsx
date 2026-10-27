@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
+import { thumbUrl } from "../lib/photo-url";
+import { createThumbnailForUpload, generateMissingThumbnails, type ThumbnailProgress } from "../lib/photo-thumbs";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -57,7 +59,47 @@ async function uploadPhoto(file: File) {
   const upload = await fetch("/api/photo", { method: "POST", body: form });
   const data = await upload.json() as { url?: string; error?: string };
   if (!upload.ok || !data.url) throw new Error(data.error || "사진 업로드에 실패했습니다.");
+  // 목록용 작은 사진도 함께 저장 (실패해도 원본 업로드는 정상)
+  await createThumbnailForUpload(data.url, file);
   return data.url;
+}
+
+function formatBytes(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+  return `${Math.round(bytes / 1024)}KB`;
+}
+
+/** 상품 목록용 썸네일 일괄 생성 (관리자 브라우저에서 처리, 원본은 그대로 유지) */
+function ThumbnailTool({ store }: { store: StoreData }) {
+  const [progress, setProgress] = useState<ThumbnailProgress | null>(null);
+  const [running, setRunning] = useState(false);
+  const [message, setMessage] = useState("");
+  async function run() {
+    setRunning(true);
+    setMessage("");
+    try {
+      const urls = [
+        ...store.products.map((product) => product.photo),
+        ...Object.values(store.categoryImages ?? {}),
+      ].filter(Boolean);
+      const result = await generateMissingThumbnails(urls, setProgress);
+      setMessage(result.total === 0
+        ? "모든 사진에 썸네일이 이미 있습니다."
+        : `완료: ${result.done - result.failed}개 생성${result.failed ? `, 실패 ${result.failed}개` : ""} · 원본 ${formatBytes(result.originalBytes)} → 썸네일 ${formatBytes(result.thumbBytes)}`);
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "썸네일 생성에 실패했습니다.");
+    } finally {
+      setRunning(false);
+    }
+  }
+  return (
+    <div className="adm-thumb-tool">
+      <button type="button" disabled={running} onClick={() => void run()}>
+        {running ? `썸네일 만드는 중 ${progress?.done ?? 0}/${progress?.total ?? 0}` : "목록용 썸네일 만들기"}
+      </button>
+      <span>{message || "상품 목록에서 작은 사진을 써서 휴대폰 로딩을 빠르게 합니다. 없는 것만 새로 만듭니다."}</span>
+    </div>
+  );
 }
 
 function AdminPage() {
@@ -283,6 +325,7 @@ function ProductsView({
         <div><h1>상품 관리</h1><p>전체 {counts.all}개 · 판매중 {counts.selling} · 품절 {counts.soldout} · 숨김 {counts.hidden}</p></div>
         <button type="button" className="adm-primary" onClick={onCreate}>＋ 상품 추가</button>
       </div>
+      <ThumbnailTool store={store} />
       <div className="adm-toolbar">
         <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="상품명, 코드 검색" />
         <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="카테고리">
@@ -310,7 +353,7 @@ function ProductsView({
               const minPrice = product.packOptions.map((o) => o.price).filter((v): v is number => v !== null);
               return (
                 <tr key={product.id} className={state !== "selling" ? `is-${state}` : ""}>
-                  <td className="c-photo"><div className="adm-thumb">{product.photo ? <img src={product.photo} alt="" loading="lazy" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</div></td>
+                  <td className="c-photo"><div className="adm-thumb">{product.photo ? <img src={thumbUrl(product.photo)} alt="" loading="lazy" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</div></td>
                   <td className="c-name">
                     <button type="button" onClick={() => onEdit(product)}>{product.name}</button>
                     <small>{product.sub || "-"}{(product.servingsPerUnit || product.servingsPerBox) ? " · 인분정보 ✓" : ""}</small>
