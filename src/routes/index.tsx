@@ -165,6 +165,11 @@ function customerOrderLabel(customer: CustomerProfile | null) {
   return blockLot?.[1].replace(/\s+/g, "") || name || "부자유통";
 }
 
+function customerLocationCode(customer: CustomerProfile) {
+  const blockLot = customer.name.match(/(\d{1,3}\s*-\s*\d{1,3})/);
+  return blockLot?.[1].replace(/\s+/g, "") || customer.code;
+}
+
 function buildOrderText(cart: CartLine[], customer: CustomerProfile | null) {
   const grouped = new Map<string, string[]>();
 
@@ -588,6 +593,14 @@ function OrderPage() {
               <div><dt>핸드폰</dt><dd>{customer.phone || "-"}</dd></div>
               {customer.storePhone && <div><dt>전화</dt><dd>{customer.storePhone}</dd></div>}
             </dl>
+            {locations.length>1&&<div className="od-account-locations">
+              <div><strong>내 배송처</strong><small>{locations.length}곳 연결됨</small></div>
+              {locations.map(location=><button type="button" key={location.id} className={location.id===customer.id?"current":""} onClick={()=>void switchLocation(location)}>
+                <b>{customerLocationCode(location)}</b>
+                <span>{location.name}</span>
+                <em>{location.id===customer.id?"현재 발주처":"선택"}</em>
+              </button>)}
+            </div>}
             <div className="od-account-actions">
               <a href="/price-list">단가표 보기</a>
               <button type="button" onClick={() => void logoutCustomerAccount()}>로그아웃</button>
@@ -704,6 +717,14 @@ function OrderPage() {
         </div>
       </header>
 
+      {customer&&locations.length>1&&<div className="od-wrap od-location-wrap">
+        <button type="button" className="od-location-banner" onClick={()=>setLocationOpen(true)}>
+          <span className="od-location-pin">📍</span>
+          <span className="od-location-copy"><small>현재 발주처</small><strong>{customerLocationCode(customer)}</strong><em>{customer.name}</em></span>
+          <span className="od-location-change">다른 식당<br/>선택 ›</span>
+        </button>
+      </div>}
+
       <main className="od-wrap od-main">{content}</main>
 
       {toast && <div className="od-toast" key={toast.id} role="status">{toast.text}</div>}
@@ -725,6 +746,24 @@ function OrderPage() {
           <TabButton active={!searching && tab === "account"} label="내정보" onClick={() => goTab("account")} icon={<AccountIcon />} />
         </nav>
       </div>
+
+      {locationOpen&&customer&&locations.length>1&&(
+        <div className="od-backdrop center" onMouseDown={e=>{if(e.target===e.currentTarget&&!switchingLocation)setLocationOpen(false);}}>
+          <section className="od-location-sheet" role="dialog" aria-modal="true" aria-label="발주할 식당 선택">
+            <div className="od-location-sheet-head">
+              <div><small>배송처 선택</small><h2>어디로 발주할까요?</h2><p>숫자를 입력하지 말고 식당 버튼만 누르세요.</p></div>
+              <button type="button" disabled={switchingLocation} onClick={()=>setLocationOpen(false)}>×</button>
+            </div>
+            <div className="od-location-options">
+              {locations.map(location=><button type="button" key={location.id} disabled={switchingLocation} className={location.id===customer.id?"current":""} onClick={()=>void switchLocation(location)}>
+                <span className="od-location-number">{customerLocationCode(location)}</span>
+                <span className="od-location-name">{location.name}</span>
+                <span className="od-location-state">{location.id===customer.id?"✓ 현재 발주처":"이곳으로 발주"}</span>
+              </button>)}
+            </div>
+          </section>
+        </div>
+      )}
 
       {detail && (
         <div className="od-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setDetail(null); }}>
@@ -761,7 +800,7 @@ function OrderPage() {
         <div className="od-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setCartOpen(false); }}>
           <section className="od-sheet od-cart" aria-modal="true" role="dialog" aria-label="주문 내용 확인">
             <div className="od-cart-title">
-              <div><p>보내기 전에 확인하세요</p><h2>장바구니</h2></div>
+              <div><p>{customer?customerLocationCode(customer):"보내기 전에 확인하세요"} 발주</p><h2>장바구니</h2>{customer&&<small>{customer.name}</small>}</div>
               <button type="button" aria-label="닫기" onClick={() => setCartOpen(false)}>×</button>
             </div>
             <div className="od-cart-lines">
