@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getCustomer, isAdmin } from "../../lib/auth.server";
+import { getCustomer, getStaff, isAdmin } from "../../lib/auth.server";
 import { db, ensureDatabase, readStore } from "../../lib/db.server";
 import { bindings } from "../../lib/bindings.server";
 import { CATALOG_SQL_CHUNKS } from "../../catalog-sql.generated";
@@ -2532,6 +2532,18 @@ export const Route = createFileRoute("/api/store")({
       const url = new URL(request.url);
       await ensureCatalogImportV3();
 
+      const [customer, admin, staff] = await Promise.all([
+        getCustomer(request),
+        isAdmin(request),
+        getStaff(request),
+      ]);
+      if (!customer && !admin && !staff) {
+        return Response.json(
+          { error: "거래처 로그인이 필요합니다.", code: "AUTH_REQUIRED" },
+          { status: 401, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+
       if (url.searchParams.get("visual141283PhotoStatus") === "1") {
         const database = db();
         const ids = ["ERP-32409","ERP-30634","ERP-32440","ERP-32644","ERP-30986","ERP-32781","ERP-32016","ERP-31040","ERP-32766"];
@@ -2824,10 +2836,9 @@ export const Route = createFileRoute("/api/store")({
         }, { headers: { "Cache-Control": "no-store" } });
       }
 
-      const customer = await getCustomer(request);
       // 관리자 화면은 ?all=1 로 숨김 상품까지 받아감 (관리자 인증 필수)
       const wantsAll = url.searchParams.get("all") === "1";
-      const includeHidden = wantsAll && await isAdmin(request);
+      const includeHidden = wantsAll && (admin || staff?.role === "ADMIN");
       const store = await readStore(customer?.priceGroup, { includeHidden });
       return Response.json(store, { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
