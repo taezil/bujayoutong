@@ -225,7 +225,9 @@ async function main() {
     await banner.waitFor({ timeout: 10000 });
     check("[화면] 현재 발주처 120-13 표시", (await banner.innerText()).includes("120-13"), await banner.innerText());
 
-    const available = products.filter((p) => !p.soldout && !p.hidden);
+    // 관리자 단계에서 카탈로그 보정이 돌았을 수 있으므로 지금 화면 기준 상품으로 다시 고름
+    const fresh = await page.evaluate(async () => (await (await fetch("/api/store", { cache: "no-store" })).json()).products);
+    const available = fresh.filter((p) => !p.soldout && !p.hidden && p.name.length >= 3);
     async function addProduct(product) {
       await page.locator(".od-search input").fill(product.name);
       const card = page.locator(".od-card", { hasText: product.name }).first();
