@@ -48,7 +48,8 @@ export async function adminUiFlow(ctx, env) {
       await modal.locator(".account-link-head button").click();
     }
   } catch (error) {
-    check("[관리자] 배송처 관리 화면 흐름", false, String(error.message || error).slice(0, 400));
+    const modalText = await page.locator(".destination-modal").innerText().catch(() => "(no modal)");
+    check("[관리자] 배송처 관리 화면 흐름", false, `${String(error.message || error).slice(0, 200)} || MODAL: ${modalText.replace(/\n/g, " | ").slice(0, 900)}`);
     await page.screenshot({ path: "delivery-admin-failure.png", fullPage: true }).catch(() => {});
   } finally {
     await browser.close();
