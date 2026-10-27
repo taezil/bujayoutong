@@ -759,12 +759,17 @@ function OrderApp({ store }: { store: StoreData }) {
               <div><dt>핸드폰</dt><dd>{customer.phone || "-"}</dd></div>
               {customer.storePhone && <div><dt>전화</dt><dd>{customer.storePhone}</dd></div>}
             </dl>
-            {locations.length>1&&<div className="od-account-locations">
-              <div><strong>내 배송처</strong><small>{locations.length}곳 연결됨</small></div>
-              {locations.map(location=><button type="button" key={location.id} className={location.id===customer.id?"current":""} onClick={()=>void switchLocation(location)}>
+            {(locations.length>1||deliveryLocations.length>0)&&<div className="od-account-locations">
+              <div><strong>내 배송처</strong><small>{locations.length+deliveryLocations.length}곳 선택 가능</small></div>
+              {locations.map(location=><button type="button" key={location.id} className={location.id===customer.id&&!selectedDeliveryLocation?"current":""} onClick={()=>void switchLocation(location)}>
                 <b>{customerLocationCode(location)}</b>
                 <span>{location.name}</span>
-                <em>{location.id===customer.id?"현재 발주처":"선택"}</em>
+                <em>{location.id===customer.id&&!selectedDeliveryLocation?"현재 발주처":"선택"}</em>
+              </button>)}
+              {deliveryLocations.map(location=><button type="button" key={location.id} className={selectedDeliveryLocation?.id===location.id?"current":""} onClick={()=>switchExtraDelivery(location)}>
+                <b>{location.name}</b>
+                <span>{location.address||customer.name}</span>
+                <em>{selectedDeliveryLocation?.id===location.id?"현재 발주처":"선택"}</em>
               </button>)}
             </div>}
             <div className="od-account-actions">
