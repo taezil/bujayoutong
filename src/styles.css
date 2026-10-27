@@ -4173,3 +4173,58 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   font-size: 19px;
   font-weight: 900;
 }
+
+
+/* ===== 상품카드 수량조절: 참고 이미지 형태로 고정 ===== */
+.od-card .od-stepper {
+  overflow: hidden;
+  border: 0;
+  border-radius: 18px;
+  background: #f1f2f3;
+  box-shadow: none;
+}
+.od-card .od-stepper button {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+.od-card .od-stepper button:first-child {
+  background: #eaf4ef;
+  color: #047744;
+}
+.od-card .od-stepper button:first-child:disabled {
+  background: #eef0f2;
+  color: #c4c8cc;
+}
+.od-card .od-stepper button:last-child {
+  background: linear-gradient(145deg,#0c9556,#067440);
+  color: #fff;
+}
+.od-card .od-stepper b {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: #f3f4f5;
+  color: #111713;
+}
+.od-card .od-stepper.active {
+  background: transparent;
+  box-shadow: none;
+}
+.od-card .od-stepper.active b {
+  border-top: 2px solid #07884b;
+  border-bottom: 2px solid #07884b;
+  background: #fff;
+}
+.od-card .od-stepper.active button:first-child {
+  background: #e8f4ed;
+  color: #047744;
+}
+@media (max-width: 520px) {
+  .od-card .od-stepper { border-radius: 16px; }
+}
