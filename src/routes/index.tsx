@@ -887,10 +887,14 @@ function OrderApp({ store }: { store: StoreData }) {
         </div>
       </header>
 
-      {customer&&locations.length>1&&<div className="od-wrap od-location-wrap">
+      {customer&&(locations.length>1||deliveryLocations.length>0)&&<div className="od-wrap od-location-wrap">
         <button type="button" className="od-location-banner" onClick={()=>setLocationOpen(true)}>
           <span className="od-location-pin">📍</span>
-          <span className="od-location-copy"><small>현재 발주처</small><strong>{customerLocationCode(customer)}</strong><em>{customer.name}</em></span>
+          <span className="od-location-copy">
+            <small>현재 발주처</small>
+            <strong>{selectedDeliveryLocation ? customerLocationCode(customer)+" · "+selectedDeliveryLocation.name : customerLocationCode(customer)}</strong>
+            <em>{selectedDeliveryLocation ? (selectedDeliveryLocation.address||customer.name) : customer.name}</em>
+          </span>
           <span className="od-location-change">다른 식당<br/>선택 ›</span>
         </button>
       </div>}
