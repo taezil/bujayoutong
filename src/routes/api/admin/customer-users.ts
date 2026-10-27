@@ -27,7 +27,10 @@ export const Route = createFileRoute("/api/admin/customer-users")({
         JOIN customers c ON c.id=u.customer_id
         ORDER BY c.region,c.code,u.display_name
       `).all();
-      return Response.json({ users: rows.results }, { headers: { "Cache-Control": "no-store" } });
+      const links = await db().prepare(
+        "SELECT customer_user_id,customer_id,sort_order FROM customer_user_customers ORDER BY customer_user_id,sort_order,customer_id",
+      ).all();
+      return Response.json({ users: rows.results, links: links.results }, { headers: { "Cache-Control": "no-store" } });
     },
     POST: async ({ request }) => {
       if (!validMutationOrigin(request) || !(await isAdmin(request))) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 403 });
@@ -44,12 +47,41 @@ export const Route = createFileRoute("/api/admin/customer-users")({
           await assertCustomerUsernameAvailable(username, customerId);
           const credential = await makeCustomerPasswordCredential(password);
           const id = `CU-${crypto.randomUUID()}`;
-          await db().prepare("INSERT INTO customer_users(id,customer_id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,?,1)")
-            .bind(id, customerId, username, displayName, credential.salt, credential.hash).run();
+          await db().batch([
+            db().prepare("INSERT INTO customer_users(id,customer_id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,?,1)")
+              .bind(id, customerId, username, displayName, credential.salt, credential.hash),
+            db().prepare("INSERT OR IGNORE INTO customer_user_customers(customer_user_id,customer_id,sort_order) VALUES(?,?,0)")
+              .bind(id, customerId),
+          ]);
           return Response.json({ ok: true, id });
         }
         const id = cleanText(body.id, 80);
         if (!id) throw new Error("거래처 직원 계정을 선택해 주세요.");
+        if (action === "set-customers") {
+          const rawIds = Array.isArray(body.customerIds) ? body.customerIds : [];
+          const customerIds = Array.from(new Set(rawIds.map((value) => cleanText(value, 80)).filter(Boolean)));
+          if (!customerIds.length) throw new Error("배송처를 한 곳 이상 선택해 주세요.");
+
+          const validRows = await db().prepare(
+            `SELECT id FROM customers WHERE active=1 AND id IN (${customerIds.map(() => "?").join(",")})`,
+          ).bind(...customerIds).all<{ id: string }>();
+          const validIds = new Set(validRows.results.map((row) => String(row.id)));
+          if (validIds.size !== customerIds.length) throw new Error("사용할 수 없는 거래처가 포함되어 있습니다.");
+
+          const owner = await db().prepare("SELECT id FROM customer_users WHERE id=? LIMIT 1").bind(id).first();
+          if (!owner) throw new Error("거래처 계정을 찾을 수 없습니다.");
+
+          const statements = [
+            db().prepare("DELETE FROM customer_user_customers WHERE customer_user_id=?").bind(id),
+            ...customerIds.map((customerId, index) => db().prepare(
+              "INSERT INTO customer_user_customers(customer_user_id,customer_id,sort_order) VALUES(?,?,?)",
+            ).bind(id, customerId, index)),
+            db().prepare("UPDATE customer_users SET customer_id=?,updated_at=datetime('now') WHERE id=?").bind(customerIds[0], id),
+            db().prepare("UPDATE customer_sessions SET customer_id=? WHERE customer_user_id=?").bind(customerIds[0], id),
+          ];
+          await db().batch(statements);
+          return Response.json({ ok: true });
+        }
         if (action === "update") {
           const username = cleanText(body.username, 40).toLowerCase();
           const displayName = cleanText(body.displayName, 80);
