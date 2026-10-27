@@ -468,6 +468,49 @@ function OrderApp({ store }: { store: StoreData }) {
   }, []);
 
   useEffect(() => {
+    if (!customer) return;
+    let alive = true;
+
+    const refreshCustomerContext = async () => {
+      try {
+        const response = await fetch("/api/customer/status", { cache: "no-store" });
+        const data = await response.json() as {
+          authenticated?: boolean;
+          customer?: CustomerProfile | null;
+          locations?: CustomerProfile[];
+          deliveryLocations?: DeliveryLocation[];
+        };
+        if (!alive || !data.authenticated || !data.customer) return;
+
+        const current = data.customer;
+        const linked = data.locations?.length ? data.locations : [current];
+        const extras = (data.deliveryLocations ?? []).filter((item) => Boolean(item.active));
+        setCustomer(current);
+        setLocations(linked);
+        setDeliveryLocations(extras);
+
+        const selectedId = readStorage(customerDeliveryChoiceKey(current.id));
+        const selected = extras.find((item) => item.customer_id === current.id && item.id === selectedId) ?? null;
+        setSelectedDeliveryLocation(selected);
+      } catch {
+        // 화면 복귀 시 갱신 실패는 기존 상태를 유지
+      }
+    };
+
+    const onFocus = () => { void refreshCustomerContext(); };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void refreshCustomerContext();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      alive = false;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [customer?.id]);
+
+  useEffect(() => {
     if (!hydrated) return;
     writeStorage(cartKey, cart.length ? JSON.stringify(cart) : null);
   }, [cart, hydrated, cartKey]);
