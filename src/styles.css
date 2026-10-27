@@ -2602,7 +2602,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .od-cartbar-text strong { font-size: 17px; }
 .od-cartbar-text small { overflow: hidden; font-size: 13px; opacity: .9; white-space: nowrap; text-overflow: ellipsis; }
 .od-cartbar-go { flex: 0 0 auto; padding: 11px 14px; border-radius: 12px; background: var(--od-orange-deep); font-size: 16px; font-weight: 900; white-space: nowrap; }
-.od-tabbar { display: grid; grid-template-columns: repeat(3, 1fr); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--od-line); background: #fff; }
+.od-tabbar { display: grid; grid-template-columns: repeat(4, 1fr); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--od-line); background: #fff; }
 .od-tabbar button { min-height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: none; color: #8a9099; font-size: 13px; font-weight: 800; cursor: pointer; }
 .od-tabbar button.active { color: var(--od-orange-deep); }
 .od-tab-icon { position: relative; display: grid; place-items: center; }
@@ -3708,4 +3708,46 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .price-login-card > h1 { font-size: 29px; }
   .customer-credential-card { align-items: stretch; flex-direction: column; }
   .customer-credential-card button { width: 100%; }
+}
+
+
+/* ===== 거래처 내정보 ===== */
+.od-account-page { padding-bottom: 24px; }
+.od-account-card {
+  display: grid;
+  gap: 18px;
+  border: 1px solid var(--od-line);
+  border-radius: 20px;
+  padding: 20px;
+  background: #fff;
+  box-shadow: 0 8px 26px rgba(0,0,0,.05);
+}
+.od-account-card.loading { color: #6b7280; font-weight: 800; text-align: center; }
+.od-account-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--od-line); }
+.od-account-title strong { font-size: 22px; line-height: 1.25; }
+.od-account-title small { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: var(--od-orange-soft); color: var(--od-orange-deep); font-size: 12px; font-weight: 900; }
+.od-account-info { display: grid; gap: 0; margin: 0; }
+.od-account-info > div { display: grid; grid-template-columns: 92px 1fr; gap: 12px; padding: 13px 0; border-bottom: 1px solid #f0f1f3; }
+.od-account-info > div:last-child { border-bottom: 0; }
+.od-account-info dt { color: #777f89; font-size: 13px; font-weight: 800; }
+.od-account-info dd { margin: 0; color: var(--od-ink); font-size: 15px; font-weight: 800; line-height: 1.45; word-break: keep-all; }
+.od-account-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.od-account-actions a,
+.od-account-actions button,
+.od-account-card.signed-out > a {
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  font-weight: 900;
+  text-decoration: none;
+}
+.od-account-actions a { background: var(--od-orange-deep); color: #fff; }
+.od-account-actions button { border: 1px solid #d9dde3; background: #fff; color: #525866; cursor: pointer; }
+.od-account-card.signed-out { text-align: center; }
+.od-account-card.signed-out strong { font-size: 19px; }
+.od-account-card.signed-out span { color: #6b7280; font-size: 14px; line-height: 1.55; word-break: keep-all; }
+.od-account-card.signed-out > a { background: var(--od-orange-deep); color: #fff; }
+@media (max-width: 430px) {
+  .od-account-info > div { grid-template-columns: 78px 1fr; }
 }
