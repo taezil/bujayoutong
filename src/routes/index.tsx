@@ -618,8 +618,8 @@ function OrderApp({ store }: { store: StoreData }) {
 
   function composeSms() {
     if (!cart.length) return;
-    const body = encodeURIComponent(buildOrderText(cart, customer));
-    writeStorage(customerSentKey(customer?.id), String(Date.now()));
+    const body = encodeURIComponent(buildOrderText(cart, customer, selectedDeliveryLocation));
+    writeStorage(customerSentKey(customer?.id, selectedDeliveryLocation?.id), String(Date.now()));
     setCartOpen(false);
     setAskSent(true);
     // 아이폰은 '&body=', 안드로이드는 '?body=' 형식을 사용
@@ -627,14 +627,14 @@ function OrderApp({ store }: { store: StoreData }) {
   }
 
   async function copyOrder() {
-    const ok = await copyText(buildOrderText(cart, customer));
+    const ok = await copyText(buildOrderText(cart, customer, selectedDeliveryLocation));
     setCopied(ok);
     setToast({ id: Date.now(), text: ok ? "주문 내용을 복사했습니다. 카톡이나 문자에 붙여넣으세요." : "복사가 되지 않았습니다. 문자로 보내기를 이용해 주세요." });
     if (ok) window.setTimeout(() => setCopied(false), 2500);
   }
 
   function answerSent(sent: boolean) {
-    writeStorage(customerSentKey(customer?.id), null);
+    writeStorage(customerSentKey(customer?.id, selectedDeliveryLocation?.id), null);
     setAskSent(false);
     if (sent && cart.length) {
       setCart([]);
@@ -642,9 +642,34 @@ function OrderApp({ store }: { store: StoreData }) {
     }
   }
 
+  function switchExtraDelivery(next: DeliveryLocation | null) {
+    if (!customer) return;
+    writeStorage(cartKey, cart.length ? JSON.stringify(cart) : null);
+
+    const nextKey = customerCartKey(customer.id, next?.id);
+    const raw = readStorage(nextKey);
+    let nextCart: CartLine[] = [];
+    if (raw) {
+      try { nextCart = reconcile(JSON.parse(raw) as CartLine[]).lines; } catch { nextCart = []; }
+    }
+
+    setSelectedDeliveryLocation(next);
+    writeStorage(customerDeliveryChoiceKey(customer.id), next?.id ?? null);
+    setCartKey(nextKey);
+    setCart(nextCart);
+    setAskSent(Boolean(readStorage(customerSentKey(customer.id, next?.id))));
+    setLocationOpen(false);
+    setCartOpen(false);
+    setToast({ id: Date.now(), text: next ? `${next.name} 배송처로 변경했습니다.` : `${customerOrderLabel(customer)} 기본 배송처로 변경했습니다.` });
+  }
+
   async function switchLocation(next: CustomerProfile) {
-    if (!customer || next.id === customer.id || switchingLocation) {
+    if (!customer || switchingLocation) {
       setLocationOpen(false);
+      return;
+    }
+    if (next.id === customer.id) {
+      switchExtraDelivery(null);
       return;
     }
     setSwitchingLocation(true);
@@ -658,18 +683,29 @@ function OrderApp({ store }: { store: StoreData }) {
       const data = await response.json() as { customer?: CustomerProfile; locations?: CustomerProfile[]; error?: string };
       if (!response.ok || !data.customer) throw new Error(data.error || "배송처 변경에 실패했습니다.");
 
-      const changed = data.customer;
-      const nextKey = customerCartKey(changed.id);
+      const statusResponse = await fetch("/api/customer/status", { cache: "no-store" });
+      const status = await statusResponse.json() as {
+        customer?: CustomerProfile | null;
+        locations?: CustomerProfile[];
+        deliveryLocations?: DeliveryLocation[];
+      };
+      const changed = status.customer ?? data.customer;
+      const extras = (status.deliveryLocations ?? []).filter((item) => item.customer_id === changed.id && Boolean(item.active));
+      const storedId = readStorage(customerDeliveryChoiceKey(changed.id));
+      const selected = extras.find((item) => item.id === storedId) ?? null;
+      const nextKey = customerCartKey(changed.id, selected?.id);
       const raw = readStorage(nextKey);
       let nextCart: CartLine[] = [];
       if (raw) {
         try { nextCart = reconcile(JSON.parse(raw) as CartLine[]).lines; } catch { nextCart = []; }
       }
       setCustomer(changed);
+      setLocations(status.locations?.length ? status.locations : (data.locations?.length ? data.locations : [changed]));
+      setDeliveryLocations(extras);
+      setSelectedDeliveryLocation(selected);
       setCartKey(nextKey);
       setCart(nextCart);
-      setAskSent(Boolean(readStorage(customerSentKey(changed.id))));
-      if (data.locations?.length) setLocations(data.locations);
+      setAskSent(Boolean(readStorage(customerSentKey(changed.id, selected?.id))));
       setLocationOpen(false);
       setCartOpen(false);
       setToast({ id: Date.now(), text: `${customerOrderLabel(changed)} 발주처로 변경했습니다.` });
