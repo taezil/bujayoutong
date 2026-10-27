@@ -4045,3 +4045,68 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .account-pagination { gap: 9px; }
   .account-pagination button { min-width: 88px; }
 }
+
+
+/* ===== 추가 배송처 관리 ===== */
+.delivery-location-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e9ece9;
+}
+.delivery-location-form select,
+.delivery-location-form input {
+  min-height: 44px;
+  border: 1.5px solid #d3ddd4;
+  border-radius: 11px;
+  padding: 0 11px;
+  background: #fff;
+  color: #26332b;
+  font: inherit;
+  font-size: 13px;
+  outline: 0;
+}
+.delivery-location-form input:focus,
+.delivery-location-form select:focus {
+  border-color: #0b6a39;
+  box-shadow: 0 0 0 3px rgba(11,106,57,.08);
+}
+.delivery-location-form .save {
+  min-height: 44px;
+  border: 0;
+  border-radius: 11px;
+  background: #0b6a39;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+.delivery-location-form .save:disabled { opacity: .4; cursor: default; }
+.delivery-location-list label {
+  grid-template-columns: minmax(0,1fr) auto auto;
+}
+.delivery-location-list label.disabled { opacity: .55; }
+.delivery-location-list label > button {
+  min-height: 34px;
+  border: 1px solid #d5ddd6;
+  border-radius: 9px;
+  padding: 0 10px;
+  background: #fff;
+  color: #465249;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.od-location-divider {
+  padding: 6px 4px 1px;
+  color: #0b6a39;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: .04em;
+}
+
+@media (max-width: 600px) {
+  .delivery-location-form { grid-template-columns: 1fr; }
+  .delivery-location-list label { grid-template-columns: minmax(0,1fr) auto auto; }
+  .delivery-location-list span { grid-column: 1 / -1; }
+}
