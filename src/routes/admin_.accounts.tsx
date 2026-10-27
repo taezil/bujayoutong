@@ -129,6 +129,69 @@ function AccountsPage(){
     try{await navigator.clipboard.writeText(message);}
     catch{window.prompt("아래 내용을 복사해 전달해 주세요.",message);}
   }
+  async function chooseImportFile(file:File|null){
+    if(!file){setImportRows([]);setImportFileName("");setImporting("");return;}
+    try{
+      setError("");
+      const parsed=parseCsv(await file.text());
+      const valid=parsed.filter(row=>row.code&&row.name);
+      if(!valid.length)throw new Error("등록할 거래처가 없습니다. 부자유통 일괄등록 CSV 파일인지 확인해 주세요.");
+      setImportRows(valid);
+      setImportFileName(file.name);
+      setImporting(String(valid.length)+"개 거래처 준비됨");
+    }catch(e){
+      setImportRows([]);setImportFileName("");setImporting("");
+      setError(e instanceof Error?e.message:"파일을 읽지 못했습니다.");
+    }
+  }
+
+  async function importCustomersAndProvision(){
+    if(!importRows.length)return;
+    const activeCount=importRows.filter(row=>row.active!=="0").length;
+    const inactiveCount=importRows.length-activeCount;
+    const ok=confirm("거래처 "+importRows.length+"곳을 등록합니다.\n활성 "+activeCount+"곳 / 비활성 "+inactiveCount+"곳\n\n등록 후 활성 거래처의 로그인 계정도 자동 생성합니다.\n비밀번호는 아이디와 같습니다. 진행할까요?");
+    if(!ok)return;
+    setError("");
+    let imported=0;
+    try{
+      for(let i=0;i<importRows.length;i+=30){
+        const chunk=importRows.slice(i,i+30).map(row=>({
+          code:row.code,
+          name:row.name,
+          businessNumber:row.businessNumber||"",
+          address:row.address||"",
+          phone:row.phone||"",
+          storePhone:row.storePhone||"",
+          region:row.region||"",
+          active:row.active!=="0",
+        }));
+        const result=await post("/api/admin/customers",{action:"import-batch",rows:chunk}) as unknown as {imported:number};
+        imported+=result.imported||0;
+        setImporting("거래처 등록 "+imported+"/"+importRows.length);
+      }
+
+      await load();
+      const preview=await post("/api/admin/customer-users",{action:"provision-preview"}) as unknown as Plan;
+      setPlan(preview);
+      let created=0;
+      let remaining=preview.pending.length;
+      for(let round=0;round<80&&remaining>0;round+=1){
+        const result=await post("/api/admin/customer-users",{action:"provision-run",limit:20}) as unknown as {created:PlanRow[];failed:Array<PlanRow&{error:string}>;remaining:number};
+        created+=result.created.length;
+        remaining=result.remaining;
+        setImporting("거래처 "+imported+"곳 등록 완료 · 로그인 계정 "+created+"개 생성 · 남은 "+remaining+"개");
+        if(result.failed.length)setError("일부 계정 생성 실패: "+result.failed.slice(0,3).map(item=>item.code+" "+item.name+"("+item.error+")").join(", "));
+        if(!result.created.length&&remaining>0)break;
+      }
+      setImporting("완료: 거래처 "+imported+"곳 등록 · 로그인 계정 "+created+"개 생성");
+      await load();
+      await previewProvision();
+    }catch(e){
+      setError(e instanceof Error?e.message:"거래처 일괄등록에 실패했습니다.");
+      setImporting(current=>current?current+" · 중단됨":"중단됨");
+    }
+  }
+
   async function previewProvision(){
     try{setError("");setPlan(await post("/api/admin/customer-users",{action:"provision-preview"}) as unknown as Plan);}
     catch(e){setError(e instanceof Error?e.message:"미리보기에 실패했습니다.");}
