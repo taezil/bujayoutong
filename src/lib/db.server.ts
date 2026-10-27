@@ -221,6 +221,11 @@ async function ensureOperationsSchema(database: D1Database) {
   }
   await ensureColumn(database, "customer_sessions", "customer_user_id", "TEXT NOT NULL DEFAULT ''");
 
+  await database.exec("CREATE TABLE IF NOT EXISTS customer_user_customers (customer_user_id TEXT NOT NULL, customer_id TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY(customer_user_id, customer_id), FOREIGN KEY(customer_user_id) REFERENCES customer_users(id) ON DELETE CASCADE, FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE)");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_user_customers_user ON customer_user_customers(customer_user_id, sort_order, customer_id)");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_user_customers_customer ON customer_user_customers(customer_id, customer_user_id)");
+  await database.exec("INSERT OR IGNORE INTO customer_user_customers(customer_user_id, customer_id, sort_order) SELECT id, customer_id, 0 FROM customer_users");
+
   await database.exec("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL DEFAULT 'system', actor_id TEXT NOT NULL DEFAULT '', actor_name TEXT NOT NULL DEFAULT '', action TEXT NOT NULL, entity_type TEXT NOT NULL DEFAULT '', entity_id TEXT NOT NULL DEFAULT '', summary TEXT NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL DEFAULT (datetime('now')))");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC, id DESC)");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id, created_at DESC)");
