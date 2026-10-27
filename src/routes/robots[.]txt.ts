@@ -5,12 +5,9 @@ export const Route = createFileRoute('/robots.txt')({
     handlers: {
       GET: async ({ request }) => {
         const origin = new URL(request.url).origin
-        const body = [
-          'User-agent: *',
-          'Allow: /',
-          '',
-          `Sitemap: ${origin}/sitemap.xml`,
-        ].join('\n')
+        // 거래처 전용 사이트: 검색엔진 수집 차단
+        void origin
+        const body = ['User-agent: *', 'Disallow: /', ''].join('\n')
         return new Response(body, {
           headers: {
             'Content-Type': 'text/plain; charset=utf-8',

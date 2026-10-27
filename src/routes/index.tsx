@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
 import { CATEGORY_IMAGE_DATA } from "../category-images";
+import { customerShortLabel, normalizeLoginId, orderTitle } from "../lib/customer-login-id";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ name: "robots", content: "noindex,nofollow" }] }),
@@ -36,8 +37,13 @@ type Tab = "home" | "category" | "promo" | "account";
 const CART_STORAGE_KEY = "buja-simple-cart-v1";
 const SENT_STORAGE_KEY = "buja-simple-cart-sent-v1";
 
+// 배송처(거래처)마다 장바구니와 "문자 보냈나요?" 상태를 따로 보관합니다.
 function customerCartKey(customerId?: string) {
   return customerId ? `${CART_STORAGE_KEY}:${customerId}` : CART_STORAGE_KEY;
+}
+
+function customerSentKey(customerId?: string) {
+  return customerId ? `${SENT_STORAGE_KEY}:${customerId}` : SENT_STORAGE_KEY;
 }
 const ALL = "전체";
 
@@ -145,15 +151,13 @@ function optionSpec(product: Product, option: PackOption) {
 
 /* ---------- 문자/복사/저장 ---------- */
 
+// "태승급식소 120-13/2단지" → "120-13", 블록번호가 없으면 업체명
 function customerOrderLabel(customer: CustomerProfile | null) {
-  const name = customer?.name.trim() ?? "";
-  const blockLot = name.match(/(\d{1,3}\s*-\s*\d{1,3})/);
-  return blockLot?.[1].replace(/\s+/g, "") || name || "부자유통";
+  return customerShortLabel(customer);
 }
 
 function customerLocationCode(customer: CustomerProfile) {
-  const blockLot = customer.name.match(/(\d{1,3}\s*-\s*\d{1,3})/);
-  return blockLot?.[1].replace(/\s+/g, "") || customer.code;
+  return customerShortLabel(customer);
 }
 
 function buildOrderText(cart: CartLine[], customer: CustomerProfile | null) {
@@ -166,7 +170,7 @@ function buildOrderText(cart: CartLine[], customer: CustomerProfile | null) {
   }
 
   const lines = Array.from(grouped, ([productName, quantities]) => `${productName} / ${quantities.join(" ")}`);
-  return [`[${customerOrderLabel(customer)} 발주]`, "", ...lines, "", `총 ${lines.length}품목`].join("\n");
+  return [orderTitle(customer), "", ...lines, "", `총 ${lines.length}품목`].join("\n");
 }
 
 function isIOS() {
@@ -312,7 +316,7 @@ function OrderLogin({
       const response = await fetch("/api/customer/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: identifier.replace(/-/g, ""), password: password.replace(/-/g, "") }),
+        body: JSON.stringify({ identifier: normalizeLoginId(identifier), password: password.trim() }),
       });
       const json = await response.json() as { error?: string };
       if (!response.ok) throw new Error(json.error || "아이디 또는 비밀번호를 확인해 주세요.");
@@ -332,10 +336,10 @@ function OrderLogin({
         <h1>거래처 전용 주문</h1>
         <span>부자유통 거래처만 이용할 수 있습니다. 전달받은 숫자 아이디와 비밀번호를 입력해 주세요.</span>
         {checking ? <div className="price-login-checking">로그인 상태를 확인하는 중입니다.</div> : <form onSubmit={submit}>
-          <label>아이디<input inputMode="numeric" value={identifier} onChange={(event) => setIdentifier(event.target.value.replace(/[^0-9-]/g, ""))} autoComplete="username" placeholder="예: 12013" /></label>
-          <label>비밀번호<input inputMode="numeric" value={password} onChange={(event) => setPassword(event.target.value.replace(/[^0-9-]/g, ""))} type="password" autoComplete="current-password" placeholder="아이디와 동일" /></label>
+          <label>아이디<input name="username" inputMode="numeric" pattern="[0-9-]*" enterKeyHint="next" value={identifier} onChange={(event) => setIdentifier(event.target.value.replace(/[^0-9a-zA-Z-]/g, ""))} autoComplete="username" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="예: 12013" /></label>
+          <label>비밀번호<input name="password" inputMode="numeric" enterKeyHint="go" value={password} onChange={(event) => setPassword(event.target.value.slice(0, 64))} type="password" autoComplete="current-password" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="아이디와 동일" /></label>
           {error && <p className="price-login-error">{error}</p>}
-          <button type="submit" disabled={busy || !identifier.replace(/-/g, "").trim() || password.replace(/-/g, "").trim().length < 2}>{busy ? "확인 중..." : "로그인"}</button>
+          <button type="submit" disabled={busy || !normalizeLoginId(identifier) || password.trim().length < 2}>{busy ? "확인 중..." : "로그인"}</button>
         </form>}
         <div className="price-login-help">
           <b>로그인 전에는 상품과 발주정보가 공개되지 않습니다.</b>
@@ -392,7 +396,10 @@ function OrderApp({ store }: { store: StoreData }) {
           try {
             const saved = JSON.parse(raw) as CartLine[];
             setCart(reconcile(Array.isArray(saved) ? saved : []).lines);
-            if (!scopedRaw && current) writeStorage(key, raw);
+            if (!scopedRaw && current) {
+              writeStorage(key, raw);
+              writeStorage(CART_STORAGE_KEY, null);
+            }
           } catch {
             writeStorage(key, null);
             setCart([]);
@@ -400,7 +407,7 @@ function OrderApp({ store }: { store: StoreData }) {
         } else {
           setCart([]);
         }
-        if (readStorage(SENT_STORAGE_KEY)) setAskSent(true);
+        if (readStorage(customerSentKey(current?.id))) setAskSent(true);
         setHydrated(true);
       })
       .catch(() => {
@@ -577,7 +584,7 @@ function OrderApp({ store }: { store: StoreData }) {
   function composeSms() {
     if (!cart.length) return;
     const body = encodeURIComponent(buildOrderText(cart, customer));
-    writeStorage(SENT_STORAGE_KEY, String(Date.now()));
+    writeStorage(customerSentKey(customer?.id), String(Date.now()));
     setCartOpen(false);
     setAskSent(true);
     // 아이폰은 '&body=', 안드로이드는 '?body=' 형식을 사용
@@ -592,7 +599,7 @@ function OrderApp({ store }: { store: StoreData }) {
   }
 
   function answerSent(sent: boolean) {
-    writeStorage(SENT_STORAGE_KEY, null);
+    writeStorage(customerSentKey(customer?.id), null);
     setAskSent(false);
     if (sent && cart.length) {
       setCart([]);
@@ -613,7 +620,7 @@ function OrderApp({ store }: { store: StoreData }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customerId: next.id }),
       });
-      const data = await response.json() as { customer?: CustomerProfile; error?: string };
+      const data = await response.json() as { customer?: CustomerProfile; locations?: CustomerProfile[]; error?: string };
       if (!response.ok || !data.customer) throw new Error(data.error || "배송처 변경에 실패했습니다.");
 
       const changed = data.customer;
@@ -626,6 +633,8 @@ function OrderApp({ store }: { store: StoreData }) {
       setCustomer(changed);
       setCartKey(nextKey);
       setCart(nextCart);
+      setAskSent(Boolean(readStorage(customerSentKey(changed.id))));
+      if (data.locations?.length) setLocations(data.locations);
       setLocationOpen(false);
       setCartOpen(false);
       setToast({ id: Date.now(), text: `${customerOrderLabel(changed)} 발주처로 변경했습니다.` });
@@ -637,9 +646,9 @@ function OrderApp({ store }: { store: StoreData }) {
   }
 
   async function logoutCustomerAccount() {
-    await fetch("/api/customer/logout", { method: "POST" }).catch(() => undefined);
+    await fetch("/api/customer/logout", { method: "POST", cache: "no-store" }).catch(() => undefined);
     setCustomer(null);
-    window.location.href = "/";
+    window.location.replace("/");
   }
 
   function goTab(next: Tab, nextCategory?: string) {

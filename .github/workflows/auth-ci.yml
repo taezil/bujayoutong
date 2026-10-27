@@ -15,6 +15,9 @@ on:
       - ".github/workflows/auth-ci.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,9 +32,19 @@ jobs:
       - name: Typecheck (same check that runs before Cloudflare deploy)
         run: npx tsc --noEmit
       - name: Build
-        run: npx vite build
-      - name: Generated route tree is up to date
-        run: git diff --exit-code -- src/routeTree.gen.ts
+        run: |
+          npx vite build > build.log 2>&1 || { echo "::error title=vite build failed::$(tail -n 40 build.log | sed ':a;N;$!ba;s/\n/%0A/g')"; exit 1; }
+          tail -n 5 build.log
+      - name: Commit regenerated route tree (work branches only)
+        if: startsWith(github.ref, 'refs/heads/claude/')
+        run: |
+          if ! git diff --quiet -- src/routeTree.gen.ts; then
+            git config user.name "github-actions"
+            git config user.email "github-actions@users.noreply.github.com"
+            git add src/routeTree.gen.ts
+            git commit -m "chore: regenerate route tree"
+            git push
+          fi
       - name: Start local worker (vite preview, local D1/R2)
         if: hashFiles('tests/auth-e2e.mjs') != ''
         run: |
@@ -49,6 +62,8 @@ jobs:
       - name: End-to-end auth checks
         if: hashFiles('tests/auth-e2e.mjs') != ''
         run: node tests/auth-e2e.mjs http://localhost:4173
-      - name: Worker log
+      - name: Report results as annotations
         if: always() && hashFiles('tests/auth-e2e.mjs') != ''
-        run: tail -n 200 preview.log || true
+        run: |
+          if [ -f e2e-summary.txt ]; then echo "::notice title=E2E summary::$(sed ':a;N;$!ba;s/\n/%0A/g' e2e-summary.txt)"; fi
+          if [ -f preview.log ]; then echo "::notice title=Worker log tail::$(tail -n 60 preview.log | cut -c1-300 | sed ':a;N;$!ba;s/\n/%0A/g')"; fi

@@ -2,15 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { isAdmin, makeCustomerPasswordCredential, validMutationOrigin } from "../../../lib/auth.server";
 import { db, ensureDatabase } from "../../../lib/db.server";
 import { cleanText } from "../../../lib/admin-validation.server";
+import { normalizeLoginId } from "../../../lib/customer-login-id";
+import { LOGIN_ID_PATTERN, planCustomerAccounts, runCustomerAccountPlan } from "../../../lib/customer-accounts.server";
 
 async function assertCustomerUsernameAvailable(username: string, customerId: string, excludeId = "") {
   const employee = await db().prepare(
-    "SELECT id FROM customer_users WHERE lower(username)=lower(?) AND id<>? LIMIT 1",
+    "SELECT id FROM customer_users WHERE replace(lower(username),'-','')=? AND id<>? LIMIT 1",
   ).bind(username, excludeId).first();
   if (employee) throw new Error("이미 사용 중인 거래처 아이디입니다.");
 
   const customer = await db().prepare(
-    "SELECT id FROM customers WHERE lower(code)=lower(?) AND id<>? LIMIT 1",
+    "SELECT id FROM customers WHERE replace(lower(code),'-','')=? AND id<>? LIMIT 1",
   ).bind(username, customerId).first();
   if (customer) throw new Error("다른 거래처번호와 같은 아이디는 사용할 수 없습니다.");
 }
@@ -38,12 +40,22 @@ export const Route = createFileRoute("/api/admin/customer-users")({
       try {
         const body = await request.json() as Record<string, unknown>;
         const action = cleanText(body.action, 30);
+        // 거래처 계정 일괄 생성: 미리보기 → 실행(나눠서 반복 호출)
+        if (action === "provision-preview") {
+          const plan = await planCustomerAccounts(db());
+          return Response.json({ ok: true, ...plan }, { headers: { "Cache-Control": "no-store" } });
+        }
+        if (action === "provision-run") {
+          const limit = Math.max(1, Math.min(30, Math.floor(Number(body.limit) || 20)));
+          const result = await runCustomerAccountPlan(db(), limit);
+          return Response.json({ ok: true, ...result }, { headers: { "Cache-Control": "no-store" } });
+        }
         if (action === "create") {
           const customerId = cleanText(body.customerId, 80);
-          const username = cleanText(body.username, 40).toLowerCase();
+          const username = normalizeLoginId(cleanText(body.username, 40));
           const displayName = cleanText(body.displayName, 80);
           const password = cleanText(body.password ?? body.pin, 64);
-          if (!customerId || !displayName || !/^[a-z0-9._-]{2,40}$/.test(username)) throw new Error("거래처, 이름, 직원 아이디를 확인해 주세요.");
+          if (!customerId || !displayName || !LOGIN_ID_PATTERN.test(username)) throw new Error("거래처, 이름, 로그인 아이디를 확인해 주세요.");
           await assertCustomerUsernameAvailable(username, customerId);
           const credential = await makeCustomerPasswordCredential(password);
           const id = `CU-${crypto.randomUUID()}`;
@@ -83,9 +95,9 @@ export const Route = createFileRoute("/api/admin/customer-users")({
           return Response.json({ ok: true });
         }
         if (action === "update") {
-          const username = cleanText(body.username, 40).toLowerCase();
+          const username = normalizeLoginId(cleanText(body.username, 40));
           const displayName = cleanText(body.displayName, 80);
-          if (!displayName || !/^[a-z0-9._-]{2,40}$/.test(username)) throw new Error("이름과 직원 아이디를 확인해 주세요.");
+          if (!displayName || !LOGIN_ID_PATTERN.test(username)) throw new Error("이름과 로그인 아이디를 확인해 주세요.");
           const owner = await db().prepare("SELECT customer_id FROM customer_users WHERE id=? LIMIT 1").bind(id).first<{ customer_id: string }>();
           if (!owner?.customer_id) throw new Error("거래처 계정을 찾을 수 없습니다.");
           await assertCustomerUsernameAvailable(username, owner.customer_id, id);

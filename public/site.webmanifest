@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "부자유통 단가표",
+  "name": "부자유통 거래처 주문",
   "short_name": "부자유통",
-  "description": "부자유통 거래처 전용 실시간 단가표",
+  "description": "부자유통 거래처 전용 주문",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -12,6 +12,10 @@ type StaffRow={id:string;username:string;display_name:string;role:"ADMIN"|"DRIVE
 type CustomerRow={id:string;code:string;name:string;active:boolean};
 type CustomerUser={id:string;customer_id:string;username:string;display_name:string;active:number|boolean;customer_code:string;customer_name:string};
 type CustomerUserLink={customer_user_id:string;customer_id:string;sort_order:number};
+type PlanRow={customerId:string;code:string;name:string;loginId:string;rule:"block-lot"|"code"|"code-duplicate"};
+type Plan={pending:PlanRow[];skipped:Array<{customerId:string;code:string;name:string;reason:string}>;alreadyLinked:number;totalActive:number};
+const ruleLabel:Record<PlanRow["rule"],string>={"block-lot":"블록번호","code":"거래처코드","code-duplicate":"중복→거래처코드"};
+function normalizeSearch(value:string){return value.toLowerCase().replace(/[\s\-–—]+/g,"");}
 
 async function post(path:string,body:Record<string,unknown>){
   const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
@@ -35,6 +39,8 @@ function AccountsPage(){
   const[password,setPassword]=useState("");
   const[createdCredential,setCreatedCredential]=useState<{customerName:string;displayName:string;username:string;password:string}|null>(null);
   const[error,setError]=useState("");
+  const[plan,setPlan]=useState<Plan|null>(null);
+  const[provisioning,setProvisioning]=useState("");
 
   async function load(){
     const[sr,st,cr,ur]=await Promise.all([
@@ -86,10 +92,31 @@ function AccountsPage(){
 
   async function copyCreatedCredential(){
     if(!createdCredential)return;
-    const message=`[부자유통 단가표 로그인]\n주소: https://order.bujafood.kr/price-list\n거래처: ${createdCredential.customerName}\n아이디: ${createdCredential.username}\n비밀번호: ${createdCredential.password}\n\n한 번 로그인하면 같은 휴대폰에서는 자동 로그인됩니다.`;
+    const message=`[부자유통 거래처 주문 로그인]\n주소: https://order.bujafood.kr/\n거래처: ${createdCredential.customerName}\n아이디: ${createdCredential.username}\n비밀번호: ${createdCredential.password}\n\n한 번 로그인하면 같은 휴대폰에서는 자동 로그인됩니다.`;
     try{await navigator.clipboard.writeText(message);}
     catch{window.prompt("아래 내용을 복사해 전달해 주세요.",message);}
   }
+  async function previewProvision(){
+    try{setError("");setPlan(await post("/api/admin/customer-users",{action:"provision-preview"}) as unknown as Plan);}
+    catch(e){setError(e instanceof Error?e.message:"미리보기에 실패했습니다.");}
+  }
+  async function runProvision(){
+    if(!plan||!plan.pending.length)return;
+    if(!confirm(`${plan.pending.length}개 거래처 계정을 만듭니다.\n비밀번호는 아이디와 같게 설정됩니다. 진행할까요?`))return;
+    setError("");let total=0;
+    try{
+      for(let round=0;round<60;round+=1){
+        const r=await post("/api/admin/customer-users",{action:"provision-run",limit:20}) as unknown as {created:PlanRow[];failed:Array<PlanRow&{error:string}>;remaining:number};
+        total+=r.created.length;
+        setProvisioning(`${total}개 생성 · 남은 ${r.remaining}개`);
+        if(r.failed.length)setError(`일부 실패: ${r.failed.slice(0,3).map(f=>`${f.name}(${f.error})`).join(", ")}`);
+        if(!r.remaining||!r.created.length)break;
+      }
+    }catch(e){setError(e instanceof Error?e.message:"일괄 생성에 실패했습니다.");}
+    setProvisioning(`완료: ${total}개 계정 생성`);
+    await load();await previewProvision();
+  }
+
   async function logout(){
     await Promise.allSettled([
       fetch("/api/admin/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}),
@@ -128,7 +155,7 @@ function AccountsPage(){
         <div className="customer-user-create">
           <select value={customerId} onChange={e=>setCustomerId(e.target.value)}>{customers.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
           <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="직원 이름 예: 사장님 / 점장"/>
-          <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase())} placeholder="로그인 아이디 예: 8518"/>
+          <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase().replace(/[\s\-–—]+/g,""))} placeholder="로그인 아이디 예: 12013"/>
           <input value={password} onChange={e=>setPassword(e.target.value.slice(0,64))} type="text" autoComplete="new-password" placeholder="비밀번호 2자 이상"/>
           <button disabled={!customerId||!displayName.trim()||!username.trim()||password.trim().length<2} onClick={()=>void createCustomerUser()}>+ 거래처 계정 추가</button>
         </div>
@@ -147,6 +174,22 @@ function AccountsPage(){
         </div>
         {!customerUsers.length&&<p className="accounts-empty">아직 등록된 거래처 직원 계정이 없습니다.</p>}
       </section>
+
+      <section className="account-section">
+        <div className="account-section-head"><div><p>BULK</p><h2>거래처 계정 일괄 생성</h2><small>거래처명의 블록번호(120-13 → 12013), 없으면 거래처코드를 아이디로 만듭니다. 숫자 아이디가 겹치면 거래처코드를 씁니다. 비밀번호는 아이디와 같습니다. 이미 계정이 있는 거래처는 건드리지 않습니다.</small></div></div>
+        <div className="customer-user-create">
+          <button type="button" onClick={()=>void previewProvision()}>미리보기</button>
+          <button type="button" disabled={!plan||!plan.pending.length||Boolean(provisioning&&!provisioning.startsWith("완료"))} onClick={()=>void runProvision()}>{plan?`${plan.pending.length}개 계정 생성`:"계정 생성"}</button>
+          {provisioning&&<span>{provisioning}</span>}
+        </div>
+        {plan&&<div className="accounts-provision">
+          <p>활성 거래처 {plan.totalActive}곳 · 이미 계정 있음 {plan.alreadyLinked}곳 · 생성 예정 {plan.pending.length}곳 · 제외 {plan.skipped.length}곳</p>
+          <div className="account-link-list">
+            {plan.pending.slice(0,300).map(row=><label key={row.customerId}><span><b>{row.loginId}</b><small>{row.code} · {row.name} · {ruleLabel[row.rule]}</small></span></label>)}
+            {plan.skipped.map(row=><label key={`skip-${row.customerId}`} className="selected"><span><b>제외</b><small>{row.code} · {row.name} · {row.reason}</small></span></label>)}
+          </div>
+        </div>}
+      </section>
     </main>
 
     {linkingUser&&<div className="account-link-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setLinkingUser(null);}}>
@@ -159,9 +202,10 @@ function AccountsPage(){
         <div className="account-link-selected">선택 {linkIds.length}곳</div>
         <div className="account-link-list">
           {customers.filter(row=>{
-            const q=linkSearch.trim().toLowerCase();
-            return !q||row.name.toLowerCase().includes(q)||row.code.toLowerCase().includes(q);
-          }).slice(0,100).map(row=><label key={row.id} className={linkIds.includes(row.id)?"selected":""}>
+            if(!row.active&&!linkIds.includes(row.id))return false;
+            const q=normalizeSearch(linkSearch);
+            return !q||normalizeSearch(row.name).includes(q)||normalizeSearch(row.code).includes(q);
+          }).sort((a,b)=>Number(linkIds.includes(b.id))-Number(linkIds.includes(a.id))).slice(0,100).map(row=><label key={row.id} className={linkIds.includes(row.id)?"selected":""}>
             <input type="checkbox" checked={linkIds.includes(row.id)} onChange={()=>toggleLinkedCustomer(row.id)}/>
             <span><b>{row.name}</b><small>{row.code}</small></span>
           </label>)}

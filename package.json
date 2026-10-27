@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build && tsc --noEmit",
     "deploy": "npm run build && wrangler deploy",
     "typecheck": "tsc --noEmit"
   },

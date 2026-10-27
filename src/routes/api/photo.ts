@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
-import { isAdmin, validMutationOrigin } from "../../lib/auth.server";
+import { getViewerKind, isAdmin, validMutationOrigin } from "../../lib/auth.server";
 
 const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -12,6 +12,10 @@ export const Route = createFileRoute("/api/photo")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        // 상품사진도 로그인한 거래처/직원/관리자에게만 제공
+        if (!(await getViewerKind(request))) {
+          return new Response("Login required", { status: 401, headers: { "Cache-Control": "no-store" } });
+        }
         const storage = bindings().STORAGE;
         if (!storage) return new Response("Storage unavailable", { status: 503 });
         const id = cleanKey(new URL(request.url).searchParams.get("id") ?? "");
@@ -21,7 +25,7 @@ export const Route = createFileRoute("/api/photo")({
         const bytes = await object.arrayBuffer();
         const headers = new Headers({
           "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
-          "Cache-Control": "public, max-age=31536000, immutable",
+          "Cache-Control": "private, max-age=31536000, immutable",
           "ETag": object.httpEtag,
         });
         return new Response(bytes, { headers });
