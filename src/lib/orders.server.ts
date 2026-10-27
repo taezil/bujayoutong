@@ -103,14 +103,24 @@ async function prepareItems(customer: CustomerSummary, items: OrderRequestItem[]
     .filter((item) => item.productId && item.optionLabel && Number.isFinite(item.quantity) && item.quantity > 0);
   if (normalized.length !== items.length) throw new Error("주문 수량을 확인해 주세요.");
 
+  // 상품/옵션을 품목마다 따로 조회하지 않고 한 번에 가져옴 (주문 품목 수만큼 DB 왕복하던 문제)
+  const productIds = Array.from(new Set(normalized.map((item) => item.productId)));
+  const optionRows = await db().prepare(`
+    SELECT p.id,p.name,p.unit,p.soldout,p.tax_type,p.warehouse_zone,
+           po.label,po.price,po.price_a,po.price_b,po.step
+    FROM products p JOIN pack_options po ON po.product_id=p.id
+    WHERE p.id IN (${productIds.map(() => "?").join(",")})
+    ORDER BY po.sort_order, po.id
+  `).bind(...productIds).all<Record<string, unknown>>();
+  const optionByKey = new Map<string, Record<string, unknown>>();
+  for (const row of optionRows.results) {
+    const key = `${String(row.id)}\u0000${String(row.label)}`;
+    if (!optionByKey.has(key)) optionByKey.set(key, row);
+  }
+
   const prepared: PreparedItem[] = [];
   for (const item of normalized) {
-    const row = await db().prepare(`
-      SELECT p.id,p.name,p.unit,p.soldout,p.tax_type,p.warehouse_zone,
-             po.label,po.price,po.price_a,po.price_b,po.step
-      FROM products p JOIN pack_options po ON po.product_id=p.id
-      WHERE p.id=? AND po.label=? LIMIT 1
-    `).bind(item.productId, item.optionLabel).first<Record<string, unknown>>();
+    const row = optionByKey.get(`${item.productId}\u0000${item.optionLabel}`);
     if (!row) throw new Error("판매중이지 않은 상품이 포함되어 있습니다.");
     if (Number(row.soldout ?? 0) === 1) throw new Error(`${String(row.name)}은(는) 현재 품절입니다.`);
     const step = Math.max(0.001, Number(row.step ?? 1));
@@ -128,14 +138,33 @@ async function prepareItems(customer: CustomerSummary, items: OrderRequestItem[]
 
 export async function analyzeOrderQuantities(customerId: string, items: PreparedItem[]) {
   const warnings: OrderQuantityWarning[] = [];
-  for (const item of items) {
+  // 품목별 최근 12회 주문수량을 한 번(최대 45품목씩)에 조회 — D1 바인딩 100개 제한 고려
+  const history = new Map<string, number[]>();
+  const keyOf = (productId: string, optionLabel: string) => `${productId}\u0000${optionLabel}`;
+  const unique = Array.from(new Map(items.map((item) => [keyOf(item.productId, item.optionLabel), item])).values());
+  for (let index = 0; index < unique.length; index += 45) {
+    const chunk = unique.slice(index, index + 45);
     const result = await db().prepare(`
-      SELECT oi.quantity FROM order_items oi
-      JOIN orders o ON o.id=oi.order_id
-      WHERE o.customer_id=? AND oi.product_id=? AND oi.option_label=? AND o.status!='cancelled'
-      ORDER BY o.created_at DESC LIMIT 12
-    `).bind(customerId, item.productId, item.optionLabel).all();
-    const values = (result.results as Array<Record<string, unknown>>).map((r) => Number(r.quantity)).filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
+      WITH wanted(product_id, option_label) AS (VALUES ${chunk.map(() => "(?,?)").join(",")})
+      SELECT product_id, option_label, quantity FROM (
+        SELECT oi.product_id, oi.option_label, oi.quantity,
+               ROW_NUMBER() OVER (PARTITION BY oi.product_id, oi.option_label ORDER BY o.created_at DESC) AS rn
+        FROM order_items oi
+        JOIN orders o ON o.id=oi.order_id
+        JOIN wanted w ON w.product_id=oi.product_id AND w.option_label=oi.option_label
+        WHERE o.customer_id=? AND o.status!='cancelled'
+      ) WHERE rn <= 12
+    `).bind(...chunk.flatMap((item) => [item.productId, item.optionLabel]), customerId).all<Record<string, unknown>>();
+    for (const row of result.results) {
+      const key = keyOf(String(row.product_id), String(row.option_label));
+      const list = history.get(key) ?? [];
+      list.push(Number(row.quantity));
+      history.set(key, list);
+    }
+  }
+
+  for (const item of items) {
+    const values = (history.get(keyOf(item.productId, item.optionLabel)) ?? []).filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
     if (values.length < 3) continue;
     const middle = Math.floor(values.length / 2);
     const median = values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2;

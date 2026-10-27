@@ -19,7 +19,6 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AdminAccountsRouteImport } from './routes/admin_.accounts'
 import { Route as ApiOrdersRouteImport } from './routes/api/orders'
 import { Route as ApiPhotoRouteImport } from './routes/api/photo'
-import { Route as ApiPriceListRouteImport } from './routes/api/price-list'
 import { Route as ApiStoreRouteImport } from './routes/api/store'
 import { Route as ApiAdminAuditRouteImport } from './routes/api/admin/audit'
 import { Route as ApiAdminCategoriesRouteImport } from './routes/api/admin/categories'
@@ -99,11 +98,6 @@ const ApiOrdersRoute = ApiOrdersRouteImport.update({
 const ApiPhotoRoute = ApiPhotoRouteImport.update({
   id: '/api/photo',
   path: '/api/photo',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPriceListRoute = ApiPriceListRouteImport.update({
-  id: '/api/price-list',
-  path: '/api/price-list',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStoreRoute = ApiStoreRouteImport.update({
@@ -268,7 +262,6 @@ export interface FileRoutesByFullPath {
   '/admin/accounts': typeof AdminAccountsRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
-  '/api/price-list': typeof ApiPriceListRoute
   '/api/store': typeof ApiStoreRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
@@ -311,7 +304,6 @@ export interface FileRoutesByTo {
   '/admin/accounts': typeof AdminAccountsRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
-  '/api/price-list': typeof ApiPriceListRoute
   '/api/store': typeof ApiStoreRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
@@ -355,7 +347,6 @@ export interface FileRoutesById {
   '/admin_/accounts': typeof AdminAccountsRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
-  '/api/price-list': typeof ApiPriceListRoute
   '/api/store': typeof ApiStoreRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
@@ -400,7 +391,6 @@ export interface FileRouteTypes {
     | '/admin/accounts'
     | '/api/orders'
     | '/api/photo'
-    | '/api/price-list'
     | '/api/store'
     | '/api/admin/audit'
     | '/api/admin/categories'
@@ -443,7 +433,6 @@ export interface FileRouteTypes {
     | '/admin/accounts'
     | '/api/orders'
     | '/api/photo'
-    | '/api/price-list'
     | '/api/store'
     | '/api/admin/audit'
     | '/api/admin/categories'
@@ -486,7 +475,6 @@ export interface FileRouteTypes {
     | '/admin_/accounts'
     | '/api/orders'
     | '/api/photo'
-    | '/api/price-list'
     | '/api/store'
     | '/api/admin/audit'
     | '/api/admin/categories'
@@ -530,7 +518,6 @@ export interface RootRouteChildren {
   AdminAccountsRoute: typeof AdminAccountsRoute
   ApiOrdersRoute: typeof ApiOrdersRoute
   ApiPhotoRoute: typeof ApiPhotoRoute
-  ApiPriceListRoute: typeof ApiPriceListRoute
   ApiStoreRoute: typeof ApiStoreRoute
   ApiAdminAuditRoute: typeof ApiAdminAuditRoute
   ApiAdminCategoriesRoute: typeof ApiAdminCategoriesRoute
@@ -633,13 +620,6 @@ declare module '@tanstack/react-router' {
       path: '/api/photo'
       fullPath: '/api/photo'
       preLoaderRoute: typeof ApiPhotoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/price-list': {
-      id: '/api/price-list'
-      path: '/api/price-list'
-      fullPath: '/api/price-list'
-      preLoaderRoute: typeof ApiPriceListRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/store': {
@@ -866,7 +846,6 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAccountsRoute: AdminAccountsRoute,
   ApiOrdersRoute: ApiOrdersRoute,
   ApiPhotoRoute: ApiPhotoRoute,
-  ApiPriceListRoute: ApiPriceListRoute,
   ApiStoreRoute: ApiStoreRoute,
   ApiAdminAuditRoute: ApiAdminAuditRoute,
   ApiAdminCategoriesRoute: ApiAdminCategoriesRoute,

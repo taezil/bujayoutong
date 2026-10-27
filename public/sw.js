@@ -1,9 +1,5 @@
-// 부자유통 PWA: 캐시를 고정하지 않고 항상 서버 최신본을 사용합니다.
+// 부자유통 PWA 서비스워커.
+// 홈 화면 설치용으로만 등록하며, 요청을 가로채지 않습니다.
+// (예전처럼 모든 요청을 fetch 핸들러로 그대로 넘기면 캐시 이득은 없고 휴대폰에서 요청마다 지연만 생깁니다.)
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
-self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
-  const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
-  event.respondWith(fetch(event.request));
-});

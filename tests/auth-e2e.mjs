@@ -68,7 +68,7 @@ async function main() {
   check("비로그인 GET / → 200", home.status === 200, `status ${home.status}`);
   check("비로그인 / 화면은 로그인 화면", homeHtml.includes("거래처 전용 주문"));
 
-  for (const path of ["/api/store", "/api/store?all=1", "/api/store?catalogPhotoReviewAll=1", "/api/store?photoMap=1&token=buja-photo-20261025-f6e3d9a4", "/api/price-list", "/api/customer/dashboard", "/api/orders"]) {
+  for (const path of ["/api/store", "/api/store?all=1", "/api/store?catalogPhotoReviewAll=1", "/api/store?photoMap=1&token=buja-photo-20261025-f6e3d9a4", "/api/customer/dashboard", "/api/orders"]) {
     const r = await anon.req(path);
     check(`비로그인 ${path} → 401`, r.status === 401, `status ${r.status}`);
   }
@@ -108,6 +108,21 @@ async function main() {
   const names = products.map((p) => String(p.name)).filter((n) => n.length >= 3).slice(0, 80);
   const leaked = names.filter((n) => homeHtml.includes(n));
   check("비로그인 HTML에 상품명 없음", leaked.length === 0 && !homeHtml.includes("packOptions"), leaked.slice(0, 5).join(", "));
+
+  const deadPriceApi = await anon.req("/api/price-list");
+  check("사용 중지된 /api/price-list 는 데이터 없음", deadPriceApi.status !== 200, `status ${deadPriceApi.status}`);
+
+  /* ---------- 앱 주문 접수 (품목 일괄 조회/수량 이력 일괄 조회) ---------- */
+  const sellable = products.filter((p) => !p.soldout && (p.packOptions ?? []).length).slice(0, 3);
+  const orderItems = sellable.map((p) => ({ productId: p.id, optionLabel: p.packOptions[0].label, quantity: p.packOptions[0].step || 1 }));
+  for (let round = 1; round <= 4; round += 1) {
+    const placed = await customer.json("/api/orders", { method: "POST", json: { items: orderItems, note: `ci ${round}` } });
+    if (round === 1) check("앱 주문 접수(3품목)", placed.status === 200 && placed.body?.order?.itemCount === 3, `${placed.status} ${JSON.stringify(placed.body).slice(0, 200)}`);
+  }
+  const big = await customer.json("/api/orders", { method: "POST", json: { items: orderItems.map((i) => ({ ...i, quantity: i.quantity * 40 })) } });
+  check("평소보다 많은 수량 경고(주문 이력 기반)", big.status === 409 && (big.body?.warnings ?? []).length === 3, `${big.status} ${JSON.stringify(big.body).slice(0, 200)}`);
+  const badOption = await customer.json("/api/orders", { method: "POST", json: { items: [{ productId: sellable[0].id, optionLabel: "없는옵션", quantity: 1 }] } });
+  check("없는 옵션 주문 거절", badOption.status === 400, `${badOption.status}`);
 
   /* ---------- 6. 세션 유지 (매 요청 삭제 버그 없음) ---------- */
   let stillIn = true;

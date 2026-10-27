@@ -237,6 +237,7 @@ async function ensureOperationsSchema(database: D1Database) {
   await database.exec("CREATE TABLE IF NOT EXISTS auth_login_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT, scope TEXT NOT NULL, attempt_key TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')))");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_lookup ON auth_login_attempts(scope, attempt_key, created_at)");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_sessions_user ON customer_sessions(customer_user_id)");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_orders_delivery_date ON orders(delivery_date, status)");
   await database.exec("INSERT OR IGNORE INTO customer_user_customers(customer_user_id, customer_id, sort_order) SELECT id, customer_id, 0 FROM customer_users");
 
   await database.exec("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL DEFAULT 'system', actor_id TEXT NOT NULL DEFAULT '', actor_name TEXT NOT NULL DEFAULT '', action TEXT NOT NULL, entity_type TEXT NOT NULL DEFAULT '', entity_id TEXT NOT NULL DEFAULT '', summary TEXT NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL DEFAULT (datetime('now')))");

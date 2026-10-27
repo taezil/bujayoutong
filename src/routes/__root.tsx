@@ -45,8 +45,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "canonical", href: canonical },
-      { rel: "icon", href: BUJA_MARK_DATA },
-      { rel: "apple-touch-icon", href: BUJA_MARK_DATA },
+      { rel: "icon", href: "/buja-mark.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/buja-mark.png" },
       { rel: "manifest", href: "/site.webmanifest" }
     ],
   }),

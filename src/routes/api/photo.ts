@@ -20,15 +20,17 @@ export const Route = createFileRoute("/api/photo")({
         if (!storage) return new Response("Storage unavailable", { status: 503 });
         const id = cleanKey(new URL(request.url).searchParams.get("id") ?? "");
         if (!id) return new Response("Not found", { status: 404 });
-        const object = await storage.get(id);
+        // 브라우저가 이미 가진 사진이면 본문 없이 304, 아니면 R2에서 바로 스트리밍
+        const ifNoneMatch = request.headers.get("if-none-match") ?? "";
+        const object = await storage.get(id, ifNoneMatch ? { onlyIf: { etagDoesNotMatch: ifNoneMatch.replace(/^W\//, "").replace(/"/g, "") } } : undefined);
         if (!object) return new Response("Not found", { status: 404 });
-        const bytes = await object.arrayBuffer();
         const headers = new Headers({
           "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
           "Cache-Control": "private, max-age=31536000, immutable",
           "ETag": object.httpEtag,
         });
-        return new Response(bytes, { headers });
+        if (!("body" in object) || !object.body) return new Response(null, { status: 304, headers });
+        return new Response(object.body as unknown as ReadableStream, { headers });
       },
       POST: async ({ request }) => {
         if (!validMutationOrigin(request) || !(await isAdmin(request))) {
