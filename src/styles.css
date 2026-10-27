@@ -3619,3 +3619,93 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     aspect-ratio: 16 / 7;
   }
 }
+
+
+/* ===== 거래처 전용 단가표 로그인 / 계정 전달 ===== */
+.price-login-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(11,106,57,.10), transparent 32%),
+    linear-gradient(180deg,#f8faf6 0%,#eef3ec 100%);
+}
+.price-login-shell { width: min(100%, 460px); }
+.price-login-card {
+  border: 1px solid #dce5d9;
+  border-radius: 24px;
+  padding: 30px;
+  background: rgba(255,255,252,.98);
+  box-shadow: 0 22px 70px rgba(30,58,38,.12);
+}
+.price-login-card > img { width: 180px; max-height: 72px; object-fit: contain; }
+.price-login-card > p { margin: 22px 0 5px; color: #0b6a39; font-size: 10px; font-weight: 950; letter-spacing: .1em; }
+.price-login-card > h1 { margin: 0; font-size: 32px; line-height: 1.15; letter-spacing: -.045em; }
+.price-login-card > span { display: block; margin-top: 9px; color: #687269; font-size: 13px; line-height: 1.6; word-break: keep-all; }
+.price-login-card form { display: grid; gap: 13px; margin-top: 24px; }
+.price-login-card form label { display: grid; gap: 7px; color: #344054; font-size: 13px; font-weight: 850; }
+.price-login-card form input {
+  width: 100%;
+  height: 52px;
+  border: 1.5px solid #cad6c8;
+  border-radius: 13px;
+  padding: 0 14px;
+  background: #fff;
+  color: #172019;
+  font: inherit;
+  font-size: 16px;
+  outline: 0;
+}
+.price-login-card form input:focus { border-color: #0b6a39; box-shadow: 0 0 0 3px rgba(11,106,57,.09); }
+.price-login-card form button {
+  min-height: 54px;
+  margin-top: 3px;
+  border: 0;
+  border-radius: 13px;
+  background: #0b6a39;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.price-login-card form button:disabled { opacity: .5; cursor: default; }
+.price-login-error { margin: 0; border-radius: 10px; padding: 10px 12px; background: #fff1ef; color: #b42318; font-size: 12px; line-height: 1.5; }
+.price-login-checking { margin-top: 24px; border-radius: 12px; padding: 16px; background: #f3f7f1; color: #52705a; text-align: center; font-size: 13px; font-weight: 800; }
+.price-login-help { display: grid; gap: 5px; margin-top: 20px; border-top: 1px solid #e5ebe2; padding-top: 17px; }
+.price-login-help b { color: #315b3e; font-size: 12px; }
+.price-login-help span { color: #79827b; font-size: 11px; line-height: 1.55; word-break: keep-all; }
+
+.customer-credential-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 12px 0 16px;
+  border: 1px solid #bcd7c0;
+  border-radius: 13px;
+  padding: 13px 14px;
+  background: #f0f8f0;
+}
+.customer-credential-card > div { display: grid; gap: 3px; min-width: 0; }
+.customer-credential-card b { color: #0b6a39; font-size: 13px; }
+.customer-credential-card span { color: #5f6c62; font-size: 11px; }
+.customer-credential-card code { color: #172019; font-family: inherit; font-size: 12px; font-weight: 850; word-break: break-all; }
+.customer-credential-card button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  border: 1px solid #a9c9af;
+  border-radius: 9px;
+  padding: 0 11px;
+  background: #fff;
+  color: #0b6a39;
+  font-weight: 900;
+  cursor: pointer;
+}
+@media (max-width: 600px) {
+  .price-login-page { padding: 14px; }
+  .price-login-card { padding: 24px 20px; border-radius: 20px; }
+  .price-login-card > h1 { font-size: 29px; }
+  .customer-credential-card { align-items: stretch; flex-direction: column; }
+  .customer-credential-card button { width: 100%; }
+}
