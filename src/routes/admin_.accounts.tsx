@@ -272,6 +272,34 @@ function AccountsPage(){
       </section>
 
       <section className="account-section">
+        <div className="account-section-head">
+          <div>
+            <p>IMPORT</p><h2>거래처 명단 일괄등록</h2>
+            <small>얼마에요 거래처 명단을 정리한 CSV를 올리면 거래처 정보가 D1에 등록되고, 활성 거래처의 로그인 계정까지 자동 생성됩니다. 업로드 데이터는 GitHub 소스에 저장되지 않습니다.</small>
+          </div>
+          <span>{importRows.length?importRows.length+"곳":"CSV"}</span>
+        </div>
+        <div className="customer-user-create accounts-import-controls">
+          <label className="accounts-file-button">
+            CSV 선택
+            <input type="file" accept=".csv,text/csv" onChange={e=>void chooseImportFile(e.target.files?.[0]??null)}/>
+          </label>
+          <span>{importFileName||"파일을 선택해 주세요."}</span>
+          <button type="button" disabled={!importRows.length||Boolean(importing&&importing.startsWith("거래처 등록 "))} onClick={()=>void importCustomersAndProvision()}>
+            거래처 등록 + 로그인계정 생성
+          </button>
+        </div>
+        {importRows.length>0&&<div className="accounts-provision">
+          <p>등록 대상 {importRows.length}곳 · 활성 {importRows.filter(row=>row.active!=="0").length}곳 · 비활성 {importRows.filter(row=>row.active==="0").length}곳</p>
+          {importing&&<p>{importing}</p>}
+          <div className="account-link-list">
+            {importRows.slice(0,20).map(row=><label key={row.code}><span><b>{row.code}</b><small>{row.name} · 로그인ID {row.loginId||"자동생성"}</small></span></label>)}
+            {importRows.length>20&&<label><span><b>외 {importRows.length-20}곳</b><small>파일의 나머지 거래처도 함께 등록됩니다.</small></span></label>}
+          </div>
+        </div>}
+      </section>
+
+      <section className="account-section">
         <div className="account-section-head"><div><p>BULK</p><h2>거래처 계정 일괄 생성</h2><small>거래처명의 블록번호(120-13 → 12013), 없으면 거래처코드를 아이디로 만듭니다. 숫자 아이디가 겹치면 거래처코드를 씁니다. 비밀번호는 아이디와 같습니다. 이미 계정이 있는 거래처는 건드리지 않습니다.</small></div></div>
         <div className="customer-user-create">
           <button type="button" onClick={()=>void previewProvision()}>미리보기</button>
