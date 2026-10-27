@@ -147,7 +147,7 @@ function AccountsPage(){
   async function createDeliveryLocation(){
     if(!deliveryUser||!deliveryCustomerId||!deliveryName.trim())return;
     const result=await act("/api/admin/customer-users",{
-      action:"create-delivery-location",customerId:deliveryCustomerId,name:deliveryName,address:deliveryAddress,phone:deliveryPhone,note:deliveryNote
+      action:"create-delivery-location",customerUserId:deliveryUser.id,customerId:deliveryCustomerId,name:deliveryName,address:deliveryAddress,phone:deliveryPhone,note:deliveryNote
     });
     if(result){setDeliveryName("");setDeliveryAddress("");setDeliveryPhone("");setDeliveryNote("");}
   }
