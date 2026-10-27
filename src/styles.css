@@ -3919,6 +3919,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 
+
+/* ===== 거래처 명단 CSV 일괄등록 ===== */
+.accounts-import-controls { align-items: center; }
+.accounts-file-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #b8c8ba;
+  border-radius: 10px;
+  padding: 0 15px;
+  background: #f3f8f4;
+  color: #0b6a39;
+  font-weight: 900;
+  cursor: pointer;
+}
+.accounts-file-button input { display: none; }
+.accounts-import-controls > span { min-width: 160px; color: #667085; font-size: 12px; font-weight: 750; }
+@media (max-width: 700px) {
+  .accounts-import-controls { display: grid; grid-template-columns: 1fr; }
+  .accounts-file-button, .accounts-import-controls > button { width: 100%; }
+  .accounts-import-controls > span { min-width: 0; }
+}
 /* ===== 거래처 주문 로그인 보안 게이트 ===== */
 .order-login-card > h1 { font-size: 31px; }
 .order-login-card form input { letter-spacing: .03em; font-weight: 850; }
