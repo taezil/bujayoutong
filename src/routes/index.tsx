@@ -178,6 +178,14 @@ function customerLocationCode(customer: CustomerProfile) {
   return customerShortLabel(customer);
 }
 
+function deliveryOrderLabel(customer: CustomerProfile | null, deliveryLocation: DeliveryLocation | null) {
+  const base = customerOrderLabel(customer);
+  if (!deliveryLocation) return base;
+  const blockLot = deliveryLocation.name.match(/(\d{1,3}\s*-\s*\d{1,3})/);
+  if (blockLot) return blockLot[1].replace(/\s+/g, "");
+  return `${base} ${deliveryLocation.name}`.trim();
+}
+
 function buildOrderText(cart: CartLine[], customer: CustomerProfile | null, deliveryLocation: DeliveryLocation | null = null) {
   const grouped = new Map<string, string[]>();
 
@@ -188,8 +196,7 @@ function buildOrderText(cart: CartLine[], customer: CustomerProfile | null, deli
   }
 
   const lines = Array.from(grouped, ([productName, quantities]) => `${productName} / ${quantities.join(" ")}`);
-  const base = customerOrderLabel(customer);
-  const title = deliveryLocation ? `[${base} ${deliveryLocation.name} 발주]` : orderTitle(customer);
+  const title = deliveryLocation ? `[${deliveryOrderLabel(customer, deliveryLocation)} 발주]` : orderTitle(customer);
   const destination = deliveryLocation?.address ? `배송처: ${deliveryLocation.name} · ${deliveryLocation.address}` : deliveryLocation ? `배송처: ${deliveryLocation.name}` : "";
   return [title, destination, "", ...lines, "", `총 ${lines.length}품목`].filter((line,index,all)=>line!=="" || (index>0&&all[index-1]!=="")).join("\n");
 }
@@ -904,7 +911,7 @@ function OrderApp({ store }: { store: StoreData }) {
           <span className="od-location-pin">📍</span>
           <span className="od-location-copy">
             <small>현재 발주처</small>
-            <strong>{selectedDeliveryLocation ? customerLocationCode(customer)+" · "+selectedDeliveryLocation.name : customerLocationCode(customer)}</strong>
+            <strong>{deliveryOrderLabel(customer, selectedDeliveryLocation)}</strong>
             <em>{selectedDeliveryLocation ? (selectedDeliveryLocation.address||customer.name) : customer.name}</em>
           </span>
           <span className="od-location-change">다른 식당<br/>선택 ›</span>
@@ -992,7 +999,7 @@ function OrderApp({ store }: { store: StoreData }) {
         <div className="od-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setCartOpen(false); }}>
           <section className="od-sheet od-cart" aria-modal="true" role="dialog" aria-label="주문 내용 확인">
             <div className="od-cart-title">
-              <div><p>{customer?(selectedDeliveryLocation?customerLocationCode(customer)+" · "+selectedDeliveryLocation.name:customerLocationCode(customer)):"보내기 전에 확인하세요"} 발주</p><h2>장바구니</h2>{customer&&<small>{selectedDeliveryLocation?.address||customer.name}</small>}</div>
+              <div><p>{customer?deliveryOrderLabel(customer, selectedDeliveryLocation):"보내기 전에 확인하세요"} 발주</p><h2>장바구니</h2>{customer&&<small>{selectedDeliveryLocation?.address||customer.name}</small>}</div>
               <button type="button" aria-label="닫기" onClick={() => setCartOpen(false)}>×</button>
             </div>
             <div className="od-cart-lines">
