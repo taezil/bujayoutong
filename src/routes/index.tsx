@@ -921,18 +921,24 @@ function OrderApp({ store }: { store: StoreData }) {
         </nav>
       </div>
 
-      {locationOpen&&customer&&locations.length>1&&(
+      {locationOpen&&customer&&(locations.length>1||deliveryLocations.length>0)&&(
         <div className="od-backdrop center" onMouseDown={e=>{if(e.target===e.currentTarget&&!switchingLocation)setLocationOpen(false);}}>
           <section className="od-location-sheet" role="dialog" aria-modal="true" aria-label="발주할 식당 선택">
             <div className="od-location-sheet-head">
-              <div><small>배송처 선택</small><h2>어디로 발주할까요?</h2><p>숫자를 입력하지 말고 식당 버튼만 누르세요.</p></div>
+              <div><small>배송처 선택</small><h2>어디로 발주할까요?</h2><p>번호를 입력하지 말고 배송처 버튼만 누르세요.</p></div>
               <button type="button" disabled={switchingLocation} onClick={()=>setLocationOpen(false)}>×</button>
             </div>
             <div className="od-location-options">
-              {locations.map(location=><button type="button" key={location.id} disabled={switchingLocation} className={location.id===customer.id?"current":""} onClick={()=>void switchLocation(location)}>
+              {locations.map(location=><button type="button" key={location.id} disabled={switchingLocation} className={location.id===customer.id&&!selectedDeliveryLocation?"current":""} onClick={()=>void switchLocation(location)}>
                 <span className="od-location-number">{customerLocationCode(location)}</span>
                 <span className="od-location-name">{location.name}</span>
-                <span className="od-location-state">{location.id===customer.id?"✓ 현재 발주처":"이곳으로 발주"}</span>
+                <span className="od-location-state">{location.id===customer.id&&!selectedDeliveryLocation?"✓ 기본 배송처":"이곳으로 발주"}</span>
+              </button>)}
+              {deliveryLocations.length>0&&<div className="od-location-divider">추가 배송처</div>}
+              {deliveryLocations.map(location=><button type="button" key={location.id} disabled={switchingLocation} className={selectedDeliveryLocation?.id===location.id?"current":""} onClick={()=>switchExtraDelivery(location)}>
+                <span className="od-location-number">{location.name}</span>
+                <span className="od-location-name">{location.address||"주소 미등록"}{location.note?" · "+location.note:""}</span>
+                <span className="od-location-state">{selectedDeliveryLocation?.id===location.id?"✓ 현재 발주처":"이곳으로 발주"}</span>
               </button>)}
             </div>
           </section>
@@ -974,7 +980,7 @@ function OrderApp({ store }: { store: StoreData }) {
         <div className="od-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setCartOpen(false); }}>
           <section className="od-sheet od-cart" aria-modal="true" role="dialog" aria-label="주문 내용 확인">
             <div className="od-cart-title">
-              <div><p>{customer?customerLocationCode(customer):"보내기 전에 확인하세요"} 발주</p><h2>장바구니</h2>{customer&&<small>{customer.name}</small>}</div>
+              <div><p>{customer?(selectedDeliveryLocation?customerLocationCode(customer)+" · "+selectedDeliveryLocation.name:customerLocationCode(customer)):"보내기 전에 확인하세요"} 발주</p><h2>장바구니</h2>{customer&&<small>{selectedDeliveryLocation?.address||customer.name}</small>}</div>
               <button type="button" aria-label="닫기" onClick={() => setCartOpen(false)}>×</button>
             </div>
             <div className="od-cart-lines">
