@@ -17,6 +17,36 @@ type Plan={pending:PlanRow[];skipped:Array<{customerId:string;code:string;name:s
 const ruleLabel:Record<PlanRow["rule"],string>={"block-lot":"블록번호","code":"거래처코드","code-duplicate":"중복→거래처코드"};
 function normalizeSearch(value:string){return value.toLowerCase().replace(/[\s\-–—]+/g,"");}
 
+function parseCsv(text:string){
+  const rows:string[][]=[];
+  let row:string[]=[];
+  let cell="";
+  let quoted=false;
+  for(let i=0;i<text.length;i+=1){
+    const ch=text[i];
+    if(quoted){
+      if(ch==='"'&&text[i+1]==='"'){cell+='"';i+=1;}
+      else if(ch==='"')quoted=false;
+      else cell+=ch;
+      continue;
+    }
+    if(ch==='"'){quoted=true;continue;}
+    if(ch===","){row.push(cell);cell="";continue;}
+    if(ch==="\n"){
+      row.push(cell.replace(/\r$/,""));cell="";
+      if(row.some(value=>value!==""))rows.push(row);
+      row=[];
+      continue;
+    }
+    cell+=ch;
+  }
+  row.push(cell.replace(/\r$/,""));
+  if(row.some(value=>value!==""))rows.push(row);
+  if(!rows.length)return [] as Array<Record<string,string>>;
+  const headers=rows[0].map((value,index)=>index===0?value.replace(/^\uFEFF/,"").trim():value.trim());
+  return rows.slice(1).map(values=>Object.fromEntries(headers.map((header,index)=>[header,(values[index]??"").trim()])));
+}
+
 async function post(path:string,body:Record<string,unknown>){
   const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   const j=await r.json() as {error?:string};
@@ -41,6 +71,9 @@ function AccountsPage(){
   const[error,setError]=useState("");
   const[plan,setPlan]=useState<Plan|null>(null);
   const[provisioning,setProvisioning]=useState("");
+  const[importRows,setImportRows]=useState<Array<Record<string,string>>>([]);
+  const[importFileName,setImportFileName]=useState("");
+  const[importing,setImporting]=useState("");
 
   async function load(){
     const[sr,st,cr,ur]=await Promise.all([
