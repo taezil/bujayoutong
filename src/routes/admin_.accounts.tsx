@@ -393,23 +393,23 @@ function AccountsPage(){
 
         <h3 className="destination-title">현재 배송처 <small>{linkedCustomers.length+extras.length}곳</small></h3>
         <div className="account-link-list delivery-location-list destination-current">
-          {linkedCustomers.map(row=><label key={`c-${row.id}`}>
+          {linkedCustomers.map(row=><div className="destination-row" key={`c-${row.id}`}>
             <span><b>{customerLabel(row.name)}</b><small>{row.name} · {row.code}</small></span>
             <button type="button" disabled={linkedCustomers.length<=1} onClick={()=>{if(confirm(`"${row.name}" 배송처 연결을 해제할까요?`))void act("/api/admin/customer-users",{action:"unlink-customer",id:deliveryUser.id,customerId:row.id});}}>해제</button>
-          </label>)}
-          {extras.map(location=><label key={`d-${location.id}`}>
+          </div>)}
+          {extras.map(location=><div className="destination-row" key={`d-${location.id}`}>
             <span><b>{customerLabel(location.name)}</b><small>{[location.name!==customerLabel(location.name)?location.name:"",location.address,location.phone,location.note].filter(Boolean).join(" · ")||"주소 미등록"}</small></span>
             <button type="button" onClick={()=>void deleteDeliveryLocation(location)}>삭제</button>
-          </label>)}
+          </div>)}
         </div>
 
         <h3 className="destination-title">기존 거래처 연결</h3>
         <input className="account-link-search" value={destSearch} onChange={e=>setDestSearch(e.target.value)} placeholder="상호명 또는 거래처번호 검색"/>
         {q&&<div className="account-link-list destination-search">
-          {candidates.map(row=><label key={row.id}>
+          {candidates.map(row=><div className="destination-row" key={row.id}>
             <span><b>{row.name}</b><small>{row.code}</small></span>
             <button type="button" className="save" onClick={()=>void act("/api/admin/customer-users",{action:"link-customer",id:deliveryUser.id,customerId:row.id}).then(r=>{if(r)setDestSearch("");})}>연결</button>
-          </label>)}
+          </div>)}
           {!candidates.length&&<p className="accounts-empty">검색되는 거래처가 없습니다.</p>}
         </div>}
 

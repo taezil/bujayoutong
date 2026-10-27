@@ -30,18 +30,18 @@ export async function adminUiFlow(ctx, env) {
       for (const code of acc.link) {
         const spec = specs.find((s) => s.code === code);
         await modal.getByPlaceholder("상호명 또는 거래처번호 검색").fill(spec.name.split(" ")[0]);
-        const row = modal.locator(".destination-search label", { hasText: spec.name });
+        const row = modal.locator(".destination-search .destination-row", { hasText: spec.name });
         await row.getByRole("button", { name: "연결" }).click();
-        await modal.locator(".destination-current label", { hasText: spec.name }).waitFor({ timeout: 15000 });
+        await modal.locator(".destination-current .destination-row", { hasText: spec.name }).waitFor({ timeout: 15000 });
       }
       for (const extra of acc.extras) {
         await modal.getByPlaceholder(/배송처 이름/).fill(extra.name);
         await modal.getByPlaceholder("주소").fill(extra.address);
         await modal.getByPlaceholder("전화번호").fill("010-1234-5678");
         await modal.getByRole("button", { name: "+ 배송처 추가" }).click();
-        await modal.locator(".destination-current label", { hasText: extra.name }).waitFor({ timeout: 15000 });
+        await modal.locator(".destination-current .destination-row", { hasText: extra.name }).waitFor({ timeout: 15000 });
       }
-      const current = await modal.locator(".destination-current label").allInnerTexts();
+      const current = await modal.locator(".destination-current .destination-row").allInnerTexts();
       const expected = acc.expectedLabels;
       check(`[관리자 ${acc.username}] 배송처 관리 한 목록에 ${expected.length}곳 표시`,
         current.length === expected.length && expected.every((label) => current.some((t) => t.split("\n")[0].trim() === label)), current.map((t) => t.split("\n")[0]).join(","));
