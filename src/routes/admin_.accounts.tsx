@@ -105,8 +105,8 @@ function AccountsPage(){
           <select value={customerId} onChange={e=>setCustomerId(e.target.value)}>{customers.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
           <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="직원 이름 예: 사장님 / 점장"/>
           <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase())} placeholder="로그인 아이디 예: 8518"/>
-          <input value={password} onChange={e=>setPassword(e.target.value.slice(0,64))} type="text" autoComplete="new-password" placeholder="비밀번호 6자 이상"/>
-          <button disabled={!customerId||!displayName.trim()||!username.trim()||password.trim().length<6} onClick={()=>void createCustomerUser()}>+ 거래처 계정 추가</button>
+          <input value={password} onChange={e=>setPassword(e.target.value.slice(0,64))} type="text" autoComplete="new-password" placeholder="비밀번호 2자 이상"/>
+          <button disabled={!customerId||!displayName.trim()||!username.trim()||password.trim().length<2} onClick={()=>void createCustomerUser()}>+ 거래처 계정 추가</button>
         </div>
         {createdCredential&&<div className="customer-credential-card"><div><b>계정이 생성되었습니다.</b><span>{createdCredential.customerName} · {createdCredential.displayName}</span><code>아이디 {createdCredential.username} / 비밀번호 {createdCredential.password}</code></div><button type="button" onClick={()=>void copyCreatedCredential()}>로그인 정보 복사</button></div>}
         <div className="accounts-grid">
@@ -115,7 +115,7 @@ function AccountsPage(){
             <div className="account-card-actions">
               <button onClick={()=>{const v=prompt("새 직원 이름",row.display_name);if(v)void act("/api/admin/customer-users",{action:"update",id:row.id,username:row.username,displayName:v});}}>이름 변경</button>
               <button onClick={()=>{const v=prompt("새 직원 아이디",row.username);if(v&&v.trim()!==row.username)void act("/api/admin/customer-users",{action:"update",id:row.id,username:v.trim(),displayName:row.display_name});}}>아이디 변경</button>
-              <button onClick={()=>{const v=prompt("새 비밀번호 (6~64자)");if(v)void act("/api/admin/customer-users",{action:"reset-password",id:row.id,password:v});}}>비밀번호 변경</button>
+              <button onClick={()=>{const v=prompt("새 비밀번호 (2~64자)");if(v)void act("/api/admin/customer-users",{action:"reset-password",id:row.id,password:v});}}>비밀번호 변경</button>
               <button onClick={()=>void act("/api/admin/customer-users",{action:"toggle",id:row.id,active:!Boolean(row.active)})}>{Boolean(row.active)?"계정중지":"계정사용"}</button>
             </div>
           </article>)}
