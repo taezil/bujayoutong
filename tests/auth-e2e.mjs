@@ -153,7 +153,6 @@ async function main() {
   if (linkedOk) {
     const s2 = await customer.json("/api/customer/status");
     check("연결된 배송처 3곳 조회", (s2.body?.locations ?? []).length === 3, JSON.stringify((s2.body?.locations ?? []).map((l) => l.name)));
-    check("엑셀에 없는 추가 배송처 118-13 조회", (s2.body?.deliveryLocations ?? []).some((l) => l.name === "118-13"), JSON.stringify(s2.body?.deliveryLocations ?? []));
     const deny = await customer.json("/api/customer/switch", { method: "POST", json: { customerId: "C-CI-OTHER" } });
     check("연결 안 된 거래처로 전환 거부(403)", deny.status === 403, `${deny.status} ${JSON.stringify(deny.body)}`);
     const after = await customer.json("/api/customer/status");
@@ -194,6 +193,23 @@ async function main() {
     check("관리자는 점검용 API 허용", adminMaint.status === 200, `${adminMaint.status}`);
     const users = await admin.json("/api/admin/customer-users");
     check("관리자 거래처계정 목록", users.status === 200 && (users.body?.users ?? []).some((u) => u.username === "12013"), `${users.status}`);
+    const user12013 = (users.body?.users ?? []).find((u) => u.username === "12013");
+    const add11813 = user12013
+      ? await admin.json("/api/admin/customer-users", {
+          method: "POST",
+          json: {
+            action: "create-delivery-location",
+            customerUserId: user12013.id,
+            customerId: user12013.customer_id,
+            name: "118-13",
+            address: "테스트 추가배송처",
+            note: "같이 운영",
+          },
+        })
+      : { status: 0, body: null };
+    check("관리자 API로 추가 배송처 118-13 저장", add11813.status === 200, `${add11813.status} ${JSON.stringify(add11813.body)}`);
+    const statusAfter11813 = await customer.json("/api/customer/status");
+    check("저장한 118-13이 거래처 status에 즉시 노출", (statusAfter11813.body?.deliveryLocations ?? []).some((l) => l.name === "118-13"), JSON.stringify(statusAfter11813.body?.deliveryLocations ?? []));
     const plan = await admin.json("/api/admin/customer-users", { method: "POST", json: { action: "provision-preview" } });
     const pending = plan.body?.pending ?? [];
     check("일괄생성 미리보기", plan.status === 200 && Array.isArray(pending), `${plan.status} pending ${pending.length}`);
