@@ -34,7 +34,18 @@ type CartLine = {
   step: number;
 };
 
-type Tab = "home" | "category" | "promo";
+type CustomerProfile = {
+  id: string;
+  code: string;
+  name: string;
+  phone: string;
+  businessNumber: string;
+  address: string;
+  storePhone: string;
+  loginName?: string;
+};
+
+type Tab = "home" | "category" | "promo" | "account";
 
 const CART_STORAGE_KEY = "buja-simple-cart-v1";
 const SENT_STORAGE_KEY = "buja-simple-cart-sent-v1";
@@ -144,7 +155,13 @@ function optionSpec(product: Product, option: PackOption) {
 
 /* ---------- 문자/복사/저장 ---------- */
 
-function buildOrderText(cart: CartLine[]) {
+function customerOrderLabel(customer: CustomerProfile | null) {
+  const name = customer?.name.trim() ?? "";
+  const blockLot = name.match(/(\d{1,3}\s*-\s*\d{1,3})/);
+  return blockLot?.[1].replace(/\s+/g, "") || name || "부자유통";
+}
+
+function buildOrderText(cart: CartLine[], customer: CustomerProfile | null) {
   const grouped = new Map<string, string[]>();
 
   for (const line of cart) {
@@ -154,7 +171,7 @@ function buildOrderText(cart: CartLine[]) {
   }
 
   const lines = Array.from(grouped, ([productName, quantities]) => `${productName} / ${quantities.join(" ")}`);
-  return ["[부자유통 발주]", "", ...lines, "", `총 ${lines.length}품목`].join("\n");
+  return [`[${customerOrderLabel(customer)} 발주]`, "", ...lines, "", `총 ${lines.length}품목`].join("\n");
 }
 
 function isIOS() {
@@ -248,6 +265,8 @@ function OrderPage() {
   const [askSent, setAskSent] = useState(false);
   const [copied, setCopied] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [customerChecked, setCustomerChecked] = useState(false);
 
   const promo = store.promoCategory && store.promoCategory in store.categories ? store.promoCategory : "";
   const recipient = (store.sms || "").replace(/[^0-9+]/g, "");
@@ -275,6 +294,18 @@ function OrderPage() {
     if (!hydrated) return;
     writeStorage(CART_STORAGE_KEY, cart.length ? JSON.stringify(cart) : null);
   }, [cart, hydrated]);
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/customer/status", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json() as { authenticated?: boolean; customer?: CustomerProfile | null };
+        if (active) setCustomer(data.authenticated && data.customer ? data.customer : null);
+      })
+      .catch(() => { if (active) setCustomer(null); })
+      .finally(() => { if (active) setCustomerChecked(true); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -429,7 +460,7 @@ function OrderPage() {
 
   function composeSms() {
     if (!cart.length) return;
-    const body = encodeURIComponent(buildOrderText(cart));
+    const body = encodeURIComponent(buildOrderText(cart, customer));
     writeStorage(SENT_STORAGE_KEY, String(Date.now()));
     setCartOpen(false);
     setAskSent(true);
@@ -438,7 +469,7 @@ function OrderPage() {
   }
 
   async function copyOrder() {
-    const ok = await copyText(buildOrderText(cart));
+    const ok = await copyText(buildOrderText(cart, customer));
     setCopied(ok);
     setToast({ id: Date.now(), text: ok ? "주문 내용을 복사했습니다. 카톡이나 문자에 붙여넣으세요." : "복사가 되지 않았습니다. 문자로 보내기를 이용해 주세요." });
     if (ok) window.setTimeout(() => setCopied(false), 2500);
@@ -451,6 +482,12 @@ function OrderPage() {
       setCart([]);
       setToast({ id: Date.now(), text: "주문해 주셔서 감사합니다." });
     }
+  }
+
+  async function logoutCustomerAccount() {
+    await fetch("/api/customer/logout", { method: "POST" }).catch(() => undefined);
+    setCustomer(null);
+    window.location.href = "/price-list";
   }
 
   function goTab(next: Tab, nextCategory?: string) {
@@ -476,7 +513,35 @@ function OrderPage() {
   };
 
   let content: ReactNode;
-  if (searching) {
+  if (tab === "account") {
+    content = (
+      <section className="od-section od-account-page">
+        <div className="od-section-head"><h2>내정보</h2><span>거래처 계정</span></div>
+        {!customerChecked ? <div className="od-account-card loading">로그인 정보를 확인하는 중입니다.</div> : customer ? (
+          <div className="od-account-card">
+            <div className="od-account-title"><strong>{customer.name || "거래처"}</strong><small>{customer.code}</small></div>
+            <dl className="od-account-info">
+              <div><dt>업체명</dt><dd>{customer.name || "-"}</dd></div>
+              <div><dt>사업자번호</dt><dd>{customer.businessNumber || "-"}</dd></div>
+              <div><dt>주소</dt><dd>{customer.address || "-"}</dd></div>
+              <div><dt>핸드폰</dt><dd>{customer.phone || "-"}</dd></div>
+              {customer.storePhone && <div><dt>전화</dt><dd>{customer.storePhone}</dd></div>}
+            </dl>
+            <div className="od-account-actions">
+              <a href="/price-list">단가표 보기</a>
+              <button type="button" onClick={() => void logoutCustomerAccount()}>로그아웃</button>
+            </div>
+          </div>
+        ) : (
+          <div className="od-account-card signed-out">
+            <strong>거래처 로그인이 필요합니다.</strong>
+            <span>로그인하면 업체 정보가 표시되고 발주 문자에 거래처명이 자동으로 들어갑니다.</span>
+            <a href="/price-list">거래처 로그인</a>
+          </div>
+        )}
+      </section>
+    );
+  } else if (searching) {
     content = (
       <section className="od-section">
         <div className="od-section-head"><h2>'{query.trim()}' 검색 결과</h2><span>{searchResults.length}개</span></div>
@@ -596,6 +661,7 @@ function OrderPage() {
           <TabButton active={!searching && tab === "home"} label="홈" onClick={() => goTab("home")} icon={<HomeIcon />} />
           <TabButton active={!searching && tab === "category"} label="카테고리" onClick={() => goTab("category")} icon={<GridIcon />} />
           <TabButton active={!searching && tab === "promo"} label="행사상품" onClick={() => goTab("promo")} icon={<TagIcon />} />
+          <TabButton active={!searching && tab === "account"} label="내정보" onClick={() => goTab("account")} icon={<AccountIcon />} />
         </nav>
       </div>
 
@@ -820,3 +886,4 @@ function SearchIcon() { return <Svg><circle cx="11" cy="11" r="7" /><path d="m20
 function HomeIcon() { return <Svg><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M10 21v-6h4v6" /></Svg>; }
 function GridIcon() { return <Svg><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></Svg>; }
 function TagIcon() { return <Svg><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" /><circle cx="7.5" cy="7.5" r="1.5" /></Svg>; }
+function AccountIcon() { return <Svg><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></Svg>; }
