@@ -303,7 +303,7 @@ async function main() {
     const spaghetti = await searchNames("스파게티");
     check("[검색] '스파게티' → 이름에 스파게티 있는 상품만", spaghetti.length > 0 && spaghetti.every((n) => n.includes("스파게티")), spaghetti.join(", "));
     const byCategory = await searchNames("냉동식품");
-    check("[검색] 이름에 없는 분류명 검색은 분류로 찾음", byCategory.length > 0, `${byCategory.length}개`);
+    check("[검색] 분류명으로는 검색되지 않음", byCategory.every((n) => n.includes("냉동식품")), `${byCategory.length}개`);
 
     // 관리자 단계에서 카탈로그 보정이 돌았을 수 있으므로 지금 화면 기준 상품으로 다시 고름
     const fresh = await page.evaluate(async () => (await (await fetch("/api/store", { cache: "no-store" })).json()).products);

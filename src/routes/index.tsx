@@ -605,7 +605,6 @@ function OrderApp({ store }: { store: StoreData }) {
   const searchIndex = useMemo(() => new Map(store.products.map((product) => {
     return [product.id, {
       name: normalize(product.name),
-      group: normalize(`${product.category} ${product.sub} ${product.unit}`),
       choseong: toChoseong(product.name.replace(/\s+/g, "")),
     }];
   })), [store.products]);
@@ -624,10 +623,8 @@ function OrderApp({ store }: { store: StoreData }) {
     if (!raw) return [];
     const choseongOnly = /^[ㄱ-ㅎ]+$/.test(raw);
     const needle = normalize(query);
-    // 상품명에 검색어가 있는 상품만 보여줌 (이름이 검색어로 시작하면 맨 앞).
-    // 분류명(예: "면·스파게티")만 맞는 상품은, 이름으로 찾은 상품이 하나도 없을 때만 보여줌.
+    // 상품명으로만 검색 (분류명은 검색하지 않음). 이름이 검색어로 시작하면 맨 앞.
     const scored: Array<{ product: Product; score: number }> = [];
-    const groupOnly: Product[] = [];
     for (const product of store.products) {
       const entry = searchIndex.get(product.id);
       if (!entry) continue;
@@ -638,9 +635,7 @@ function OrderApp({ store }: { store: StoreData }) {
       }
       if (entry.name.startsWith(needle)) scored.push({ product, score: 0 });
       else if (entry.name.includes(needle)) scored.push({ product, score: 1 });
-      else if (entry.group.includes(needle)) groupOnly.push(product);
     }
-    if (!scored.length) return sortForDisplay(groupOnly, true);
     const best = sortForDisplay(scored.filter((item) => item.score === 0).map((item) => item.product), true);
     const rest = sortForDisplay(scored.filter((item) => item.score === 1).map((item) => item.product), true);
     return [...best, ...rest];
