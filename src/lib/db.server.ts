@@ -279,6 +279,18 @@ export async function ensureDatabase(database: D1Database = db()) {
   await ensureColumn(database, "pack_options", "spec", "TEXT NOT NULL DEFAULT ''");
   await ensureOperationsSchema(database);
 
+  const forceLogoutAllV1 = await database
+    .prepare("SELECT value FROM app_settings WHERE key='force_logout_all_20261027_v1'")
+    .first<{ value: string }>();
+  if (forceLogoutAllV1?.value !== "1") {
+    await database.batch([
+      database.prepare("DELETE FROM customer_sessions"),
+      database.prepare("DELETE FROM staff_sessions"),
+      database.prepare("DELETE FROM admin_sessions"),
+      database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('force_logout_all_20261027_v1','1')"),
+    ]);
+  }
+
   const test12013SeededV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='customer_login_12013_v2'")
     .first<{ value: string }>();
