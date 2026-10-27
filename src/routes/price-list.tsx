@@ -1,8 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
 
 export const Route = createFileRoute("/price-list")({
+  beforeLoad: () => {
+    throw redirect({ to: "/" });
+  },
   head: () => ({
     meta: [
       { title: "부자유통 단가표" },
