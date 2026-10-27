@@ -12,6 +12,7 @@ type StaffRow={id:string;username:string;display_name:string;role:"ADMIN"|"DRIVE
 type CustomerRow={id:string;code:string;name:string;active:boolean;businessNumber?:string;phone?:string;storePhone?:string;address?:string};
 type CustomerUser={id:string;customer_id:string;username:string;display_name:string;active:number|boolean;customer_code:string;customer_name:string};
 type CustomerUserLink={customer_user_id:string;customer_id:string;sort_order:number};
+type DeliveryLocation={id:string;customer_id:string;name:string;address:string;phone:string;note:string;active:number|boolean;sort_order:number};
 type PlanRow={customerId:string;code:string;name:string;loginId:string;rule:"block-lot"|"code"|"code-duplicate"};
 type Plan={pending:PlanRow[];skipped:Array<{customerId:string;code:string;name:string;reason:string}>;alreadyLinked:number;totalActive:number};
 const ruleLabel:Record<PlanRow["rule"],string>={"block-lot":"블록번호","code":"거래처코드","code-duplicate":"중복→거래처코드"};
@@ -60,6 +61,13 @@ function AccountsPage(){
   const[customers,setCustomers]=useState<CustomerRow[]>([]);
   const[customerUsers,setCustomerUsers]=useState<CustomerUser[]>([]);
   const[customerLinks,setCustomerLinks]=useState<CustomerUserLink[]>([]);
+  const[deliveryLocations,setDeliveryLocations]=useState<DeliveryLocation[]>([]);
+  const[deliveryUser,setDeliveryUser]=useState<CustomerUser|null>(null);
+  const[deliveryCustomerId,setDeliveryCustomerId]=useState("");
+  const[deliveryName,setDeliveryName]=useState("");
+  const[deliveryAddress,setDeliveryAddress]=useState("");
+  const[deliveryPhone,setDeliveryPhone]=useState("");
+  const[deliveryNote,setDeliveryNote]=useState("");
   const[linkingUser,setLinkingUser]=useState<CustomerUser|null>(null);
   const[linkSearch,setLinkSearch]=useState("");
   const[linkIds,setLinkIds]=useState<string[]>([]);
@@ -92,9 +100,10 @@ function AccountsPage(){
       if(!customerId&&rows[0])setCustomerId(rows[0].id);
     }
     if(ur.ok){
-      const data=await ur.json() as {users:CustomerUser[];links?:CustomerUserLink[]};
+      const data=await ur.json() as {users:CustomerUser[];links?:CustomerUserLink[];deliveryLocations?:DeliveryLocation[]};
       setCustomerUsers(data.users);
       setCustomerLinks(data.links??[]);
+      setDeliveryLocations(data.deliveryLocations??[]);
     }
   }
   useEffect(()=>{void load().catch(e=>setError(e instanceof Error?e.message:"계정정보를 불러오지 못했습니다."));},[]);
@@ -123,6 +132,28 @@ function AccountsPage(){
     if(!linkingUser||!linkIds.length)return;
     const result=await act("/api/admin/customer-users",{action:"set-customers",id:linkingUser.id,customerIds:linkIds});
     if(result)setLinkingUser(null);
+  }
+
+  function accountCustomerIds(row:CustomerUser){
+    const ids=customerLinks.filter(link=>link.customer_user_id===row.id).map(link=>link.customer_id);
+    return Array.from(new Set(ids.length?ids:[row.customer_id]));
+  }
+  function openDeliveryManager(row:CustomerUser){
+    const ids=accountCustomerIds(row);
+    setDeliveryUser(row);
+    setDeliveryCustomerId(ids[0]??row.customer_id);
+    setDeliveryName("");setDeliveryAddress("");setDeliveryPhone("");setDeliveryNote("");
+  }
+  async function createDeliveryLocation(){
+    if(!deliveryUser||!deliveryCustomerId||!deliveryName.trim())return;
+    const result=await act("/api/admin/customer-users",{
+      action:"create-delivery-location",customerId:deliveryCustomerId,name:deliveryName,address:deliveryAddress,phone:deliveryPhone,note:deliveryNote
+    });
+    if(result){setDeliveryName("");setDeliveryAddress("");setDeliveryPhone("");setDeliveryNote("");}
+  }
+  async function deleteDeliveryLocation(row:DeliveryLocation){
+    if(!confirm(`추가 배송처 "${row.name}"을 삭제할까요?`))return;
+    await act("/api/admin/customer-users",{action:"delete-delivery-location",deliveryLocationId:row.id});
   }
 
   async function copyCreatedCredential(){
@@ -232,6 +263,7 @@ function AccountsPage(){
       row.customer_name,row.customer_code,row.username,row.display_name,
       primary?.businessNumber??"",primary?.phone??"",primary?.storePhone??"",primary?.address??"",
       ...linked.flatMap(customer=>[customer.name,customer.code,customer.businessNumber??"",customer.phone??"",customer.storePhone??"",customer.address??""]),
+      ...deliveryLocations.filter(location=>linked.some(customer=>customer.id===location.customer_id)).flatMap(location=>[location.name,location.address,location.phone,location.note]),
     ].map(value=>normalizeSearch(String(value))).join("|");
     return haystack.includes(accountQuery);
   });
@@ -297,11 +329,12 @@ function AccountsPage(){
         </div>
         <div className="accounts-grid">
           {pagedCustomerUsers.map(row=><article className={`account-card ${!Boolean(row.active)?"disabled":""}`} key={row.id}>
-            <div><span className="role-customer">거래처</span><h3>{row.display_name}</h3><p>{row.customer_code} · {row.customer_name}</p><p>아이디 {row.username}</p><p>배송처 {Math.max(1,customerLinks.filter(link=>link.customer_user_id===row.id).length)}곳</p></div>
+            <div><span className="role-customer">거래처</span><h3>{row.display_name}</h3><p>{row.customer_code} · {row.customer_name}</p><p>아이디 {row.username}</p><p>연결 거래처 {Math.max(1,customerLinks.filter(link=>link.customer_user_id===row.id).length)}곳 · 추가 배송처 {deliveryLocations.filter(location=>accountCustomerIds(row).includes(location.customer_id)&&Boolean(location.active)).length}곳</p></div>
             <div className="account-card-actions">
               <button onClick={()=>{const v=prompt("새 직원 이름",row.display_name);if(v)void act("/api/admin/customer-users",{action:"update",id:row.id,username:row.username,displayName:v});}}>이름 변경</button>
               <button onClick={()=>{const v=prompt("새 직원 아이디",row.username);if(v&&v.trim()!==row.username)void act("/api/admin/customer-users",{action:"update",id:row.id,username:v.trim(),displayName:row.display_name});}}>아이디 변경</button>
-              <button className="primary" onClick={()=>openLocationManager(row)}>배송처 연결</button>
+              <button className="primary" onClick={()=>openLocationManager(row)}>거래처 연결</button>
+              <button className="primary" onClick={()=>openDeliveryManager(row)}>+ 추가 배송처</button>
               <button onClick={()=>{const v=prompt("새 비밀번호 (2~64자)");if(v)void act("/api/admin/customer-users",{action:"reset-password",id:row.id,password:v});}}>비밀번호 변경</button>
               <button onClick={()=>void act("/api/admin/customer-users",{action:"toggle",id:row.id,active:!Boolean(row.active)})}>{Boolean(row.active)?"계정중지":"계정사용"}</button>
             </div>
@@ -360,6 +393,36 @@ function AccountsPage(){
         </div>}
       </section>
     </main>
+
+    {deliveryUser&&<div className="account-link-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setDeliveryUser(null);}}>
+      <section className="account-link-modal" role="dialog" aria-modal="true" aria-label="추가 배송처 관리">
+        <div className="account-link-head">
+          <div><small>{deliveryUser.username}</small><h2>추가 배송처</h2><p>얼마에요 거래처는 그대로 두고 2호점·3호점 같은 배송지만 추가합니다.</p></div>
+          <button type="button" onClick={()=>setDeliveryUser(null)}>×</button>
+        </div>
+        <div className="delivery-location-form">
+          <select value={deliveryCustomerId} onChange={e=>setDeliveryCustomerId(e.target.value)}>
+            {accountCustomerIds(deliveryUser).map(id=>{const customer=customers.find(row=>row.id===id);return customer?<option key={id} value={id}>{customer.code} · {customer.name}</option>:null;})}
+          </select>
+          <input value={deliveryName} onChange={e=>setDeliveryName(e.target.value)} placeholder="배송처 이름 예: 논현점 / 2호점"/>
+          <input value={deliveryAddress} onChange={e=>setDeliveryAddress(e.target.value)} placeholder="주소"/>
+          <input value={deliveryPhone} onChange={e=>setDeliveryPhone(e.target.value)} placeholder="전화번호"/>
+          <input value={deliveryNote} onChange={e=>setDeliveryNote(e.target.value)} placeholder="메모 예: 뒷문 / 냉장고 옆"/>
+          <button type="button" className="save" disabled={!deliveryCustomerId||!deliveryName.trim()} onClick={()=>void createDeliveryLocation()}>+ 배송처 추가</button>
+        </div>
+        <div className="account-link-list delivery-location-list">
+          {deliveryLocations.filter(location=>accountCustomerIds(deliveryUser).includes(location.customer_id)).map(location=>{
+            const parent=customers.find(row=>row.id===location.customer_id);
+            return <label key={location.id} className={!Boolean(location.active)?"disabled":""}>
+              <span><b>{location.name}</b><small>{parent?.code??""} · {parent?.name??""}{location.address?` · ${location.address}`:""}</small></span>
+              <button type="button" onClick={()=>void act("/api/admin/customer-users",{action:"toggle-delivery-location",deliveryLocationId:location.id,active:!Boolean(location.active)})}>{Boolean(location.active)?"중지":"사용"}</button>
+              <button type="button" onClick={()=>void deleteDeliveryLocation(location)}>삭제</button>
+            </label>;
+          })}
+          {!deliveryLocations.some(location=>accountCustomerIds(deliveryUser).includes(location.customer_id))&&<p className="accounts-empty">추가 배송처가 없습니다.</p>}
+        </div>
+      </section>
+    </div>}
 
     {linkingUser&&<div className="account-link-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setLinkingUser(null);}}>
       <section className="account-link-modal" role="dialog" aria-modal="true" aria-label="배송처 연결">
