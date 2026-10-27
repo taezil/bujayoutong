@@ -11,6 +11,7 @@ type AdminStatus={authenticated:boolean;staff?:{displayName:string}|null};
 type StaffRow={id:string;username:string;display_name:string;role:"ADMIN"|"DRIVER";active:number|boolean};
 type CustomerRow={id:string;code:string;name:string;active:boolean};
 type CustomerUser={id:string;customer_id:string;username:string;display_name:string;active:number|boolean;customer_code:string;customer_name:string};
+type CustomerUserLink={customer_user_id:string;customer_id:string;sort_order:number};
 
 async function post(path:string,body:Record<string,unknown>){
   const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
@@ -24,6 +25,10 @@ function AccountsPage(){
   const[staff,setStaff]=useState<StaffRow[]>([]);
   const[customers,setCustomers]=useState<CustomerRow[]>([]);
   const[customerUsers,setCustomerUsers]=useState<CustomerUser[]>([]);
+  const[customerLinks,setCustomerLinks]=useState<CustomerUserLink[]>([]);
+  const[linkingUser,setLinkingUser]=useState<CustomerUser|null>(null);
+  const[linkSearch,setLinkSearch]=useState("");
+  const[linkIds,setLinkIds]=useState<string[]>([]);
   const[customerId,setCustomerId]=useState("");
   const[displayName,setDisplayName]=useState("");
   const[username,setUsername]=useState("");
@@ -45,7 +50,11 @@ function AccountsPage(){
       setCustomers(rows);
       if(!customerId&&rows[0])setCustomerId(rows[0].id);
     }
-    if(ur.ok)setCustomerUsers(((await ur.json()) as {users:CustomerUser[]}).users);
+    if(ur.ok){
+      const data=await ur.json() as {users:CustomerUser[];links?:CustomerUserLink[]};
+      setCustomerUsers(data.users);
+      setCustomerLinks(data.links??[]);
+    }
   }
   useEffect(()=>{void load().catch(e=>setError(e instanceof Error?e.message:"계정정보를 불러오지 못했습니다."));},[]);
 
@@ -60,6 +69,21 @@ function AccountsPage(){
     setCreatedCredential({customerName:selected?.name||"",displayName:displayName.trim(),username:username.trim(),password});
     setDisplayName("");setUsername("");setPassword("");
   }
+  function openLocationManager(row:CustomerUser){
+    const current=customerLinks.filter(link=>link.customer_user_id===row.id).map(link=>link.customer_id);
+    setLinkIds(current.length?current:[row.customer_id]);
+    setLinkSearch("");
+    setLinkingUser(row);
+  }
+  function toggleLinkedCustomer(id:string){
+    setLinkIds(current=>current.includes(id)?current.filter(value=>value!==id):[...current,id]);
+  }
+  async function saveLinkedCustomers(){
+    if(!linkingUser||!linkIds.length)return;
+    const result=await act("/api/admin/customer-users",{action:"set-customers",id:linkingUser.id,customerIds:linkIds});
+    if(result)setLinkingUser(null);
+  }
+
   async function copyCreatedCredential(){
     if(!createdCredential)return;
     const message=`[부자유통 단가표 로그인]\n주소: https://order.bujafood.kr/price-list\n거래처: ${createdCredential.customerName}\n아이디: ${createdCredential.username}\n비밀번호: ${createdCredential.password}\n\n한 번 로그인하면 같은 휴대폰에서는 자동 로그인됩니다.`;
@@ -111,10 +135,11 @@ function AccountsPage(){
         {createdCredential&&<div className="customer-credential-card"><div><b>계정이 생성되었습니다.</b><span>{createdCredential.customerName} · {createdCredential.displayName}</span><code>아이디 {createdCredential.username} / 비밀번호 {createdCredential.password}</code></div><button type="button" onClick={()=>void copyCreatedCredential()}>로그인 정보 복사</button></div>}
         <div className="accounts-grid">
           {customerUsers.map(row=><article className={`account-card ${!Boolean(row.active)?"disabled":""}`} key={row.id}>
-            <div><span className="role-customer">거래처</span><h3>{row.display_name}</h3><p>{row.customer_code} · {row.customer_name}</p><p>아이디 {row.username}</p></div>
+            <div><span className="role-customer">거래처</span><h3>{row.display_name}</h3><p>{row.customer_code} · {row.customer_name}</p><p>아이디 {row.username}</p><p>배송처 {Math.max(1,customerLinks.filter(link=>link.customer_user_id===row.id).length)}곳</p></div>
             <div className="account-card-actions">
               <button onClick={()=>{const v=prompt("새 직원 이름",row.display_name);if(v)void act("/api/admin/customer-users",{action:"update",id:row.id,username:row.username,displayName:v});}}>이름 변경</button>
               <button onClick={()=>{const v=prompt("새 직원 아이디",row.username);if(v&&v.trim()!==row.username)void act("/api/admin/customer-users",{action:"update",id:row.id,username:v.trim(),displayName:row.display_name});}}>아이디 변경</button>
+              <button className="primary" onClick={()=>openLocationManager(row)}>배송처 연결</button>
               <button onClick={()=>{const v=prompt("새 비밀번호 (2~64자)");if(v)void act("/api/admin/customer-users",{action:"reset-password",id:row.id,password:v});}}>비밀번호 변경</button>
               <button onClick={()=>void act("/api/admin/customer-users",{action:"toggle",id:row.id,active:!Boolean(row.active)})}>{Boolean(row.active)?"계정중지":"계정사용"}</button>
             </div>
@@ -123,5 +148,29 @@ function AccountsPage(){
         {!customerUsers.length&&<p className="accounts-empty">아직 등록된 거래처 직원 계정이 없습니다.</p>}
       </section>
     </main>
+
+    {linkingUser&&<div className="account-link-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setLinkingUser(null);}}>
+      <section className="account-link-modal" role="dialog" aria-modal="true" aria-label="배송처 연결">
+        <div className="account-link-head">
+          <div><small>{linkingUser.username}</small><h2>배송처 연결</h2><p>{linkingUser.display_name} 계정으로 주문할 식당을 선택하세요.</p></div>
+          <button type="button" onClick={()=>setLinkingUser(null)}>×</button>
+        </div>
+        <input className="account-link-search" value={linkSearch} onChange={e=>setLinkSearch(e.target.value)} placeholder="거래처명 또는 코드 검색"/>
+        <div className="account-link-selected">선택 {linkIds.length}곳</div>
+        <div className="account-link-list">
+          {customers.filter(row=>{
+            const q=linkSearch.trim().toLowerCase();
+            return !q||row.name.toLowerCase().includes(q)||row.code.toLowerCase().includes(q);
+          }).slice(0,100).map(row=><label key={row.id} className={linkIds.includes(row.id)?"selected":""}>
+            <input type="checkbox" checked={linkIds.includes(row.id)} onChange={()=>toggleLinkedCustomer(row.id)}/>
+            <span><b>{row.name}</b><small>{row.code}</small></span>
+          </label>)}
+        </div>
+        <div className="account-link-actions">
+          <button type="button" onClick={()=>setLinkingUser(null)}>취소</button>
+          <button type="button" className="save" disabled={!linkIds.length} onClick={()=>void saveLinkedCustomers()}>{linkIds.length}곳 연결 저장</button>
+        </div>
+      </section>
+    </div>}
   </div>;
 }
