@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { isAdmin, makeCustomerPinCredential, validMutationOrigin } from "../../../lib/auth.server";
+import { isAdmin, makeCustomerPasswordCredential, validMutationOrigin } from "../../../lib/auth.server";
 import { db, ensureDatabase } from "../../../lib/db.server";
 import { cleanText } from "../../../lib/admin-validation.server";
 
@@ -39,10 +39,10 @@ export const Route = createFileRoute("/api/admin/customer-users")({
           const customerId = cleanText(body.customerId, 80);
           const username = cleanText(body.username, 40).toLowerCase();
           const displayName = cleanText(body.displayName, 80);
-          const pin = cleanText(body.pin, 6);
+          const password = cleanText(body.password ?? body.pin, 64);
           if (!customerId || !displayName || !/^[a-z0-9._-]{2,40}$/.test(username)) throw new Error("거래처, 이름, 직원 아이디를 확인해 주세요.");
           await assertCustomerUsernameAvailable(username);
-          const credential = await makeCustomerPinCredential(pin);
+          const credential = await makeCustomerPasswordCredential(password);
           const id = `CU-${crypto.randomUUID()}`;
           await db().prepare("INSERT INTO customer_users(id,customer_id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,?,1)")
             .bind(id, customerId, username, displayName, credential.salt, credential.hash).run();
@@ -61,8 +61,8 @@ export const Route = createFileRoute("/api/admin/customer-users")({
           ]);
           return Response.json({ ok: true });
         }
-        if (action === "reset-pin") {
-          const credential = await makeCustomerPinCredential(cleanText(body.pin, 6));
+        if (action === "reset-password" || action === "reset-pin") {
+          const credential = await makeCustomerPasswordCredential(cleanText(body.password ?? body.pin, 64));
           await db().batch([
             db().prepare("UPDATE customer_users SET auth_salt=?,auth_hash=?,updated_at=datetime('now') WHERE id=?").bind(credential.salt, credential.hash, id),
             db().prepare("DELETE FROM customer_sessions WHERE customer_user_id=?").bind(id),
