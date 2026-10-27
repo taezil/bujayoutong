@@ -3,16 +3,16 @@ import { isAdmin, makeCustomerPasswordCredential, validMutationOrigin } from "..
 import { db, ensureDatabase } from "../../../lib/db.server";
 import { cleanText } from "../../../lib/admin-validation.server";
 
-async function assertCustomerUsernameAvailable(username: string, excludeId = "") {
+async function assertCustomerUsernameAvailable(username: string, customerId: string, excludeId = "") {
   const employee = await db().prepare(
     "SELECT id FROM customer_users WHERE lower(username)=lower(?) AND id<>? LIMIT 1",
   ).bind(username, excludeId).first();
-  if (employee) throw new Error("이미 사용 중인 직원 아이디입니다.");
+  if (employee) throw new Error("이미 사용 중인 거래처 아이디입니다.");
 
   const customer = await db().prepare(
-    "SELECT id FROM customers WHERE lower(code)=lower(?) LIMIT 1",
-  ).bind(username).first();
-  if (customer) throw new Error("기존 거래처번호와 같은 아이디는 사용할 수 없습니다.");
+    "SELECT id FROM customers WHERE lower(code)=lower(?) AND id<>? LIMIT 1",
+  ).bind(username, customerId).first();
+  if (customer) throw new Error("다른 거래처번호와 같은 아이디는 사용할 수 없습니다.");
 }
 
 export const Route = createFileRoute("/api/admin/customer-users")({
@@ -41,7 +41,7 @@ export const Route = createFileRoute("/api/admin/customer-users")({
           const displayName = cleanText(body.displayName, 80);
           const password = cleanText(body.password ?? body.pin, 64);
           if (!customerId || !displayName || !/^[a-z0-9._-]{2,40}$/.test(username)) throw new Error("거래처, 이름, 직원 아이디를 확인해 주세요.");
-          await assertCustomerUsernameAvailable(username);
+          await assertCustomerUsernameAvailable(username, customerId);
           const credential = await makeCustomerPasswordCredential(password);
           const id = `CU-${crypto.randomUUID()}`;
           await db().prepare("INSERT INTO customer_users(id,customer_id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,?,1)")
@@ -54,7 +54,9 @@ export const Route = createFileRoute("/api/admin/customer-users")({
           const username = cleanText(body.username, 40).toLowerCase();
           const displayName = cleanText(body.displayName, 80);
           if (!displayName || !/^[a-z0-9._-]{2,40}$/.test(username)) throw new Error("이름과 직원 아이디를 확인해 주세요.");
-          await assertCustomerUsernameAvailable(username, id);
+          const owner = await db().prepare("SELECT customer_id FROM customer_users WHERE id=? LIMIT 1").bind(id).first<{ customer_id: string }>();
+          if (!owner?.customer_id) throw new Error("거래처 계정을 찾을 수 없습니다.");
+          await assertCustomerUsernameAvailable(username, owner.customer_id, id);
           await db().batch([
             db().prepare("UPDATE customer_users SET username=?,display_name=?,updated_at=datetime('now') WHERE id=?").bind(username, displayName, id),
             db().prepare("DELETE FROM customer_sessions WHERE customer_user_id=?").bind(id),
