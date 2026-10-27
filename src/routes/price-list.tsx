@@ -6,14 +6,14 @@ export const Route = createFileRoute("/price-list")({
   head: () => ({
     meta: [
       { title: "부자유통 단가표" },
-      { name: "description", content: "부자유통 취급상품의 규격, 단가, 구성, 인분 정보를 확인할 수 있는 실시간 단가표입니다." },
+      { name: "description", content: "부자유통 거래처 전용 실시간 단가표입니다." },
+      { name: "robots", content: "noindex,nofollow" },
     ],
   }),
   component: PriceListPage,
 });
 
 type Viewer =
-  | { type: "public"; name: string; priceGroup: null }
   | { type: "customer"; name: string; customerName: string; priceGroup: "A" | "B" }
   | { type: "driver" | "admin"; name: string; priceGroup: null };
 
@@ -54,6 +54,8 @@ function servingsUnitLabel(product: PriceProduct) {
 function PriceListPage() {
   const [data, setData] = useState<PriceData | null>(null);
   const [error, setError] = useState("");
+  const [checked, setChecked] = useState(false);
+  const [authRequired, setAuthRequired] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("전체");
   const [compact, setCompact] = useState(false);
@@ -62,20 +64,34 @@ function PriceListPage() {
   async function load() {
     try {
       const response = await fetch("/api/price-list", { cache: "no-store" });
-      const json = await response.json() as PriceData;
+      const json = await response.json() as PriceData & { error?: string };
+      if (response.status === 401) {
+        setData(null);
+        setAuthRequired(true);
+        setError("");
+        setChecked(true);
+        return;
+      }
       if (!response.ok) throw new Error(json.error || "단가표를 불러오지 못했습니다.");
       setData(json);
+      setAuthRequired(false);
       setError("");
+      setChecked(true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "단가표를 불러오지 못했습니다.");
+      setChecked(true);
     }
   }
 
   useEffect(() => {
     void load();
+  }, []);
+
+  useEffect(() => {
+    if (authRequired) return;
     const timer = window.setInterval(() => void load(), 10000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [authRequired]);
 
   const categories = useMemo(() => {
     if (!data) return [] as string[];
@@ -93,6 +109,13 @@ function PriceListPage() {
     });
   }, [data, query, category]);
 
+  async function logout() {
+    await fetch("/api/customer/logout", { method: "POST" });
+    setData(null);
+    setAuthRequired(true);
+    setChecked(true);
+  }
+
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -105,12 +128,16 @@ function PriceListPage() {
 
   const internal = data?.viewer.type === "admin" || data?.viewer.type === "driver";
 
+  if (!checked) return <PriceListLogin checking onLogin={load} />;
+  if (authRequired) return <PriceListLogin onLogin={load} />;
+
   return <div className="price-list-page">
     <header className="price-list-header">
       <div className="price-list-header-inner">
         <a href="/" className="price-list-logo"><img src={BUJA_LOGO_DATA} alt="부자유통" /></a>
         <div className="price-list-header-actions">
           <button type="button" onClick={copyLink}>{copied ? "링크 복사됨" : "공유 링크 복사"}</button>
+          {data?.viewer.type === "customer" && <button type="button" onClick={() => void logout()}>로그아웃</button>}
           <button type="button" onClick={() => history.back()}>돌아가기</button>
         </div>
       </div>
@@ -130,7 +157,6 @@ function PriceListPage() {
         </div>
       </section>
 
-      {data?.viewer.type === "public" && <p className="price-list-notice">신규 거래처 참고용 기본 단가입니다. 실제 거래조건에 따라 적용 단가는 달라질 수 있습니다.</p>}
       {data?.viewer.type === "customer" && <p className="price-list-notice customer">현재 <b>{data.viewer.customerName}</b>에 적용되는 {data.viewer.priceGroup}그룹 단가를 표시합니다.</p>}
       {internal && <p className="price-list-notice internal"><b>{data?.viewer.name}</b> 직원 화면입니다. 고정가격 상품은 기본가와 A/B 그룹 가격을 함께 확인할 수 있습니다.</p>}
       {error && <p className="price-list-error">{error}</p>}
@@ -226,6 +252,57 @@ function PriceListPage() {
 
       {data && visible.length === 0 && <div className="price-list-empty">조건에 맞는 상품이 없습니다.</div>}
       <footer className="price-list-footer"><b>부자유통</b><span>관리자 상품관리와 연결된 실시간 상품·단가표</span></footer>
+    </main>
+  </div>;
+}
+
+
+function PriceListLogin({ onLogin, checking = false }: { onLogin: () => Promise<void>; checking?: boolean }) {
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (checking || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/customer/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, password }),
+      });
+      const json = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(json.error || "아이디 또는 비밀번호를 확인해 주세요.");
+      await onLogin();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "로그인에 실패했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="price-login-page">
+    <main className="price-login-shell">
+      <section className="price-login-card">
+        <img src={BUJA_LOGO_DATA} alt="부자유통" />
+        <p>RESTAURANT PARTNER ONLY</p>
+        <h1>거래처 전용 단가표</h1>
+        <span>부자유통에서 전달받은 아이디와 비밀번호로 로그인해 주세요.</span>
+        {checking ? <div className="price-login-checking">로그인 상태를 확인하는 중입니다.</div> : <form onSubmit={submit}>
+          <label>아이디<input value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoComplete="username" autoCapitalize="none" /></label>
+          <label>비밀번호<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" /></label>
+          {error && <p className="price-login-error">{error}</p>}
+          <button type="submit" disabled={busy || !identifier.trim() || password.trim().length < 6}>{busy ? "확인 중..." : "로그인"}</button>
+        </form>}
+        <div className="price-login-help">
+          <b>한 번 로그인하면 계속 로그인됩니다.</b>
+          <span>같은 휴대폰에서는 로그인 상태를 최대 5년 유지합니다. 브라우저 데이터 삭제나 로그아웃을 하면 다시 로그인해야 합니다.</span>
+          <span>홈 화면에 추가하면 앱처럼 사용할 수 있고, 새 버전은 다시 설치할 필요 없이 서버에서 자동 반영됩니다.</span>
+        </div>
+      </section>
     </main>
   </div>;
 }
