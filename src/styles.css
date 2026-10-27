@@ -3950,3 +3950,98 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .order-login-page { min-height: 100svh; padding: 12px; }
   .order-login-card { padding: 24px 20px; }
 }
+
+
+/* ===== 거래처 계정 검색 / 페이지네이션 ===== */
+.account-list-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 12px;
+}
+.account-list-toolbar > small {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.account-search-box {
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  align-items: center;
+  gap: 9px;
+  border: 1.5px solid #d3ddd4;
+  border-radius: 14px;
+  padding: 0 12px;
+  background: #fff;
+}
+.account-search-box:focus-within {
+  border-color: #0b6a39;
+  box-shadow: 0 0 0 3px rgba(11,106,57,.08);
+}
+.account-search-box > span {
+  color: #0b6a39;
+  font-size: 25px;
+  line-height: 1;
+  font-weight: 900;
+  transform: rotate(-15deg);
+}
+.account-search-box input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #1f2a22;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+}
+.account-search-box input::placeholder { color: #929b94; font-weight: 650; }
+.account-search-box button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: #f0f3f0;
+  color: #68736b;
+  font-size: 20px;
+  cursor: pointer;
+}
+.account-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+.account-pagination button {
+  min-width: 96px;
+  min-height: 42px;
+  border: 1px solid #d3ddd4;
+  border-radius: 11px;
+  background: #fff;
+  color: #26332b;
+  font-weight: 900;
+  cursor: pointer;
+}
+.account-pagination button:disabled { opacity: .35; cursor: default; }
+.account-pagination span {
+  min-width: 72px;
+  text-align: center;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+}
+.account-pagination span b { color: #0b6a39; font-size: 16px; }
+
+@media (max-width: 700px) {
+  .account-list-toolbar { grid-template-columns: 1fr; gap: 7px; }
+  .account-list-toolbar > small { white-space: normal; }
+  .account-search-box { min-height: 50px; }
+  .account-search-box input { font-size: 13px; }
+  .account-pagination { gap: 9px; }
+  .account-pagination button { min-width: 88px; }
+}
