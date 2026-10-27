@@ -1,26 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { readStore } from "../lib/db.server";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
 import { CATEGORY_IMAGE_DATA } from "../category-images";
 
-// 거래처 화면에는 가격을 보여주지 않으므로 그룹별 단가(A/B)는 내려보내지 않음
-const getStore = createServerFn({ method: "GET" }).handler(async () => {
-  const store = await readStore();
-  return {
-    ...store,
-    products: store.products.map((product) => ({
-      ...product,
-      packOptions: product.packOptions.map((option) => ({ label: option.label, spec: option.spec, price: option.price, step: option.step })),
-    })),
-  };
-});
-
 export const Route = createFileRoute("/")({
-  loader: () => getStore(),
+  head: () => ({ meta: [{ name: "robots", content: "noindex,nofollow" }] }),
   component: OrderPage,
 });
 
@@ -261,7 +247,107 @@ function CategoryTilePhoto({ candidates }: { candidates: string[] }) {
 /* ---------- 페이지 ---------- */
 
 function OrderPage() {
-  const store = Route.useLoaderData() as StoreData;
+  const [checked, setChecked] = useState(false);
+  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [store, setStore] = useState<StoreData | null>(null);
+  const [error, setError] = useState("");
+
+  async function loadPrivateStore() {
+    setError("");
+    const statusResponse = await fetch("/api/customer/status", { cache: "no-store" });
+    const status = await statusResponse.json() as { authenticated?: boolean; customer?: CustomerProfile | null };
+    if (!status.authenticated || !status.customer) {
+      setCustomer(null);
+      setStore(null);
+      setChecked(true);
+      return;
+    }
+
+    const storeResponse = await fetch("/api/store", { cache: "no-store" });
+    if (storeResponse.status === 401) {
+      setCustomer(null);
+      setStore(null);
+      setChecked(true);
+      return;
+    }
+    const json = await storeResponse.json() as StoreData & { error?: string };
+    if (!storeResponse.ok) throw new Error(json.error || "상품을 불러오지 못했습니다.");
+    setCustomer(status.customer);
+    setStore(json);
+    setChecked(true);
+  }
+
+  useEffect(() => {
+    void loadPrivateStore().catch((reason) => {
+      setError(reason instanceof Error ? reason.message : "로그인 상태를 확인하지 못했습니다.");
+      setChecked(true);
+    });
+  }, []);
+
+  if (!checked) return <OrderLogin checking onLogin={loadPrivateStore} />;
+  if (!customer || !store) return <OrderLogin errorMessage={error} onLogin={loadPrivateStore} />;
+  return <OrderApp store={store} />;
+}
+
+function OrderLogin({
+  onLogin,
+  checking = false,
+  errorMessage = "",
+}: {
+  onLogin: () => Promise<void>;
+  checking?: boolean;
+  errorMessage?: string;
+}) {
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(errorMessage);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (checking || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/customer/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: identifier.replace(/-/g, ""), password: password.replace(/-/g, "") }),
+      });
+      const json = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(json.error || "아이디 또는 비밀번호를 확인해 주세요.");
+      await onLogin();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "로그인에 실패했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="price-login-page order-login-page">
+    <main className="price-login-shell">
+      <section className="price-login-card order-login-card">
+        <img src={BUJA_LOGO_DATA} alt="부자유통" />
+        <p>BUJA FOOD PARTNER ONLY</p>
+        <h1>거래처 전용 주문</h1>
+        <span>부자유통 거래처만 이용할 수 있습니다. 전달받은 숫자 아이디와 비밀번호를 입력해 주세요.</span>
+        {checking ? <div className="price-login-checking">로그인 상태를 확인하는 중입니다.</div> : <form onSubmit={submit}>
+          <label>아이디<input inputMode="numeric" value={identifier} onChange={(event) => setIdentifier(event.target.value.replace(/[^0-9-]/g, ""))} autoComplete="username" placeholder="예: 12013" /></label>
+          <label>비밀번호<input inputMode="numeric" value={password} onChange={(event) => setPassword(event.target.value.replace(/[^0-9-]/g, ""))} type="password" autoComplete="current-password" placeholder="아이디와 동일" /></label>
+          {error && <p className="price-login-error">{error}</p>}
+          <button type="submit" disabled={busy || !identifier.replace(/-/g, "").trim() || password.replace(/-/g, "").trim().length < 2}>{busy ? "확인 중..." : "로그인"}</button>
+        </form>}
+        <div className="price-login-help">
+          <b>로그인 전에는 상품과 발주정보가 공개되지 않습니다.</b>
+          <span>아이디가 120-13이라면 하이픈 없이 12013만 입력해도 됩니다.</span>
+          <span>한 번 로그인하면 같은 휴대폰에서는 로그인 상태가 유지됩니다.</span>
+        </div>
+      </section>
+    </main>
+  </div>;
+}
+
+function OrderApp({ store }: { store: StoreData }) {
   const [tab, setTab] = useState<Tab>("home");
   const [category, setCategory] = useState(ALL);
   const [sub, setSub] = useState(ALL);
@@ -553,7 +639,7 @@ function OrderPage() {
   async function logoutCustomerAccount() {
     await fetch("/api/customer/logout", { method: "POST" }).catch(() => undefined);
     setCustomer(null);
-    window.location.href = "/price-list";
+    window.location.href = "/";
   }
 
   function goTab(next: Tab, nextCategory?: string) {
@@ -602,15 +688,14 @@ function OrderPage() {
               </button>)}
             </div>}
             <div className="od-account-actions">
-              <a href="/price-list">단가표 보기</a>
-              <button type="button" onClick={() => void logoutCustomerAccount()}>로그아웃</button>
+              <button type="button" className="full" onClick={() => void logoutCustomerAccount()}>로그아웃</button>
             </div>
           </div>
         ) : (
           <div className="od-account-card signed-out">
             <strong>거래처 로그인이 필요합니다.</strong>
             <span>로그인하면 업체 정보가 표시되고 발주 문자에 거래처명이 자동으로 들어갑니다.</span>
-            <a href="/price-list">거래처 로그인</a>
+            <a href="/">거래처 로그인</a>
           </div>
         )}
       </section>
