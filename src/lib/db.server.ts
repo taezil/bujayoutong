@@ -204,6 +204,10 @@ async function ensureOperationsSchema(database: D1Database) {
   await ensureColumn(database, "orders", "is_additional", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(database, "orders", "order_period", "TEXT NOT NULL DEFAULT 'AM'");
   await ensureColumn(database, "orders", "load_printed_at", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "orders", "delivery_location_id", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "orders", "delivery_location_name", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "orders", "delivery_location_address", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "orders", "delivery_location_phone", "TEXT NOT NULL DEFAULT ''");
 
   await database.exec("CREATE TABLE IF NOT EXISTS staff_users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('ADMIN','DRIVER')), auth_salt TEXT NOT NULL, auth_hash TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))");
   await database.exec("CREATE TABLE IF NOT EXISTS staff_sessions (token_hash TEXT PRIMARY KEY, staff_id TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), last_seen_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(staff_id) REFERENCES staff_users(id) ON DELETE CASCADE)");
@@ -225,6 +229,9 @@ async function ensureOperationsSchema(database: D1Database) {
   await database.exec("CREATE TABLE IF NOT EXISTS customer_user_customers (customer_user_id TEXT NOT NULL, customer_id TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY(customer_user_id, customer_id), FOREIGN KEY(customer_user_id) REFERENCES customer_users(id) ON DELETE CASCADE, FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE)");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_user_customers_user ON customer_user_customers(customer_user_id, sort_order, customer_id)");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_user_customers_customer ON customer_user_customers(customer_id, customer_user_id)");
+
+  await database.exec("CREATE TABLE IF NOT EXISTS customer_delivery_locations (id TEXT PRIMARY KEY, customer_id TEXT NOT NULL, name TEXT NOT NULL, address TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE)");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_delivery_locations_customer ON customer_delivery_locations(customer_id, active, sort_order, name)");
 
   await database.exec("CREATE TABLE IF NOT EXISTS auth_login_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT, scope TEXT NOT NULL, attempt_key TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')))");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_lookup ON auth_login_attempts(scope, attempt_key, created_at)");
