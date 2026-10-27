@@ -2532,11 +2532,9 @@ export const Route = createFileRoute("/api/store")({
       const url = new URL(request.url);
       await ensureCatalogImportV3();
 
-      const [customer, admin, staff] = await Promise.all([
-        getCustomer(request),
-        isAdmin(request),
-        getStaff(request),
-      ]);
+      const customer = await getCustomer(request);
+      const admin = customer ? false : await isAdmin(request);
+      const staff = customer || admin ? null : await getStaff(request);
       if (!customer && !admin && !staff) {
         return Response.json(
           { error: "거래처 로그인이 필요합니다.", code: "AUTH_REQUIRED" },
