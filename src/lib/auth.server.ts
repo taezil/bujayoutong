@@ -2,7 +2,7 @@ import { db, ensureDatabase } from "./db.server";
 import type { CustomerSummary } from "./db.server";
 
 const ADMIN_COOKIE_NAME = "buja_admin_session";
-const CUSTOMER_COOKIE_NAME = "buja_customer_session";
+const CUSTOMER_COOKIE_NAME = "buja_customer_session_v2";
 const STAFF_COOKIE_NAME = "buja_staff_session";
 const encoder = new TextEncoder();
 
