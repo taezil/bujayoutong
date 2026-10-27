@@ -11,20 +11,20 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
-import { Route as AdminAccountsRouteImport } from './routes/admin_.accounts'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DriverRouteImport } from './routes/driver'
 import { Route as PriceListRouteImport } from './routes/price-list'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as AdminAccountsRouteImport } from './routes/admin_.accounts'
 import { Route as ApiOrdersRouteImport } from './routes/api/orders'
 import { Route as ApiPhotoRouteImport } from './routes/api/photo'
 import { Route as ApiPriceListRouteImport } from './routes/api/price-list'
 import { Route as ApiStoreRouteImport } from './routes/api/store'
 import { Route as ApiAdminAuditRouteImport } from './routes/api/admin/audit'
 import { Route as ApiAdminCategoriesRouteImport } from './routes/api/admin/categories'
-import { Route as ApiAdminCustomersRouteImport } from './routes/api/admin/customers'
 import { Route as ApiAdminCustomerUsersRouteImport } from './routes/api/admin/customer-users'
+import { Route as ApiAdminCustomersRouteImport } from './routes/api/admin/customers'
 import { Route as ApiAdminDashboardRouteImport } from './routes/api/admin/dashboard'
 import { Route as ApiAdminInventoryRouteImport } from './routes/api/admin/inventory'
 import { Route as ApiAdminLedgerRouteImport } from './routes/api/admin/ledger'
@@ -61,11 +61,6 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminAccountsRoute = AdminAccountsRouteImport.update({
-  id: '/admin/accounts',
-  path: '/admin/accounts',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -89,6 +84,11 @@ const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAccountsRoute = AdminAccountsRouteImport.update({
+  id: '/admin_/accounts',
+  path: '/admin/accounts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOrdersRoute = ApiOrdersRouteImport.update({
@@ -121,14 +121,14 @@ const ApiAdminCategoriesRoute = ApiAdminCategoriesRouteImport.update({
   path: '/api/admin/categories',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminCustomersRoute = ApiAdminCustomersRouteImport.update({
-  id: '/api/admin/customers',
-  path: '/api/admin/customers',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiAdminCustomerUsersRoute = ApiAdminCustomerUsersRouteImport.update({
   id: '/api/admin/customer-users',
   path: '/api/admin/customer-users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminCustomersRoute = ApiAdminCustomersRouteImport.update({
+  id: '/api/admin/customers',
+  path: '/api/admin/customers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminDashboardRoute = ApiAdminDashboardRouteImport.update({
@@ -260,20 +260,20 @@ const ApiStaffStatusRoute = ApiStaffStatusRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/admin/accounts': typeof AdminAccountsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
   '/price-list': typeof PriceListRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/accounts': typeof AdminAccountsRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
   '/api/price-list': typeof ApiPriceListRoute
   '/api/store': typeof ApiStoreRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
-  '/api/admin/customers': typeof ApiAdminCustomersRoute
   '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
+  '/api/admin/customers': typeof ApiAdminCustomersRoute
   '/api/admin/dashboard': typeof ApiAdminDashboardRoute
   '/api/admin/inventory': typeof ApiAdminInventoryRoute
   '/api/admin/ledger': typeof ApiAdminLedgerRoute
@@ -303,20 +303,20 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/admin/accounts': typeof AdminAccountsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
   '/price-list': typeof PriceListRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/accounts': typeof AdminAccountsRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
   '/api/price-list': typeof ApiPriceListRoute
   '/api/store': typeof ApiStoreRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
-  '/api/admin/customers': typeof ApiAdminCustomersRoute
   '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
+  '/api/admin/customers': typeof ApiAdminCustomersRoute
   '/api/admin/dashboard': typeof ApiAdminDashboardRoute
   '/api/admin/inventory': typeof ApiAdminInventoryRoute
   '/api/admin/ledger': typeof ApiAdminLedgerRoute
@@ -347,20 +347,20 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/admin/accounts': typeof AdminAccountsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
   '/price-list': typeof PriceListRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin_/accounts': typeof AdminAccountsRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
   '/api/price-list': typeof ApiPriceListRoute
   '/api/store': typeof ApiStoreRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
-  '/api/admin/customers': typeof ApiAdminCustomersRoute
   '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
+  '/api/admin/customers': typeof ApiAdminCustomersRoute
   '/api/admin/dashboard': typeof ApiAdminDashboardRoute
   '/api/admin/inventory': typeof ApiAdminInventoryRoute
   '/api/admin/ledger': typeof ApiAdminLedgerRoute
@@ -392,20 +392,20 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
-    | '/admin/accounts'
     | '/dashboard'
     | '/driver'
     | '/price-list'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/admin/accounts'
     | '/api/orders'
     | '/api/photo'
     | '/api/price-list'
     | '/api/store'
     | '/api/admin/audit'
     | '/api/admin/categories'
-    | '/api/admin/customers'
     | '/api/admin/customer-users'
+    | '/api/admin/customers'
     | '/api/admin/dashboard'
     | '/api/admin/inventory'
     | '/api/admin/ledger'
@@ -435,20 +435,20 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
-    | '/admin/accounts'
     | '/dashboard'
     | '/driver'
     | '/price-list'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/admin/accounts'
     | '/api/orders'
     | '/api/photo'
     | '/api/price-list'
     | '/api/store'
     | '/api/admin/audit'
     | '/api/admin/categories'
-    | '/api/admin/customers'
     | '/api/admin/customer-users'
+    | '/api/admin/customers'
     | '/api/admin/dashboard'
     | '/api/admin/inventory'
     | '/api/admin/ledger'
@@ -478,20 +478,20 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
-    | '/admin/accounts'
     | '/dashboard'
     | '/driver'
     | '/price-list'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/admin_/accounts'
     | '/api/orders'
     | '/api/photo'
     | '/api/price-list'
     | '/api/store'
     | '/api/admin/audit'
     | '/api/admin/categories'
-    | '/api/admin/customers'
     | '/api/admin/customer-users'
+    | '/api/admin/customers'
     | '/api/admin/dashboard'
     | '/api/admin/inventory'
     | '/api/admin/ledger'
@@ -522,20 +522,20 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
-  AdminAccountsRoute: typeof AdminAccountsRoute
   DashboardRoute: typeof DashboardRoute
   DriverRoute: typeof DriverRoute
   PriceListRoute: typeof PriceListRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  AdminAccountsRoute: typeof AdminAccountsRoute
   ApiOrdersRoute: typeof ApiOrdersRoute
   ApiPhotoRoute: typeof ApiPhotoRoute
   ApiPriceListRoute: typeof ApiPriceListRoute
   ApiStoreRoute: typeof ApiStoreRoute
   ApiAdminAuditRoute: typeof ApiAdminAuditRoute
   ApiAdminCategoriesRoute: typeof ApiAdminCategoriesRoute
-  ApiAdminCustomersRoute: typeof ApiAdminCustomersRoute
   ApiAdminCustomerUsersRoute: typeof ApiAdminCustomerUsersRoute
+  ApiAdminCustomersRoute: typeof ApiAdminCustomersRoute
   ApiAdminDashboardRoute: typeof ApiAdminDashboardRoute
   ApiAdminInventoryRoute: typeof ApiAdminInventoryRoute
   ApiAdminLedgerRoute: typeof ApiAdminLedgerRoute
@@ -579,13 +579,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/accounts': {
-      id: '/admin/accounts'
-      path: '/admin/accounts'
-      fullPath: '/admin/accounts'
-      preLoaderRoute: typeof AdminAccountsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -619,6 +612,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/accounts': {
+      id: '/admin_/accounts'
+      path: '/admin/accounts'
+      fullPath: '/admin/accounts'
+      preLoaderRoute: typeof AdminAccountsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/orders': {
@@ -663,18 +663,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminCategoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin/customers': {
-      id: '/api/admin/customers'
-      path: '/api/admin/customers'
-      fullPath: '/api/admin/customers'
-      preLoaderRoute: typeof ApiAdminCustomersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/admin/customer-users': {
       id: '/api/admin/customer-users'
       path: '/api/admin/customer-users'
       fullPath: '/api/admin/customer-users'
       preLoaderRoute: typeof ApiAdminCustomerUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/customers': {
+      id: '/api/admin/customers'
+      path: '/api/admin/customers'
+      fullPath: '/api/admin/customers'
+      preLoaderRoute: typeof ApiAdminCustomersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/dashboard': {
@@ -858,20 +858,20 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
-  AdminAccountsRoute: AdminAccountsRoute,
   DashboardRoute: DashboardRoute,
   DriverRoute: DriverRoute,
   PriceListRoute: PriceListRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  AdminAccountsRoute: AdminAccountsRoute,
   ApiOrdersRoute: ApiOrdersRoute,
   ApiPhotoRoute: ApiPhotoRoute,
   ApiPriceListRoute: ApiPriceListRoute,
   ApiStoreRoute: ApiStoreRoute,
   ApiAdminAuditRoute: ApiAdminAuditRoute,
   ApiAdminCategoriesRoute: ApiAdminCategoriesRoute,
-  ApiAdminCustomersRoute: ApiAdminCustomersRoute,
   ApiAdminCustomerUsersRoute: ApiAdminCustomerUsersRoute,
+  ApiAdminCustomersRoute: ApiAdminCustomersRoute,
   ApiAdminDashboardRoute: ApiAdminDashboardRoute,
   ApiAdminInventoryRoute: ApiAdminInventoryRoute,
   ApiAdminLedgerRoute: ApiAdminLedgerRoute,
