@@ -279,6 +279,50 @@ export async function ensureDatabase(database: D1Database = db()) {
   await ensureColumn(database, "pack_options", "spec", "TEXT NOT NULL DEFAULT ''");
   await ensureOperationsSchema(database);
 
+  const test12013Seeded = await database
+    .prepare("SELECT value FROM app_settings WHERE key='customer_login_12013_v1'")
+    .first<{ value: string }>();
+  if (test12013Seeded?.value !== "1") {
+    const customer12013 = await database
+      .prepare("SELECT id FROM customers WHERE code='00124' LIMIT 1")
+      .first<{ id: string }>();
+    if (customer12013?.id) {
+      const existing12013 = await database
+        .prepare("SELECT id FROM customer_users WHERE lower(username)='12013' LIMIT 1")
+        .first<{ id: string }>();
+      const userId = existing12013?.id || "CU-00124-12013";
+      if (!existing12013) {
+        await database.prepare(
+          "INSERT INTO customer_users(id,customer_id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,?,1)",
+        ).bind(
+          userId,
+          customer12013.id,
+          "12013",
+          "태승급식소",
+          "d122aed430315df44876524820de4584",
+          "eda528fa61bbe951e230aac2be2f6489f502de51bcdcb02219ec945362867f27",
+        ).run();
+      } else {
+        await database.prepare(
+          "UPDATE customer_users SET customer_id=?,auth_salt=?,auth_hash=?,active=1,updated_at=datetime('now') WHERE id=?",
+        ).bind(
+          customer12013.id,
+          "d122aed430315df44876524820de4584",
+          "eda528fa61bbe951e230aac2be2f6489f502de51bcdcb02219ec945362867f27",
+          userId,
+        ).run();
+      }
+      await database.batch([
+        database.prepare(
+          "INSERT OR IGNORE INTO customer_user_customers(customer_user_id,customer_id,sort_order) VALUES(?,?,0)",
+        ).bind(userId, customer12013.id),
+        database.prepare(
+          "INSERT OR REPLACE INTO app_settings(key,value) VALUES('customer_login_12013_v1','1')",
+        ),
+      ]);
+    }
+  }
+
   const frozenSeafoodCategoryPhotoV2 = await database
     .prepare("SELECT value FROM app_settings WHERE key='frozen_seafood_category_photo_v2'")
     .first<{ value: string }>();
