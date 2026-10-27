@@ -135,6 +135,21 @@ export async function browserFlow(ctx, env) {
           check(`${tagName} ${targets[i]}로 돌아오면 그 배송처 장바구니만`, (await cartCount()) === 1 && text.includes(pick(i).name) && !others.some((n) => text.includes(n)), `${await cartCount()}품목`);
         }
 
+        // 장바구니 화면에서도 현재 발주처 표시 + 그 자리에서 다른 식당으로 전환
+        await page.locator(".od-cart-icon").click();
+        const cartDest = page.locator(".od-cart-destination strong");
+        check(`${tagName} 장바구니에 현재 발주처(${await bannerLabel()}) 표시`, (await cartDest.innerText()).trim() === (await bannerLabel()), await cartDest.innerText());
+        const fromLabel = (await cartDest.innerText()).trim();
+        const toLabel = targets.find((l) => l !== fromLabel);
+        await page.locator(".od-cart-destination").click();
+        await page.locator(".od-location-options button").filter({ has: page.locator(".od-location-number", { hasText: new RegExp(`^${toLabel.replace(/[-]/g, "\\-")}$`) }) }).first().click();
+        await page.waitForFunction((l) => document.querySelector(".od-cart-destination strong")?.textContent?.trim() === l, toLabel, { timeout: 15000 });
+        const toIdx = targets.indexOf(toLabel);
+        const linesText = await page.locator(".od-cart-lines").innerText();
+        check(`${tagName} 장바구니 안에서 ${toLabel}로 전환 → 장바구니 열린 채 ${toLabel} 상품만`,
+          (await page.locator(".od-cart").count()) === 1 && linesText.includes(pick(toIdx).name) && !linesText.includes(pick(targets.indexOf(fromLabel)).name), linesText.slice(0, 120).replace(/\n/g, " "));
+        await page.locator('.od-cart button[aria-label="닫기"]').first().click();
+
         // 선택 상태 유지: 새로고침
         const last = targets[targets.length - 1];
         await switchTo(last);

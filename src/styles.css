@@ -4241,3 +4241,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .destination-row button.save { background: #0b6a39; border-color: #0b6a39; color: #fff; }
 .destination-row button:disabled { opacity: .4; cursor: not-allowed; }
 .destination-search { max-height: 260px; overflow-y: auto; margin-top: 8px; }
+
+/* 장바구니 안의 현재 발주처 (홈 화면 발주처 박스와 같은 모양) */
+.od-cart-destination {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 0 12px;
+  border: 2px solid #0b6a39;
+  border-radius: 16px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg,#f4fbf5 0%,#ffffff 100%);
+  color: #15221a;
+  text-align: left;
+  cursor: pointer;
+}
+.od-cart-destination:disabled { cursor: default; opacity: 1; }
+.od-cart-destination .od-location-copy strong { font-size: 22px; }
+.od-location-backdrop { z-index: 120; }

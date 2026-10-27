@@ -722,7 +722,6 @@ function OrderApp({ store }: { store: StoreData }) {
     setCart(nextCart);
     setAskSent(Boolean(readStorage(customerSentKey(customer.id, next?.id))));
     setLocationOpen(false);
-    setCartOpen(false);
     setToast({ id: Date.now(), text: next ? `${next.name} 배송처로 변경했습니다.` : `${customerOrderLabel(customer)} 기본 배송처로 변경했습니다.` });
   }
 
@@ -773,7 +772,6 @@ function OrderApp({ store }: { store: StoreData }) {
       setCart(nextCart);
       setAskSent(Boolean(readStorage(customerSentKey(changed.id, selected?.id))));
       setLocationOpen(false);
-      setCartOpen(false);
       setToast({ id: Date.now(), text: selected ? `${selected.name} 배송처로 변경했습니다.` : `${customerOrderLabel(changed)} 발주처로 변경했습니다.` });
     } catch (error) {
       setToast({ id: Date.now(), text: error instanceof Error ? error.message : "배송처 변경에 실패했습니다." });
@@ -988,7 +986,7 @@ function OrderApp({ store }: { store: StoreData }) {
       </div>
 
       {locationOpen&&customer&&(locations.length>1||deliveryLocations.length>0)&&(
-        <div className="od-backdrop center" onMouseDown={e=>{if(e.target===e.currentTarget&&!switchingLocation)setLocationOpen(false);}}>
+        <div className="od-backdrop center od-location-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!switchingLocation)setLocationOpen(false);}}>
           <section className="od-location-sheet" role="dialog" aria-modal="true" aria-label="발주할 식당 선택">
             <div className="od-location-sheet-head">
               <div><small>배송처 선택</small><h2>어디로 발주할까요?</h2><p>번호를 입력하지 말고 배송처 버튼만 누르세요.</p></div>
@@ -1045,9 +1043,21 @@ function OrderApp({ store }: { store: StoreData }) {
         <div className="od-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setCartOpen(false); }}>
           <section className="od-sheet od-cart" aria-modal="true" role="dialog" aria-label="주문 내용 확인">
             <div className="od-cart-title">
-              <div><p>{customer?deliveryOrderLabel(customer, selectedDeliveryLocation):"보내기 전에 확인하세요"} 발주</p><h2>장바구니</h2>{customer&&<small>{selectedDeliveryLocation?.address||customer.name}</small>}</div>
+              <div><p>{customer?deliveryOrderLabel(customer, selectedDeliveryLocation):"보내기 전에 확인하세요"} 발주</p><h2>장바구니</h2></div>
               <button type="button" aria-label="닫기" onClick={() => setCartOpen(false)}>×</button>
             </div>
+            {customer&&(()=>{
+              const canSwitch = locations.length>1||deliveryLocations.length>0;
+              return <button type="button" className="od-cart-destination" disabled={!canSwitch||switchingLocation} onClick={()=>setLocationOpen(true)}>
+                <span className="od-location-pin">📍</span>
+                <span className="od-location-copy">
+                  <small>현재 발주처</small>
+                  <strong>{deliveryOrderLabel(customer, selectedDeliveryLocation)}</strong>
+                  <em>{selectedDeliveryLocation ? deliverySubLabel(selectedDeliveryLocation, customer.name) : customer.name}</em>
+                </span>
+                {canSwitch&&<span className="od-location-change">다른 식당<br/>선택 ›</span>}
+              </button>;
+            })()}
             <div className="od-cart-lines">
               {cart.map((line) => {
                 const product = productById.get(line.productId);
