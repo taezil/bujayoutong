@@ -8,13 +8,19 @@ export const Route = createFileRoute("/api/price-list")({
       const customer = await getCustomer(request);
       const staff = customer ? null : await getStaff(request);
       const legacyAdmin = !customer && !staff ? await isAdmin(request) : false;
+
+      if (!customer && !staff && !legacyAdmin) {
+        return Response.json(
+          { error: "거래처 로그인이 필요합니다.", code: "AUTH_REQUIRED" },
+          { status: 401, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+
       const viewer = customer
         ? { type: "customer" as const, name: customer.loginName || customer.name, customerName: customer.name, priceGroup: customer.priceGroup }
         : staff
           ? { type: staff.role === "ADMIN" ? "admin" as const : "driver" as const, name: staff.displayName, priceGroup: null }
-          : legacyAdmin
-            ? { type: "admin" as const, name: "관리자", priceGroup: null }
-            : { type: "public" as const, name: "신규 거래처", priceGroup: null };
+          : { type: "admin" as const, name: "관리자", priceGroup: null };
 
       const store = await readStore(customer?.priceGroup);
       const internal = viewer.type === "admin" || viewer.type === "driver";
