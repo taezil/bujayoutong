@@ -32,18 +32,35 @@ type CustomerProfile = {
   loginName?: string;
 };
 
+type DeliveryLocation = {
+  id: string;
+  customer_id: string;
+  name: string;
+  address: string;
+  phone: string;
+  note: string;
+  active: number | boolean;
+  sort_order: number;
+};
+
 type Tab = "home" | "category" | "promo" | "account";
 
 const CART_STORAGE_KEY = "buja-simple-cart-v1";
 const SENT_STORAGE_KEY = "buja-simple-cart-sent-v1";
 
 // 배송처(거래처)마다 장바구니와 "문자 보냈나요?" 상태를 따로 보관합니다.
-function customerCartKey(customerId?: string) {
-  return customerId ? `${CART_STORAGE_KEY}:${customerId}` : CART_STORAGE_KEY;
+function customerCartKey(customerId?: string, deliveryLocationId?: string | null) {
+  if (!customerId) return CART_STORAGE_KEY;
+  return `${CART_STORAGE_KEY}:${customerId}:${deliveryLocationId || "main"}`;
 }
 
-function customerSentKey(customerId?: string) {
-  return customerId ? `${SENT_STORAGE_KEY}:${customerId}` : SENT_STORAGE_KEY;
+function customerSentKey(customerId?: string, deliveryLocationId?: string | null) {
+  if (!customerId) return SENT_STORAGE_KEY;
+  return `${SENT_STORAGE_KEY}:${customerId}:${deliveryLocationId || "main"}`;
+}
+
+function customerDeliveryChoiceKey(customerId: string) {
+  return `buja-delivery-choice-v1:${customerId}`;
 }
 const ALL = "전체";
 
@@ -160,7 +177,7 @@ function customerLocationCode(customer: CustomerProfile) {
   return customerShortLabel(customer);
 }
 
-function buildOrderText(cart: CartLine[], customer: CustomerProfile | null) {
+function buildOrderText(cart: CartLine[], customer: CustomerProfile | null, deliveryLocation: DeliveryLocation | null = null) {
   const grouped = new Map<string, string[]>();
 
   for (const line of cart) {
@@ -170,7 +187,10 @@ function buildOrderText(cart: CartLine[], customer: CustomerProfile | null) {
   }
 
   const lines = Array.from(grouped, ([productName, quantities]) => `${productName} / ${quantities.join(" ")}`);
-  return [orderTitle(customer), "", ...lines, "", `총 ${lines.length}품목`].join("\n");
+  const base = customerOrderLabel(customer);
+  const title = deliveryLocation ? `[${base} ${deliveryLocation.name} 발주]` : orderTitle(customer);
+  const destination = deliveryLocation?.address ? `배송처: ${deliveryLocation.name} · ${deliveryLocation.address}` : deliveryLocation ? `배송처: ${deliveryLocation.name}` : "";
+  return [title, destination, "", ...lines, "", `총 ${lines.length}품목`].filter((line,index,all)=>line!=="" || (index>0&&all[index-1]!=="")).join("\n");
 }
 
 function isIOS() {
