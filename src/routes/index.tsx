@@ -409,9 +409,11 @@ function OrderApp({ store }: { store: StoreData }) {
         if (!active) return;
         const current = data.authenticated && data.customer ? data.customer : null;
         const linked = current ? (data.locations?.length ? data.locations : [current]) : [];
-        const extras = current ? (data.deliveryLocations ?? []).filter((item) => item.customer_id === current.id && Boolean(item.active)) : [];
+        const extras = current ? (data.deliveryLocations ?? []).filter((item) => Boolean(item.active)) : [];
         const selectedId = current ? readStorage(customerDeliveryChoiceKey(current.id)) : null;
-        const selected = extras.find((item) => item.id === selectedId) ?? null;
+        const selected = current
+          ? extras.find((item) => item.customer_id === current.id && item.id === selectedId) ?? null
+          : null;
 
         setCustomer(current);
         setLocations(linked);
@@ -640,10 +642,19 @@ function OrderApp({ store }: { store: StoreData }) {
     }
   }
 
-  function switchExtraDelivery(next: DeliveryLocation | null) {
+  async function switchExtraDelivery(next: DeliveryLocation | null) {
     if (!customer) return;
-    writeStorage(cartKey, cart.length ? JSON.stringify(cart) : null);
+    if (next && next.customer_id !== customer.id) {
+      const parent = locations.find((location) => location.id === next.customer_id);
+      if (!parent) {
+        setToast({ id: Date.now(), text: "연결된 거래처의 배송처가 아닙니다." });
+        return;
+      }
+      await switchLocation(parent, next);
+      return;
+    }
 
+    writeStorage(cartKey, cart.length ? JSON.stringify(cart) : null);
     const nextKey = customerCartKey(customer.id, next?.id);
     const raw = readStorage(nextKey);
     let nextCart: CartLine[] = [];
@@ -661,13 +672,13 @@ function OrderApp({ store }: { store: StoreData }) {
     setToast({ id: Date.now(), text: next ? `${next.name} 배송처로 변경했습니다.` : `${customerOrderLabel(customer)} 기본 배송처로 변경했습니다.` });
   }
 
-  async function switchLocation(next: CustomerProfile) {
+  async function switchLocation(next: CustomerProfile, desiredDelivery: DeliveryLocation | null = null) {
     if (!customer || switchingLocation) {
       setLocationOpen(false);
       return;
     }
     if (next.id === customer.id) {
-      switchExtraDelivery(null);
+      await switchExtraDelivery(desiredDelivery);
       return;
     }
     setSwitchingLocation(true);
@@ -688,15 +699,18 @@ function OrderApp({ store }: { store: StoreData }) {
         deliveryLocations?: DeliveryLocation[];
       };
       const changed = status.customer ?? data.customer;
-      const extras = (status.deliveryLocations ?? []).filter((item) => item.customer_id === changed.id && Boolean(item.active));
+      const extras = (status.deliveryLocations ?? []).filter((item) => Boolean(item.active));
       const storedId = readStorage(customerDeliveryChoiceKey(changed.id));
-      const selected = extras.find((item) => item.id === storedId) ?? null;
+      const selected = desiredDelivery && desiredDelivery.customer_id === changed.id
+        ? extras.find((item) => item.id === desiredDelivery.id) ?? null
+        : extras.find((item) => item.customer_id === changed.id && item.id === storedId) ?? null;
       const nextKey = customerCartKey(changed.id, selected?.id);
       const raw = readStorage(nextKey);
       let nextCart: CartLine[] = [];
       if (raw) {
         try { nextCart = reconcile(JSON.parse(raw) as CartLine[]).lines; } catch { nextCart = []; }
       }
+      if (selected) writeStorage(customerDeliveryChoiceKey(changed.id), selected.id);
       setCustomer(changed);
       setLocations(status.locations?.length ? status.locations : (data.locations?.length ? data.locations : [changed]));
       setDeliveryLocations(extras);
@@ -706,7 +720,7 @@ function OrderApp({ store }: { store: StoreData }) {
       setAskSent(Boolean(readStorage(customerSentKey(changed.id, selected?.id))));
       setLocationOpen(false);
       setCartOpen(false);
-      setToast({ id: Date.now(), text: `${customerOrderLabel(changed)} 발주처로 변경했습니다.` });
+      setToast({ id: Date.now(), text: selected ? `${selected.name} 배송처로 변경했습니다.` : `${customerOrderLabel(changed)} 발주처로 변경했습니다.` });
     } catch (error) {
       setToast({ id: Date.now(), text: error instanceof Error ? error.message : "배송처 변경에 실패했습니다." });
     } finally {
@@ -764,7 +778,7 @@ function OrderApp({ store }: { store: StoreData }) {
                 <span>{location.name}</span>
                 <em>{location.id===customer.id&&!selectedDeliveryLocation?"현재 발주처":"선택"}</em>
               </button>)}
-              {deliveryLocations.map(location=><button type="button" key={location.id} className={selectedDeliveryLocation?.id===location.id?"current":""} onClick={()=>switchExtraDelivery(location)}>
+              {deliveryLocations.map(location=><button type="button" key={location.id} className={selectedDeliveryLocation?.id===location.id?"current":""} onClick={()=>void switchExtraDelivery(location)}>
                 <b>{location.name}</b>
                 <span>{location.address||customer.name}</span>
                 <em>{selectedDeliveryLocation?.id===location.id?"현재 발주처":"선택"}</em>
@@ -933,7 +947,7 @@ function OrderApp({ store }: { store: StoreData }) {
                 <span className="od-location-state">{location.id===customer.id&&!selectedDeliveryLocation?"✓ 기본 배송처":"이곳으로 발주"}</span>
               </button>)}
               {deliveryLocations.length>0&&<div className="od-location-divider">추가 배송처</div>}
-              {deliveryLocations.map(location=><button type="button" key={location.id} disabled={switchingLocation} className={selectedDeliveryLocation?.id===location.id?"current":""} onClick={()=>switchExtraDelivery(location)}>
+              {deliveryLocations.map(location=><button type="button" key={location.id} disabled={switchingLocation} className={selectedDeliveryLocation?.id===location.id?"current":""} onClick={()=>void switchExtraDelivery(location)}>
                 <span className="od-location-number">{location.name}</span>
                 <span className="od-location-name">{location.address||"주소 미등록"}{location.note?" · "+location.note:""}</span>
                 <span className="od-location-state">{selectedDeliveryLocation?.id===location.id?"✓ 현재 발주처":"이곳으로 발주"}</span>
