@@ -386,6 +386,8 @@ function OrderApp({ store }: { store: StoreData }) {
   const [hydrated, setHydrated] = useState(false);
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
   const [locations, setLocations] = useState<CustomerProfile[]>([]);
+  const [deliveryLocations, setDeliveryLocations] = useState<DeliveryLocation[]>([]);
+  const [selectedDeliveryLocation, setSelectedDeliveryLocation] = useState<DeliveryLocation | null>(null);
   const [customerChecked, setCustomerChecked] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [switchingLocation, setSwitchingLocation] = useState(false);
@@ -395,19 +397,30 @@ function OrderApp({ store }: { store: StoreData }) {
   const recipient = (store.sms || "").replace(/[^0-9+]/g, "");
   const productById = useMemo(() => new Map(store.products.map((product) => [product.id, product])), [store.products]);
 
-  // 로그인된 배송처마다 장바구니를 따로 보관합니다.
+  // 정식 거래처 + 추가 배송처마다 장바구니와 문자 전송 상태를 따로 보관합니다.
   useEffect(() => {
     let active = true;
     void fetch("/api/customer/status", { cache: "no-store" })
       .then(async (response) => {
-        const data = await response.json() as { authenticated?: boolean; customer?: CustomerProfile | null; locations?: CustomerProfile[] };
+        const data = await response.json() as {
+          authenticated?: boolean;
+          customer?: CustomerProfile | null;
+          locations?: CustomerProfile[];
+          deliveryLocations?: DeliveryLocation[];
+        };
         if (!active) return;
         const current = data.authenticated && data.customer ? data.customer : null;
         const linked = current ? (data.locations?.length ? data.locations : [current]) : [];
+        const extras = current ? (data.deliveryLocations ?? []).filter((item) => item.customer_id === current.id && Boolean(item.active)) : [];
+        const selectedId = current ? readStorage(customerDeliveryChoiceKey(current.id)) : null;
+        const selected = extras.find((item) => item.id === selectedId) ?? null;
+
         setCustomer(current);
         setLocations(linked);
+        setDeliveryLocations(extras);
+        setSelectedDeliveryLocation(selected);
 
-        const key = customerCartKey(current?.id);
+        const key = customerCartKey(current?.id, selected?.id);
         setCartKey(key);
         const scopedRaw = readStorage(key);
         const legacyRaw = current ? readStorage(CART_STORAGE_KEY) : null;
@@ -427,13 +440,15 @@ function OrderApp({ store }: { store: StoreData }) {
         } else {
           setCart([]);
         }
-        if (readStorage(customerSentKey(current?.id))) setAskSent(true);
+        setAskSent(Boolean(readStorage(customerSentKey(current?.id, selected?.id))));
         setHydrated(true);
       })
       .catch(() => {
         if (!active) return;
         setCustomer(null);
         setLocations([]);
+        setDeliveryLocations([]);
+        setSelectedDeliveryLocation(null);
         const raw = readStorage(CART_STORAGE_KEY);
         if (raw) {
           try { setCart(reconcile(JSON.parse(raw) as CartLine[]).lines); } catch { setCart([]); }
