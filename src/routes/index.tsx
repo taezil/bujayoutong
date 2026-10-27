@@ -603,8 +603,11 @@ function OrderApp({ store }: { store: StoreData }) {
   }, [categoryNames, store.categoryImages, store.products]);
 
   const searchIndex = useMemo(() => new Map(store.products.map((product) => {
-    const text = `${product.name} ${product.category} ${product.sub} ${product.unit}`;
-    return [product.id, { text: normalize(text), choseong: toChoseong(product.name.replace(/\s+/g, "")) }];
+    return [product.id, {
+      name: normalize(product.name),
+      group: normalize(`${product.category} ${product.sub} ${product.unit}`),
+      choseong: toChoseong(product.name.replace(/\s+/g, "")),
+    }];
   })), [store.products]);
 
   // 판매 중 먼저, 품절은 맨 아래 (같은 그룹 안 순서는 관리자 정렬 그대로)
@@ -621,11 +624,26 @@ function OrderApp({ store }: { store: StoreData }) {
     if (!raw) return [];
     const choseongOnly = /^[ㄱ-ㅎ]+$/.test(raw);
     const needle = normalize(query);
-    return sortForDisplay(store.products.filter((product) => {
+    // 상품명에 검색어가 있는 상품만 보여줌 (이름이 검색어로 시작하면 맨 앞).
+    // 분류명(예: "면·스파게티")만 맞는 상품은, 이름으로 찾은 상품이 하나도 없을 때만 보여줌.
+    const scored: Array<{ product: Product; score: number }> = [];
+    const groupOnly: Product[] = [];
+    for (const product of store.products) {
       const entry = searchIndex.get(product.id);
-      if (!entry) return false;
-      return choseongOnly ? entry.choseong.includes(raw) : entry.text.includes(needle);
-    }), true);
+      if (!entry) continue;
+      if (choseongOnly) {
+        if (entry.choseong.startsWith(raw)) scored.push({ product, score: 0 });
+        else if (entry.choseong.includes(raw)) scored.push({ product, score: 1 });
+        continue;
+      }
+      if (entry.name.startsWith(needle)) scored.push({ product, score: 0 });
+      else if (entry.name.includes(needle)) scored.push({ product, score: 1 });
+      else if (entry.group.includes(needle)) groupOnly.push(product);
+    }
+    if (!scored.length) return sortForDisplay(groupOnly, true);
+    const best = sortForDisplay(scored.filter((item) => item.score === 0).map((item) => item.product), true);
+    const rest = sortForDisplay(scored.filter((item) => item.score === 1).map((item) => item.product), true);
+    return [...best, ...rest];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, store.products, searchIndex, promo]);
 

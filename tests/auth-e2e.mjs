@@ -289,6 +289,22 @@ async function main() {
     await banner.waitFor({ timeout: 10000 });
     check("[화면] 현재 발주처 120-13 표시", (await banner.innerText()).includes("120-13"), await banner.innerText());
 
+    // 검색: 상품명 기준 (분류명 "면·스파게티"에 걸린 소면·당면이 섞이지 않아야 함)
+    async function searchNames(q) {
+      await page.locator(".od-search input").fill(q);
+      await page.waitForTimeout(400);
+      const names = await page.locator(".od-card .od-card-name").allInnerTexts();
+      await page.locator(".od-search input").fill("");
+      return names.map((n) => n.trim());
+    }
+    const spa = await searchNames("스파");
+    check("[검색] '스파' → 스파게티 상품이 맨 앞, 소면·당면 없음",
+      spa.length > 0 && spa[0].startsWith("스파") && spa.some((n) => n.includes("스파게티")) && !spa.some((n) => /소면|당면|막국수/.test(n)), spa.slice(0, 6).join(", "));
+    const spaghetti = await searchNames("스파게티");
+    check("[검색] '스파게티' → 이름에 스파게티 있는 상품만", spaghetti.length > 0 && spaghetti.every((n) => n.includes("스파게티")), spaghetti.join(", "));
+    const byCategory = await searchNames("냉동식품");
+    check("[검색] 이름에 없는 분류명 검색은 분류로 찾음", byCategory.length > 0, `${byCategory.length}개`);
+
     // 관리자 단계에서 카탈로그 보정이 돌았을 수 있으므로 지금 화면 기준 상품으로 다시 고름
     const fresh = await page.evaluate(async () => (await (await fetch("/api/store", { cache: "no-store" })).json()).products);
     const available = fresh.filter((p) => !p.soldout && !p.hidden && p.name.length >= 3);
