@@ -8,13 +8,14 @@ export const Route = createFileRoute("/api/customer/status")({
     const locations = await getCustomerLocations(request);
     const customer = locations[0] ?? null;
     await ensureDatabase();
-    const deliveryRows = customer
+    const customerIds = locations.map((location) => location.id);
+    const deliveryRows = customerIds.length
       ? await db().prepare(`
           SELECT id,customer_id,name,address,phone,note,active,sort_order
           FROM customer_delivery_locations
-          WHERE customer_id=? AND active=1
-          ORDER BY sort_order,name,id
-        `).bind(customer.id).all()
+          WHERE customer_id IN (${customerIds.map(() => "?").join(",")}) AND active=1
+          ORDER BY customer_id,sort_order,name,id
+        `).bind(...customerIds).all()
       : { results: [] };
     return Response.json(
       { authenticated: Boolean(customer), customer, locations, deliveryLocations: deliveryRows.results },
