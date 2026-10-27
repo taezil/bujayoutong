@@ -193,7 +193,7 @@ export function normalizeCustomerCode(value: string) {
 
 export async function makeCustomerPasswordCredential(password: string) {
   const value = password.trim();
-  if (value.length < 6 || value.length > 64) throw new Error("비밀번호는 6~64자로 설정해 주세요.");
+  if (value.length < 2 || value.length > 64) throw new Error("비밀번호는 2~64자로 설정해 주세요.");
   const salt = randomHex(16);
   const hash = await derivePassword(value, salt);
   return { salt, hash };
@@ -208,7 +208,7 @@ export async function loginCustomer(identifier: string, password: string) {
   await ensureDatabase();
   const loginId = identifier.trim().toLowerCase();
   const credential = password.trim();
-  if (!loginId || credential.length < 6 || credential.length > 64) throw new Error("아이디 또는 비밀번호를 확인해 주세요.");
+  if (!loginId || credential.length < 2 || credential.length > 64) throw new Error("아이디 또는 비밀번호를 확인해 주세요.");
 
   const employeeRows = await db().prepare(`
     SELECT u.id,u.customer_id,u.auth_salt,u.auth_hash,u.active,c.active AS customer_active
