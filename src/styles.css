@@ -3751,3 +3751,169 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 430px) {
   .od-account-info > div { grid-template-columns: 78px 1fr; }
 }
+
+
+/* ===== 다중 거래처 / 배송처 선택 ===== */
+.od-location-wrap { margin-top: 12px; }
+.od-location-banner {
+  width: 100%;
+  min-height: 82px;
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 2px solid #0b6a39;
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg,#f4fbf5 0%,#ffffff 100%);
+  color: #15221a;
+  text-align: left;
+  box-shadow: 0 6px 18px rgba(11,106,57,.09);
+  cursor: pointer;
+}
+.od-location-pin { font-size: 28px; }
+.od-location-copy { min-width: 0; display: grid; gap: 1px; }
+.od-location-copy small { color: #53715c; font-size: 11px; font-weight: 900; }
+.od-location-copy strong { color: #0b6a39; font-size: 25px; line-height: 1.1; letter-spacing: -.02em; }
+.od-location-copy em { overflow: hidden; color: #49534c; font-size: 12px; font-style: normal; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.od-location-change { color: #0b6a39; font-size: 12px; font-weight: 950; line-height: 1.35; text-align: right; }
+
+.od-location-sheet {
+  width: min(92vw,520px);
+  max-height: min(82dvh,720px);
+  overflow: hidden;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(0,0,0,.22);
+}
+.od-location-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 20px 15px;
+  border-bottom: 1px solid #edf1ec;
+}
+.od-location-sheet-head small { color: #0b6a39; font-size: 11px; font-weight: 950; letter-spacing: .06em; }
+.od-location-sheet-head h2 { margin: 3px 0 4px; font-size: 25px; letter-spacing: -.035em; }
+.od-location-sheet-head p { margin: 0; color: #6d776f; font-size: 12px; }
+.od-location-sheet-head > button {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f4f1;
+  color: #445048;
+  font-size: 24px;
+  cursor: pointer;
+}
+.od-location-options {
+  display: grid;
+  gap: 10px;
+  max-height: 58dvh;
+  overflow-y: auto;
+  padding: 14px 16px 18px;
+}
+.od-location-options > button {
+  display: grid;
+  grid-template-columns: minmax(90px,auto) minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  border: 1.5px solid #d8e1d8;
+  border-radius: 16px;
+  padding: 11px 13px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.od-location-options > button.current { border-color: #0b6a39; background: #f1f8f2; }
+.od-location-number { color: #0b6a39; font-size: 24px; font-weight: 950; letter-spacing: -.025em; }
+.od-location-name { min-width: 0; color: #28322b; font-size: 14px; font-weight: 800; line-height: 1.35; word-break: keep-all; }
+.od-location-state { color: #657268; font-size: 11px; font-weight: 900; text-align: right; }
+.od-location-options > button.current .od-location-state { color: #0b6a39; }
+
+.od-account-locations { display: grid; gap: 8px; padding-top: 2px; }
+.od-account-locations > div { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.od-account-locations > div strong { font-size: 14px; }
+.od-account-locations > div small { color: #758078; font-size: 11px; font-weight: 800; }
+.od-account-locations > button {
+  display: grid;
+  grid-template-columns: 70px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  border: 1px solid #dce3dc;
+  border-radius: 13px;
+  padding: 9px 11px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.od-account-locations > button.current { border-color: #0b6a39; background: #f3f9f4; }
+.od-account-locations b { color: #0b6a39; font-size: 17px; }
+.od-account-locations span { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.od-account-locations em { color: #768078; font-size: 10px; font-style: normal; font-weight: 900; }
+
+/* 관리자: 한 계정에 여러 배송처 연결 */
+.account-card-actions .primary { border-color: #9bc9a7 !important; background: #eff8f1 !important; color: #0b6a39 !important; }
+.account-link-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(18,27,21,.48);
+}
+.account-link-modal {
+  width: min(100%,680px);
+  max-height: 86dvh;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0,1fr) auto;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 26px 90px rgba(0,0,0,.22);
+}
+.account-link-head { display: flex; justify-content: space-between; gap: 16px; padding: 20px; border-bottom: 1px solid #e9ece9; }
+.account-link-head small { color: #0b6a39; font-weight: 900; }
+.account-link-head h2 { margin: 2px 0 4px; font-size: 24px; }
+.account-link-head p { margin: 0; color: #66706a; font-size: 12px; }
+.account-link-head > button { width: 38px; height: 38px; border: 0; border-radius: 50%; background: #f0f2f0; font-size: 24px; cursor: pointer; }
+.account-link-search { margin: 14px 16px 8px; min-height: 46px; border: 1.5px solid #cfd8cf; border-radius: 12px; padding: 0 13px; font: inherit; outline: 0; }
+.account-link-search:focus { border-color: #0b6a39; box-shadow: 0 0 0 3px rgba(11,106,57,.08); }
+.account-link-selected { padding: 0 16px 8px; color: #0b6a39; font-size: 12px; font-weight: 900; }
+.account-link-list { overflow-y: auto; padding: 0 16px 12px; }
+.account-link-list label {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  margin-bottom: 7px;
+  border: 1px solid #e0e5e0;
+  border-radius: 12px;
+  padding: 8px 11px;
+  cursor: pointer;
+}
+.account-link-list label.selected { border-color: #0b6a39; background: #f1f8f2; }
+.account-link-list input { width: 20px; height: 20px; accent-color: #0b6a39; }
+.account-link-list span { min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.account-link-list b { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.account-link-list small { flex: 0 0 auto; color: #778079; font-size: 11px; font-weight: 800; }
+.account-link-actions { display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px; padding: 14px 16px; border-top: 1px solid #e9ece9; }
+.account-link-actions button { min-height: 48px; border: 1px solid #d4dad4; border-radius: 12px; background: #fff; font-weight: 900; cursor: pointer; }
+.account-link-actions .save { border-color: #0b6a39; background: #0b6a39; color: #fff; }
+.account-link-actions button:disabled { opacity: .45; cursor: default; }
+
+@media (max-width: 600px) {
+  .od-location-wrap { margin-top: 8px; }
+  .od-location-banner { min-height: 76px; border-radius: 15px; padding: 10px 12px; }
+  .od-location-copy strong { font-size: 23px; }
+  .od-location-sheet { width: calc(100vw - 20px); max-height: 88dvh; border-radius: 20px; }
+  .od-location-options > button { grid-template-columns: 82px minmax(0,1fr); }
+  .od-location-state { grid-column: 2; text-align: left; }
+  .account-link-backdrop { padding: 0; align-items: end; }
+  .account-link-modal { width: 100%; max-height: 92dvh; border-radius: 20px 20px 0 0; }
+}
