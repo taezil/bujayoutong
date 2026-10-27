@@ -191,17 +191,24 @@ export function normalizeCustomerCode(value: string) {
   return value.trim().toUpperCase().replace(/\s+/g, "");
 }
 
-export async function makeCustomerPinCredential(pin: string) {
-  if (!/^\d{6}$/.test(pin)) throw new Error("인증번호는 숫자 6자리로 입력해 주세요.");
+export async function makeCustomerPasswordCredential(password: string) {
+  const value = password.trim();
+  if (value.length < 6 || value.length > 64) throw new Error("비밀번호는 6~64자로 설정해 주세요.");
   const salt = randomHex(16);
-  const hash = await derivePassword(pin, salt);
+  const hash = await derivePassword(value, salt);
   return { salt, hash };
 }
 
-export async function loginCustomer(identifier: string, pin: string) {
+export async function makeCustomerPinCredential(pin: string) {
+  if (!/^\d{6}$/.test(pin)) throw new Error("인증번호는 숫자 6자리로 입력해 주세요.");
+  return makeCustomerPasswordCredential(pin);
+}
+
+export async function loginCustomer(identifier: string, password: string) {
   await ensureDatabase();
   const loginId = identifier.trim().toLowerCase();
-  if (!loginId || !/^\d{6}$/.test(pin)) throw new Error("아이디와 PIN을 확인해 주세요.");
+  const credential = password.trim();
+  if (!loginId || credential.length < 6 || credential.length > 64) throw new Error("아이디 또는 비밀번호를 확인해 주세요.");
 
   const employeeRows = await db().prepare(`
     SELECT u.id,u.customer_id,u.auth_salt,u.auth_hash,u.active,c.active AS customer_active
@@ -220,21 +227,22 @@ export async function loginCustomer(identifier: string, pin: string) {
   const employee = employeeRows.results[0];
   if (employee) {
     if (Number(employee.active ?? 0) !== 1 || Number(employee.customer_active ?? 0) !== 1) {
-      throw new Error("아이디와 PIN을 확인해 주세요.");
+      throw new Error("아이디 또는 비밀번호를 확인해 주세요.");
     }
-    const hash = await derivePassword(pin, String(employee.auth_salt));
-    if (hash !== String(employee.auth_hash)) throw new Error("아이디와 PIN을 확인해 주세요.");
+    const hash = await derivePassword(credential, String(employee.auth_salt));
+    if (hash !== String(employee.auth_hash)) throw new Error("아이디 또는 비밀번호를 확인해 주세요.");
     customerId = String(employee.customer_id);
     customerUserId = String(employee.id);
   } else {
-    // 기존 대표계정은 거래처번호를 로그인 아이디처럼 계속 사용할 수 있습니다.
+    // 기존 대표계정은 거래처번호 + 6자리 PIN 로그인을 계속 지원합니다.
+    if (!/^\d{6}$/.test(credential)) throw new Error("아이디 또는 비밀번호를 확인해 주세요.");
     const normalizedCode = normalizeCustomerCode(identifier);
     const customer = await db().prepare(
       "SELECT id,auth_salt,auth_hash,active FROM customers WHERE upper(code)=upper(?) LIMIT 1",
     ).bind(normalizedCode).first<{ id: string; auth_salt: string; auth_hash: string; active: number }>();
-    if (!customer || customer.active !== 1 || !customer.auth_hash) throw new Error("아이디와 PIN을 확인해 주세요.");
-    const hash = await derivePassword(pin, customer.auth_salt);
-    if (hash !== customer.auth_hash) throw new Error("아이디와 PIN을 확인해 주세요.");
+    if (!customer || customer.active !== 1 || !customer.auth_hash) throw new Error("아이디 또는 비밀번호를 확인해 주세요.");
+    const hash = await derivePassword(credential, customer.auth_salt);
+    if (hash !== customer.auth_hash) throw new Error("아이디 또는 비밀번호를 확인해 주세요.");
     customerId = customer.id;
   }
 
