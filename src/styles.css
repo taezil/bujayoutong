@@ -4228,3 +4228,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 520px) {
   .od-card .od-stepper { border-radius: 16px; }
 }
+
+/* 배송처 관리 (거래처 연결 + 새 배송처 추가 통합) */
+.destination-modal { max-height: 92vh; overflow-y: auto; }
+.destination-title { margin: 16px 0 8px; font-size: 15px; font-weight: 800; color: #1d2b22; }
+.destination-title small { margin-left: 6px; font-size: 12px; font-weight: 600; color: #6b7a70; }
+.destination-current label, .destination-search label { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.destination-current label span, .destination-search label span { display: flex; flex-direction: column; min-width: 0; }
+.destination-current label button:disabled { opacity: .4; cursor: not-allowed; }
+.destination-search { max-height: 260px; overflow-y: auto; margin-top: 8px; }

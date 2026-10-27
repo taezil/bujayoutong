@@ -196,8 +196,6 @@ function AdminPage() {
         <div className="adm-side-foot">
           <span>{staffName}</span>
           <a href="/admin/accounts">거래처 계정 관리</a>
-          <a href="/price-list" target="_blank" rel="noreferrer">단가표 보기 ↗</a>
-          <a href="/" target="_blank" rel="noreferrer">주문화면 보기 ↗</a>
           <button type="button" onClick={logout}>로그아웃</button>
         </div>
       </aside>

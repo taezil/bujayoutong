@@ -142,10 +142,7 @@ async function main() {
       INSERT OR IGNORE INTO customer_user_customers(customer_user_id,customer_id,sort_order)
         SELECT id,'C-CI-8515',1 FROM customer_users WHERE username='12013';
       INSERT OR IGNORE INTO customer_user_customers(customer_user_id,customer_id,sort_order)
-        SELECT id,'C-CI-7302',2 FROM customer_users WHERE username='12013';
-      INSERT OR REPLACE INTO customer_delivery_locations(id,customer_id,name,address,phone,note,active,sort_order)
-        SELECT 'DL-CI-11813',id,'118-13','테스트 추가배송처','','같이 운영',1,0
-        FROM customers WHERE code='00124' LIMIT 1;`);
+        SELECT id,'C-CI-7302',2 FROM customer_users WHERE username='12013';`);
     linkedOk = true;
   } catch (error) {
     check("테스트용 배송처 연결(wrangler d1 execute)", false, String(error.stderr || error.message).slice(0, 300));

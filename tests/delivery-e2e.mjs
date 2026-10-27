@@ -88,10 +88,14 @@ async function main() {
   check("관리자 API로 거래처 5곳 생성", specs.every((s) => idOf(s.code)));
 
   // 2) 서로 다른 거래처 계정 3개 (관리자 API)
+  // a, c: 관리자 API / b: 관리자 화면(배송처 관리)으로 설정
   const accounts = [
-    { username: `a${tag}`, primary: specs[0].code, link: [specs[1].code], extras: [{ name: "논현점", address: "논현동 1-2" }, { name: "118-14", address: "고잔동 3" }] },
-    { username: `b${tag}`, primary: specs[2].code, link: [specs[3].code], extras: [{ name: "2호점", address: "구월동 9" }] },
-    { username: `c${tag}`, primary: specs[4].code, link: [], extras: [{ name: "공장 식당", address: "남촌동 7" }] },
+    { via: "api", username: `a${tag}`, primary: specs[0].code, link: [specs[1].code], extras: [{ name: "논현점", address: "논현동 1-2" }, { name: "118-14", address: "고잔동 3" }],
+      expectedLabels: ["118-13", "85-15", "논현점", "118-14"] },
+    { via: "ui", username: `b${tag}`, primary: specs[2].code, link: [specs[3].code], extras: [{ name: "2호점", address: "구월동 9" }],
+      expectedLabels: ["73-2", "9-41", "2호점"] },
+    { via: "api", username: `c${tag}`, primary: specs[4].code, link: [], extras: [{ name: "공장 식당", address: "남촌동 7" }],
+      expectedLabels: ["66-6", "공장 식당"] },
   ];
   for (const acc of accounts) {
     await adminPost(admin, "/api/admin/customer-users", { action: "create", customerId: idOf(acc.primary), displayName: acc.username, username: acc.username, password: acc.username });
@@ -106,10 +110,12 @@ async function main() {
 
 async function apiFlow({ admin, accounts, specs, idOf, userId }, mode) {
   // 3) 배송처 관리: 기존 거래처 연결 + 새 배송처 추가 (관리자 API)
-  for (const acc of accounts) {
+  for (const acc of accounts.filter((a) => a.via === "api")) {
     const id = userId(acc.username);
-    if (acc.link.length) {
-      await adminPost(admin, "/api/admin/customer-users", { action: "set-customers", id, customerIds: [idOf(acc.primary), ...acc.link.map(idOf)] });
+    for (const code of acc.link) {
+      await adminPost(admin, "/api/admin/customer-users", mode === "new"
+        ? { action: "link-customer", id, customerId: idOf(code) }
+        : { action: "set-customers", id, customerIds: [idOf(acc.primary), ...acc.link.map(idOf)] });
     }
     for (const extra of acc.extras) {
       const body = mode === "new"
@@ -119,6 +125,9 @@ async function apiFlow({ admin, accounts, specs, idOf, userId }, mode) {
     }
   }
 
+}
+
+async function statusChecks({ accounts, specs }) {
   // 4) 각 계정 로그인 → 연결 거래처 + 추가 배송처 모두 조회
   for (const acc of accounts) {
     const { client, ok, body } = await login(acc.username);
@@ -135,10 +144,24 @@ async function apiFlow({ admin, accounts, specs, idOf, userId }, mode) {
 
 async function run() {
   const ctx = await main();
+  const env = { BASE, check, login, Client };
+  if (!API_ONLY) {
+    const { adminUiFlow } = await import("./delivery-browser.mjs");
+    await adminUiFlow(ctx, env);
+  }
   await apiFlow(ctx, process.env.DELIVERY_MODE || "new");
+  await statusChecks(ctx);
+
+  // 권한: 다른 계정의 거래처로 전환 불가
+  const a = ctx.accounts[0];
+  const other = ctx.specs.find((s) => s.code === ctx.accounts[1].primary);
+  const { client } = await login(a.username);
+  const deny = await client.json("/api/customer/switch", { method: "POST", json: { customerId: ctx.idOf(other.code) } });
+  check("다른 계정의 거래처로 전환 거부", deny.status === 403, `${deny.status}`);
+
   if (!API_ONLY) {
     const { browserFlow } = await import("./delivery-browser.mjs");
-    await browserFlow(ctx, { BASE, check, login, Client });
+    await browserFlow(ctx, env);
   }
   console.log("\n================ SUMMARY ================");
   console.log(results.join("\n"));

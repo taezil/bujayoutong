@@ -17,6 +17,21 @@ async function assertCustomerUsernameAvailable(username: string, customerId: str
   if (customer) throw new Error("다른 거래처번호와 같은 아이디는 사용할 수 없습니다.");
 }
 
+/** 계정의 기본 거래처: customer_users.customer_id 가 연결돼 있으면 그것, 아니면 연결된 첫 거래처 */
+async function primaryCustomerOf(customerUserId: string) {
+  if (!customerUserId) return "";
+  const row = await db().prepare(`
+    SELECT c.id
+    FROM customer_users u
+    JOIN customer_user_customers m ON m.customer_user_id=u.id
+    JOIN customers c ON c.id=m.customer_id AND c.active=1
+    WHERE u.id=?
+    ORDER BY CASE WHEN c.id=u.customer_id THEN 0 ELSE 1 END, m.sort_order, c.code
+    LIMIT 1
+  `).bind(customerUserId).first<{ id: string }>();
+  return row?.id ?? "";
+}
+
 export const Route = createFileRoute("/api/admin/customer-users")({
   server: { handlers: {
     GET: async ({ request }) => {
@@ -57,7 +72,8 @@ export const Route = createFileRoute("/api/admin/customer-users")({
         }
         if (action === "create-delivery-location") {
           const customerUserId = cleanText(body.customerUserId, 80);
-          const customerId = cleanText(body.customerId, 80);
+          // 관리자는 어느 거래처 소속인지 고를 필요 없음: 지정이 없으면 계정의 기본 거래처에 붙임
+          const customerId = cleanText(body.customerId, 80) || await primaryCustomerOf(customerUserId);
           const name = cleanText(body.name, 80);
           const address = cleanText(body.address, 240);
           const phone = cleanText(body.phone, 30);
@@ -150,6 +166,41 @@ export const Route = createFileRoute("/api/admin/customer-users")({
         }
         const id = cleanText(body.id, 80);
         if (!id) throw new Error("거래처 직원 계정을 선택해 주세요.");
+        // 배송처 관리: 기존 거래처 1곳 연결
+        if (action === "link-customer") {
+          const customerId = cleanText(body.customerId, 80);
+          const owner = await db().prepare("SELECT id FROM customer_users WHERE id=? LIMIT 1").bind(id).first();
+          if (!owner) throw new Error("거래처 계정을 찾을 수 없습니다.");
+          const customer = await db().prepare("SELECT id FROM customers WHERE id=? AND active=1 LIMIT 1").bind(customerId).first();
+          if (!customer) throw new Error("사용할 수 없는 거래처입니다.");
+          await db().prepare(`
+            INSERT OR IGNORE INTO customer_user_customers(customer_user_id,customer_id,sort_order)
+            SELECT ?, ?, COALESCE(MAX(sort_order),-1)+1 FROM customer_user_customers WHERE customer_user_id=?
+          `).bind(id, customerId, id).run();
+          return Response.json({ ok: true });
+        }
+        // 배송처 관리: 거래처 연결 해제 (최소 1곳은 유지)
+        if (action === "unlink-customer") {
+          const customerId = cleanText(body.customerId, 80);
+          const linked = await db().prepare(
+            "SELECT customer_id FROM customer_user_customers WHERE customer_user_id=? ORDER BY sort_order, customer_id",
+          ).bind(id).all<{ customer_id: string }>();
+          const remaining = linked.results.map((row) => String(row.customer_id)).filter((value) => value !== customerId);
+          if (!remaining.length) throw new Error("배송처는 최소 1곳이 있어야 합니다.");
+          const nextPrimary = remaining[0];
+          await db().batch([
+            db().prepare("DELETE FROM customer_user_customers WHERE customer_user_id=? AND customer_id=?").bind(id, customerId),
+            db().prepare("UPDATE customer_users SET customer_id=?,updated_at=datetime('now') WHERE id=? AND customer_id=?").bind(nextPrimary, id, customerId),
+            // 이 거래처 밑에 만든 새 배송처는, 다른 계정이 이 거래처를 쓰지 않으면 계정의 기본 거래처로 옮겨 계속 보이게 함
+            db().prepare(`
+              UPDATE customer_delivery_locations SET customer_id=?,updated_at=datetime('now')
+              WHERE customer_id=? AND NOT EXISTS (
+                SELECT 1 FROM customer_user_customers m WHERE m.customer_id=? AND m.customer_user_id<>?
+              )
+            `).bind(nextPrimary, customerId, customerId, id),
+          ]);
+          return Response.json({ ok: true });
+        }
         if (action === "set-customers") {
           const rawIds = Array.isArray(body.customerIds) ? body.customerIds : [];
           const customerIds = Array.from(new Set(rawIds.map((value) => cleanText(value, 80)).filter(Boolean)));

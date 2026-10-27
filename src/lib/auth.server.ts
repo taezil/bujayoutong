@@ -282,7 +282,7 @@ export async function loginCustomer(identifier: string, password: string, reques
   let customerUserId = "";
 
   const users = await db().prepare(`
-    SELECT id, customer_id, auth_salt, auth_hash, active
+    SELECT id, customer_id, last_customer_id, auth_salt, auth_hash, active
     FROM customer_users
     WHERE replace(lower(username),'-','')=?
     LIMIT 2
@@ -303,8 +303,10 @@ export async function loginCustomer(identifier: string, password: string, reques
     customerUserId = String(user.id);
     const allowed = await allowedCustomerIds(customerUserId);
     if (!allowed.length) throw new Error("연결된 거래처가 없습니다. 부자유통으로 문의해 주세요.");
+    // 마지막으로 선택했던 배송처(거래처)로 다시 시작 → 없으면 기본 거래처 → 첫 연결 거래처
+    const last = String(user.last_customer_id ?? "");
     const primary = String(user.customer_id ?? "");
-    customerId = allowed.includes(primary) ? primary : allowed[0];
+    customerId = allowed.includes(last) ? last : allowed.includes(primary) ? primary : allowed[0];
   } else {
     const customer = await db().prepare(
       "SELECT id,auth_salt,auth_hash,active FROM customers WHERE replace(lower(code),'-','')=? LIMIT 1",
@@ -439,9 +441,13 @@ export async function switchCustomerLocation(request: Request, customerId: strin
   if (!session) throw new Error("로그인이 필요합니다.");
   if (!session.allowedIds.includes(customerId)) throw new Error("선택할 수 없는 배송처입니다.");
   if (session.customerId === customerId) return;
-  await db().prepare(
-    "UPDATE customer_sessions SET customer_id=?,last_seen_at=datetime('now') WHERE token_hash=?",
-  ).bind(customerId, session.tokenHash).run();
+  await db().batch([
+    db().prepare("UPDATE customer_sessions SET customer_id=?,last_seen_at=datetime('now') WHERE token_hash=?")
+      .bind(customerId, session.tokenHash),
+    ...(session.customerUserId
+      ? [db().prepare("UPDATE customer_users SET last_customer_id=? WHERE id=?").bind(customerId, session.customerUserId)]
+      : []),
+  ]);
 }
 
 export async function logoutCustomer(request: Request) {

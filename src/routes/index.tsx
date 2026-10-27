@@ -178,12 +178,16 @@ function customerLocationCode(customer: CustomerProfile) {
   return customerShortLabel(customer);
 }
 
+// 배송처 표기는 거래처든 새로 추가한 배송처든 같은 규칙: 블록번호("118-13") 또는 배송처명("논현점")
 function deliveryOrderLabel(customer: CustomerProfile | null, deliveryLocation: DeliveryLocation | null) {
-  const base = customerOrderLabel(customer);
-  if (!deliveryLocation) return base;
-  const blockLot = deliveryLocation.name.match(/(\d{1,3}\s*-\s*\d{1,3})/);
-  if (blockLot) return blockLot[1].replace(/\s+/g, "");
-  return `${base} ${deliveryLocation.name}`.trim();
+  if (!deliveryLocation) return customerOrderLabel(customer);
+  return customerShortLabel({ name: deliveryLocation.name });
+}
+
+function deliverySubLabel(deliveryLocation: DeliveryLocation, parentName: string) {
+  const label = customerShortLabel({ name: deliveryLocation.name });
+  if (label !== deliveryLocation.name.trim()) return deliveryLocation.name;
+  return deliveryLocation.address || parentName;
 }
 
 function buildOrderText(cart: CartLine[], customer: CustomerProfile | null, deliveryLocation: DeliveryLocation | null = null) {
@@ -750,17 +754,17 @@ function OrderApp({ store }: { store: StoreData }) {
       };
       const changed = status.customer ?? data.customer;
       const extras = (status.deliveryLocations ?? []).filter((item) => Boolean(item.active));
-      const storedId = readStorage(customerDeliveryChoiceKey(changed.id));
+      // 사용자가 누른 배송처를 그대로 선택 (예전에 고른 추가 배송처로 바뀌지 않게)
       const selected = desiredDelivery && desiredDelivery.customer_id === changed.id
         ? extras.find((item) => item.id === desiredDelivery.id) ?? null
-        : extras.find((item) => item.customer_id === changed.id && item.id === storedId) ?? null;
+        : null;
       const nextKey = customerCartKey(changed.id, selected?.id);
       const raw = readStorage(nextKey);
       let nextCart: CartLine[] = [];
       if (raw) {
         try { nextCart = reconcile(JSON.parse(raw) as CartLine[]).lines; } catch { nextCart = []; }
       }
-      if (selected) writeStorage(customerDeliveryChoiceKey(changed.id), selected.id);
+      writeStorage(customerDeliveryChoiceKey(changed.id), selected?.id ?? null);
       setCustomer(changed);
       setLocations(status.locations?.length ? status.locations : (data.locations?.length ? data.locations : [changed]));
       setDeliveryLocations(extras);
@@ -829,8 +833,8 @@ function OrderApp({ store }: { store: StoreData }) {
                 <em>{location.id===customer.id&&!selectedDeliveryLocation?"현재 발주처":"선택"}</em>
               </button>)}
               {deliveryLocations.map(location=><button type="button" key={location.id} className={selectedDeliveryLocation?.id===location.id?"current":""} onClick={()=>void switchExtraDelivery(location)}>
-                <b>{location.name}</b>
-                <span>{location.address||customer.name}</span>
+                <b>{deliveryOrderLabel(customer, location)}</b>
+                <span>{deliverySubLabel(location, locations.find((item)=>item.id===location.customer_id)?.name ?? customer.name)}</span>
                 <em>{selectedDeliveryLocation?.id===location.id?"현재 발주처":"선택"}</em>
               </button>)}
             </div>}
@@ -955,7 +959,7 @@ function OrderApp({ store }: { store: StoreData }) {
           <span className="od-location-copy">
             <small>현재 발주처</small>
             <strong>{deliveryOrderLabel(customer, selectedDeliveryLocation)}</strong>
-            <em>{selectedDeliveryLocation ? (selectedDeliveryLocation.address||customer.name) : customer.name}</em>
+            <em>{selectedDeliveryLocation ? deliverySubLabel(selectedDeliveryLocation, customer.name) : customer.name}</em>
           </span>
           <span className="od-location-change">다른 식당<br/>선택 ›</span>
         </button>
@@ -994,12 +998,11 @@ function OrderApp({ store }: { store: StoreData }) {
               {locations.map(location=><button type="button" key={location.id} disabled={switchingLocation} className={location.id===customer.id&&!selectedDeliveryLocation?"current":""} onClick={()=>void switchLocation(location)}>
                 <span className="od-location-number">{customerLocationCode(location)}</span>
                 <span className="od-location-name">{location.name}</span>
-                <span className="od-location-state">{location.id===customer.id&&!selectedDeliveryLocation?"✓ 기본 배송처":"이곳으로 발주"}</span>
+                <span className="od-location-state">{location.id===customer.id&&!selectedDeliveryLocation?"✓ 현재 발주처":"이곳으로 발주"}</span>
               </button>)}
-              {deliveryLocations.length>0&&<div className="od-location-divider">추가 배송처</div>}
               {deliveryLocations.map(location=><button type="button" key={location.id} disabled={switchingLocation} className={selectedDeliveryLocation?.id===location.id?"current":""} onClick={()=>void switchExtraDelivery(location)}>
-                <span className="od-location-number">{location.name}</span>
-                <span className="od-location-name">{location.address||"주소 미등록"}{location.note?" · "+location.note:""}</span>
+                <span className="od-location-number">{deliveryOrderLabel(customer, location)}</span>
+                <span className="od-location-name">{deliverySubLabel(location, locations.find((item)=>item.id===location.customer_id)?.name ?? customer.name)}{location.note?" · "+location.note:""}</span>
                 <span className="od-location-state">{selectedDeliveryLocation?.id===location.id?"✓ 현재 발주처":"이곳으로 발주"}</span>
               </button>)}
             </div>

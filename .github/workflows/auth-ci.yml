@@ -64,9 +64,7 @@ jobs:
         run: node tests/auth-e2e.mjs http://localhost:4173
       - name: Delivery location checks (multiple accounts)
         if: always() && hashFiles('tests/delivery-e2e.mjs') != ''
-        env:
-          DELIVERY_MODE: old
-        run: node tests/delivery-e2e.mjs http://localhost:4173 api-only
+        run: node tests/delivery-e2e.mjs http://localhost:4173
       - name: Report results as annotations
         if: always() && hashFiles('tests/auth-e2e.mjs') != ''
         run: |

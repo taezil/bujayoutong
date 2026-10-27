@@ -226,6 +226,7 @@ async function ensureOperationsSchema(database: D1Database) {
     await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_users_username_lookup ON customer_users(username COLLATE NOCASE)");
   }
   await ensureColumn(database, "customer_sessions", "customer_user_id", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "customer_users", "last_customer_id", "TEXT NOT NULL DEFAULT ''");
 
   await database.exec("CREATE TABLE IF NOT EXISTS customer_user_customers (customer_user_id TEXT NOT NULL, customer_id TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY(customer_user_id, customer_id), FOREIGN KEY(customer_user_id) REFERENCES customer_users(id) ON DELETE CASCADE, FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE)");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_user_customers_user ON customer_user_customers(customer_user_id, sort_order, customer_id)");

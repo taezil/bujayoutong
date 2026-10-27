@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BUJA_LOGO_DATA } from "../brand-assets";
+import { customerShortLabel } from "../lib/customer-login-id";
 
 export const Route = createFileRoute("/admin_/accounts")({
   head: () => ({ meta: [{ title: "부자유통 계정관리" }, { name: "robots", content: "noindex,nofollow" }] }),
@@ -16,6 +17,7 @@ type DeliveryLocation={id:string;customer_id:string;name:string;address:string;p
 type PlanRow={customerId:string;code:string;name:string;loginId:string;rule:"block-lot"|"code"|"code-duplicate"};
 type Plan={pending:PlanRow[];skipped:Array<{customerId:string;code:string;name:string;reason:string}>;alreadyLinked:number;totalActive:number};
 const ruleLabel:Record<PlanRow["rule"],string>={"block-lot":"블록번호","code":"거래처코드","code-duplicate":"중복→거래처코드"};
+function customerLabel(name:string){return customerShortLabel({name});}
 function normalizeSearch(value:string){return value.toLowerCase().replace(/[\s\-–—]+/g,"");}
 
 function parseCsv(text:string){
@@ -63,14 +65,11 @@ function AccountsPage(){
   const[customerLinks,setCustomerLinks]=useState<CustomerUserLink[]>([]);
   const[deliveryLocations,setDeliveryLocations]=useState<DeliveryLocation[]>([]);
   const[deliveryUser,setDeliveryUser]=useState<CustomerUser|null>(null);
-  const[deliveryCustomerId,setDeliveryCustomerId]=useState("");
+  const[destSearch,setDestSearch]=useState("");
   const[deliveryName,setDeliveryName]=useState("");
   const[deliveryAddress,setDeliveryAddress]=useState("");
   const[deliveryPhone,setDeliveryPhone]=useState("");
   const[deliveryNote,setDeliveryNote]=useState("");
-  const[linkingUser,setLinkingUser]=useState<CustomerUser|null>(null);
-  const[linkSearch,setLinkSearch]=useState("");
-  const[linkIds,setLinkIds]=useState<string[]>([]);
   const[customerId,setCustomerId]=useState("");
   const[displayName,setDisplayName]=useState("");
   const[username,setUsername]=useState("");
@@ -119,21 +118,6 @@ function AccountsPage(){
     setCreatedCredential({customerName:selected?.name||"",displayName:displayName.trim(),username:username.trim(),password});
     setDisplayName("");setUsername("");setPassword("");
   }
-  function openLocationManager(row:CustomerUser){
-    const current=customerLinks.filter(link=>link.customer_user_id===row.id).map(link=>link.customer_id);
-    setLinkIds(current.length?current:[row.customer_id]);
-    setLinkSearch("");
-    setLinkingUser(row);
-  }
-  function toggleLinkedCustomer(id:string){
-    setLinkIds(current=>current.includes(id)?current.filter(value=>value!==id):[...current,id]);
-  }
-  async function saveLinkedCustomers(){
-    if(!linkingUser||!linkIds.length)return;
-    const result=await act("/api/admin/customer-users",{action:"set-customers",id:linkingUser.id,customerIds:linkIds});
-    if(result)setLinkingUser(null);
-  }
-
   function accountCustomerIds(row:CustomerUser){
     const ids=customerLinks.filter(link=>link.customer_user_id===row.id).map(link=>link.customer_id);
     return Array.from(new Set(ids.length?ids:[row.customer_id]));
@@ -141,18 +125,19 @@ function AccountsPage(){
   function openDeliveryManager(row:CustomerUser){
     const ids=accountCustomerIds(row);
     setDeliveryUser(row);
-    setDeliveryCustomerId(ids[0]??row.customer_id);
+    void ids;
+    setDestSearch("");
     setDeliveryName("");setDeliveryAddress("");setDeliveryPhone("");setDeliveryNote("");
   }
   async function createDeliveryLocation(){
-    if(!deliveryUser||!deliveryCustomerId||!deliveryName.trim())return;
+    if(!deliveryUser||!deliveryName.trim())return;
     const result=await act("/api/admin/customer-users",{
-      action:"create-delivery-location",customerUserId:deliveryUser.id,customerId:deliveryCustomerId,name:deliveryName,address:deliveryAddress,phone:deliveryPhone,note:deliveryNote
+      action:"create-delivery-location",customerUserId:deliveryUser.id,name:deliveryName,address:deliveryAddress,phone:deliveryPhone,note:deliveryNote
     });
     if(result){setDeliveryName("");setDeliveryAddress("");setDeliveryPhone("");setDeliveryNote("");}
   }
   async function deleteDeliveryLocation(row:DeliveryLocation){
-    if(!confirm(`추가 배송처 "${row.name}"을 삭제할까요?`))return;
+    if(!confirm(`배송처 "${row.name}"을 삭제할까요?`))return;
     await act("/api/admin/customer-users",{action:"delete-delivery-location",deliveryLocationId:row.id});
   }
 
@@ -333,8 +318,7 @@ function AccountsPage(){
             <div className="account-card-actions">
               <button onClick={()=>{const v=prompt("새 직원 이름",row.display_name);if(v)void act("/api/admin/customer-users",{action:"update",id:row.id,username:row.username,displayName:v});}}>이름 변경</button>
               <button onClick={()=>{const v=prompt("새 직원 아이디",row.username);if(v&&v.trim()!==row.username)void act("/api/admin/customer-users",{action:"update",id:row.id,username:v.trim(),displayName:row.display_name});}}>아이디 변경</button>
-              <button className="primary" onClick={()=>openLocationManager(row)}>거래처 연결</button>
-              <button className="primary" onClick={()=>openDeliveryManager(row)}>+ 추가 배송처</button>
+              <button className="primary" onClick={()=>openDeliveryManager(row)}>배송처 관리</button>
               <button onClick={()=>{const v=prompt("새 비밀번호 (2~64자)");if(v)void act("/api/admin/customer-users",{action:"reset-password",id:row.id,password:v});}}>비밀번호 변경</button>
               <button onClick={()=>void act("/api/admin/customer-users",{action:"toggle",id:row.id,active:!Boolean(row.active)})}>{Boolean(row.active)?"계정중지":"계정사용"}</button>
             </div>
@@ -394,59 +378,50 @@ function AccountsPage(){
       </section>
     </main>
 
-    {deliveryUser&&<div className="account-link-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setDeliveryUser(null);}}>
-      <section className="account-link-modal" role="dialog" aria-modal="true" aria-label="추가 배송처 관리">
+    {deliveryUser&&(()=>{
+      const linkedIds=accountCustomerIds(deliveryUser);
+      const linkedCustomers=linkedIds.map(id=>customers.find(row=>row.id===id)).filter((row):row is CustomerRow=>Boolean(row));
+      const extras=deliveryLocations.filter(location=>linkedIds.includes(location.customer_id)&&Boolean(location.active));
+      const q=normalizeSearch(destSearch);
+      const candidates=q?customers.filter(row=>row.active&&!linkedIds.includes(row.id)&&(normalizeSearch(row.name).includes(q)||normalizeSearch(row.code).includes(q))).slice(0,20):[];
+      return <div className="account-link-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setDeliveryUser(null);}}>
+      <section className="account-link-modal destination-modal" role="dialog" aria-modal="true" aria-label="배송처 관리">
         <div className="account-link-head">
-          <div><small>{deliveryUser.username}</small><h2>추가 배송처</h2><p>얼마에요 거래처는 그대로 두고 2호점·3호점 같은 배송지만 추가합니다.</p></div>
+          <div><small>{deliveryUser.username}</small><h2>배송처 관리</h2><p>{deliveryUser.display_name} 계정으로 발주할 수 있는 곳입니다.</p></div>
           <button type="button" onClick={()=>setDeliveryUser(null)}>×</button>
         </div>
+
+        <h3 className="destination-title">현재 배송처 <small>{linkedCustomers.length+extras.length}곳</small></h3>
+        <div className="account-link-list delivery-location-list destination-current">
+          {linkedCustomers.map(row=><label key={`c-${row.id}`}>
+            <span><b>{customerLabel(row.name)}</b><small>{row.name} · {row.code}</small></span>
+            <button type="button" disabled={linkedCustomers.length<=1} onClick={()=>{if(confirm(`"${row.name}" 배송처 연결을 해제할까요?`))void act("/api/admin/customer-users",{action:"unlink-customer",id:deliveryUser.id,customerId:row.id});}}>해제</button>
+          </label>)}
+          {extras.map(location=><label key={`d-${location.id}`}>
+            <span><b>{customerLabel(location.name)}</b><small>{[location.name!==customerLabel(location.name)?location.name:"",location.address,location.phone,location.note].filter(Boolean).join(" · ")||"주소 미등록"}</small></span>
+            <button type="button" onClick={()=>void deleteDeliveryLocation(location)}>삭제</button>
+          </label>)}
+        </div>
+
+        <h3 className="destination-title">기존 거래처 연결</h3>
+        <input className="account-link-search" value={destSearch} onChange={e=>setDestSearch(e.target.value)} placeholder="상호명 또는 거래처번호 검색"/>
+        {q&&<div className="account-link-list destination-search">
+          {candidates.map(row=><label key={row.id}>
+            <span><b>{row.name}</b><small>{row.code}</small></span>
+            <button type="button" className="save" onClick={()=>void act("/api/admin/customer-users",{action:"link-customer",id:deliveryUser.id,customerId:row.id}).then(r=>{if(r)setDestSearch("");})}>연결</button>
+          </label>)}
+          {!candidates.length&&<p className="accounts-empty">검색되는 거래처가 없습니다.</p>}
+        </div>}
+
+        <h3 className="destination-title">새 배송처 추가 <small>거래처 목록에 없는 곳</small></h3>
         <div className="delivery-location-form">
-          <select value={deliveryCustomerId} onChange={e=>setDeliveryCustomerId(e.target.value)}>
-            {accountCustomerIds(deliveryUser).map(id=>{const customer=customers.find(row=>row.id===id);return customer?<option key={id} value={id}>{customer.code} · {customer.name}</option>:null;})}
-          </select>
-          <input value={deliveryName} onChange={e=>setDeliveryName(e.target.value)} placeholder="배송처 이름 예: 논현점 / 2호점"/>
+          <input value={deliveryName} onChange={e=>setDeliveryName(e.target.value)} placeholder="배송처 이름 예: 논현점 / 2호점 / 118-13"/>
           <input value={deliveryAddress} onChange={e=>setDeliveryAddress(e.target.value)} placeholder="주소"/>
           <input value={deliveryPhone} onChange={e=>setDeliveryPhone(e.target.value)} placeholder="전화번호"/>
           <input value={deliveryNote} onChange={e=>setDeliveryNote(e.target.value)} placeholder="메모 예: 뒷문 / 냉장고 옆"/>
-          <button type="button" className="save" disabled={!deliveryCustomerId||!deliveryName.trim()} onClick={()=>void createDeliveryLocation()}>+ 배송처 추가</button>
-        </div>
-        <div className="account-link-list delivery-location-list">
-          {deliveryLocations.filter(location=>accountCustomerIds(deliveryUser).includes(location.customer_id)).map(location=>{
-            const parent=customers.find(row=>row.id===location.customer_id);
-            return <label key={location.id} className={!Boolean(location.active)?"disabled":""}>
-              <span><b>{location.name}</b><small>{parent?.code??""} · {parent?.name??""}{location.address?` · ${location.address}`:""}</small></span>
-              <button type="button" onClick={()=>void act("/api/admin/customer-users",{action:"toggle-delivery-location",deliveryLocationId:location.id,active:!Boolean(location.active)})}>{Boolean(location.active)?"중지":"사용"}</button>
-              <button type="button" onClick={()=>void deleteDeliveryLocation(location)}>삭제</button>
-            </label>;
-          })}
-          {!deliveryLocations.some(location=>accountCustomerIds(deliveryUser).includes(location.customer_id))&&<p className="accounts-empty">추가 배송처가 없습니다.</p>}
+          <button type="button" className="save" disabled={!deliveryName.trim()} onClick={()=>void createDeliveryLocation()}>+ 배송처 추가</button>
         </div>
       </section>
-    </div>}
-
-    {linkingUser&&<div className="account-link-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setLinkingUser(null);}}>
-      <section className="account-link-modal" role="dialog" aria-modal="true" aria-label="배송처 연결">
-        <div className="account-link-head">
-          <div><small>{linkingUser.username}</small><h2>배송처 연결</h2><p>{linkingUser.display_name} 계정으로 주문할 식당을 선택하세요.</p></div>
-          <button type="button" onClick={()=>setLinkingUser(null)}>×</button>
-        </div>
-        <input className="account-link-search" value={linkSearch} onChange={e=>setLinkSearch(e.target.value)} placeholder="거래처명 또는 코드 검색"/>
-        <div className="account-link-selected">선택 {linkIds.length}곳</div>
-        <div className="account-link-list">
-          {customers.filter(row=>{
-            if(!row.active&&!linkIds.includes(row.id))return false;
-            const q=normalizeSearch(linkSearch);
-            return !q||normalizeSearch(row.name).includes(q)||normalizeSearch(row.code).includes(q);
-          }).sort((a,b)=>Number(linkIds.includes(b.id))-Number(linkIds.includes(a.id))).slice(0,100).map(row=><label key={row.id} className={linkIds.includes(row.id)?"selected":""}>
-            <input type="checkbox" checked={linkIds.includes(row.id)} onChange={()=>toggleLinkedCustomer(row.id)}/>
-            <span><b>{row.name}</b><small>{row.code}</small></span>
-          </label>)}
-        </div>
-        <div className="account-link-actions">
-          <button type="button" onClick={()=>setLinkingUser(null)}>취소</button>
-          <button type="button" className="save" disabled={!linkIds.length} onClick={()=>void saveLinkedCustomers()}>{linkIds.length}곳 연결 저장</button>
-        </div>
-      </section>
-    </div>}
+    </div>;})()}
   </div>;
 }
