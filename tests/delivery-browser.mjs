@@ -135,19 +135,30 @@ export async function browserFlow(ctx, env) {
           check(`${tagName} ${targets[i]}로 돌아오면 그 배송처 장바구니만`, (await cartCount()) === 1 && text.includes(pick(i).name) && !others.some((n) => text.includes(n)), `${await cartCount()}품목`);
         }
 
-        // 장바구니 화면에서도 현재 발주처 표시 + 그 자리에서 다른 식당으로 전환
+        // 장바구니: "어느 식당으로 보낼까요?" + 연결된 식당 수만큼 버튼, 그 자리에서 전환
         await page.locator(".od-cart-icon").click();
-        const cartDest = page.locator(".od-cart-destination strong");
-        check(`${tagName} 장바구니에 현재 발주처(${await bannerLabel()}) 표시`, (await cartDest.innerText()).trim() === (await bannerLabel()), await cartDest.innerText());
-        const fromLabel = (await cartDest.innerText()).trim();
-        const toLabel = targets.find((l) => l !== fromLabel);
-        await page.locator(".od-cart-destination").click();
-        await page.locator(".od-location-options button").filter({ has: page.locator(".od-location-number", { hasText: new RegExp(`^${toLabel.replace(/[-]/g, "\\-")}$`) }) }).first().click();
-        await page.waitForFunction((l) => document.querySelector(".od-cart-destination strong")?.textContent?.trim() === l, toLabel, { timeout: 15000 });
+        const grid = page.locator(".od-cart-dest-grid button");
+        await grid.first().waitFor();
+        const askText = await page.locator(".od-cart-ask h2").innerText();
+        const buttonCount = await grid.count();
+        check(`${tagName} 장바구니 안내 문구 + 식당 버튼 ${acc.expectedLabels.length}개`, askText.includes("어느 식당으로 보낼까요") && buttonCount === acc.expectedLabels.length, `${askText} / ${buttonCount}개`);
+        const columns = await page.locator(".od-cart-dest-grid").evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
+        const expectedColumns = acc.expectedLabels.length === 3 ? 3 : 2;
+        check(`${tagName} 버튼 배치 ${expectedColumns}열 (${acc.expectedLabels.length}곳)`, columns === expectedColumns, `${columns}열`);
+        const currentLabel = (await page.locator(".od-cart-dest-grid button.current b").innerText()).trim();
+        check(`${tagName} 선택된 식당 ✓ 표시 = 현재 발주처`, currentLabel === (await bannerLabel()) && (await page.locator(".od-cart-dest-grid button.current i").count()) === 1, currentLabel);
+        const counts = await grid.locator("em").allInnerTexts();
+        check(`${tagName} 식당마다 담은 상품 수 표시`, counts.filter((t) => t.includes("담은 상품 1개")).length >= Math.min(3, targets.length), counts.join(","));
+        const sendText = await page.locator(".od-send").innerText();
+        check(`${tagName} 보내기 버튼에 식당 이름`, sendText.includes(`${currentLabel}`) && sendText.includes("주문 보내기"), sendText);
+        const toLabel = targets.find((l) => l !== currentLabel);
+        await grid.filter({ has: page.locator("b", { hasText: new RegExp(`^${toLabel.replace(/[-]/g, "\\-")}$`) }) }).first().click();
+        await page.waitForFunction((l) => document.querySelector(".od-cart-dest-grid button.current b")?.textContent?.trim() === l, toLabel, { timeout: 15000 });
         const toIdx = targets.indexOf(toLabel);
         const linesText = await page.locator(".od-cart-lines").innerText();
-        check(`${tagName} 장바구니 안에서 ${toLabel}로 전환 → 장바구니 열린 채 ${toLabel} 상품만`,
-          (await page.locator(".od-cart").count()) === 1 && linesText.includes(pick(toIdx).name) && !linesText.includes(pick(targets.indexOf(fromLabel)).name), linesText.slice(0, 120).replace(/\n/g, " "));
+        const sendAfter = await page.locator(".od-send").innerText();
+        check(`${tagName} 장바구니 안에서 ${toLabel} 누르면 열린 채 ${toLabel} 상품만 + 보내기 버튼도 ${toLabel}`,
+          (await page.locator(".od-cart").count()) === 1 && linesText.includes(pick(toIdx).name) && !linesText.includes(pick(targets.indexOf(currentLabel)).name) && sendAfter.includes(toLabel), `${sendAfter} / ${linesText.slice(0, 60).replace(/\n/g, " ")}`);
         await page.locator('.od-cart button[aria-label="닫기"]').first().click();
 
         // 선택 상태 유지: 새로고침

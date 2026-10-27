@@ -184,6 +184,31 @@ function deliveryOrderLabel(customer: CustomerProfile | null, deliveryLocation: 
   return customerShortLabel({ name: deliveryLocation.name });
 }
 
+// 저장된 다른 식당 장바구니의 품목 수 (장바구니 화면의 식당 버튼에 표시)
+function storedCartCount(key: string) {
+  try {
+    const raw = window.localStorage.getItem(key);
+    const lines = raw ? JSON.parse(raw) : [];
+    return Array.isArray(lines) ? lines.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// "120-13으로", "논현점으로", "2호로" — 마지막 글자 받침에 맞춰 조사 선택
+function withRo(label: string) {
+  const text = label.trim();
+  const last = text[text.length - 1] ?? "";
+  const digitEndsWithRieulOrVowel: Record<string, boolean> = { "0": false, "1": true, "2": true, "3": false, "4": true, "5": true, "6": false, "7": true, "8": true, "9": true };
+  if (last in digitEndsWithRieulOrVowel) return `${text}${digitEndsWithRieulOrVowel[last] ? "로" : "으로"}`;
+  const code = last.charCodeAt(0) - 0xac00;
+  if (code >= 0 && code < 11172) {
+    const jong = code % 28;
+    return `${text}${jong === 0 || jong === 8 ? "로" : "으로"}`;
+  }
+  return `${text}(으)로`;
+}
+
 function deliverySubLabel(deliveryLocation: DeliveryLocation, parentName: string) {
   const label = customerShortLabel({ name: deliveryLocation.name });
   if (label !== deliveryLocation.name.trim()) return deliveryLocation.name;
@@ -1042,21 +1067,62 @@ function OrderApp({ store }: { store: StoreData }) {
       {cartOpen && (
         <div className="od-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setCartOpen(false); }}>
           <section className="od-sheet od-cart" aria-modal="true" role="dialog" aria-label="주문 내용 확인">
-            <div className="od-cart-title">
-              <div><p>{customer?deliveryOrderLabel(customer, selectedDeliveryLocation):"보내기 전에 확인하세요"} 발주</p><h2>장바구니</h2></div>
-              <button type="button" aria-label="닫기" onClick={() => setCartOpen(false)}>×</button>
-            </div>
-            {customer&&(()=>{
-              const canSwitch = locations.length>1||deliveryLocations.length>0;
-              return <button type="button" className="od-cart-destination" disabled={!canSwitch||switchingLocation} onClick={()=>setLocationOpen(true)}>
-                <span className="od-location-pin">📍</span>
-                <span className="od-location-copy">
-                  <small>현재 발주처</small>
-                  <strong>{deliveryOrderLabel(customer, selectedDeliveryLocation)}</strong>
-                  <em>{selectedDeliveryLocation ? deliverySubLabel(selectedDeliveryLocation, customer.name) : customer.name}</em>
-                </span>
-                {canSwitch&&<span className="od-location-change">다른 식당<br/>선택 ›</span>}
-              </button>;
+            {(()=>{
+              const canSwitch = Boolean(customer)&&(locations.length>1||deliveryLocations.length>0);
+              if (!customer || !canSwitch) {
+                return <>
+                  <div className="od-cart-title">
+                    <div><h2>장바구니</h2></div>
+                    <button type="button" aria-label="닫기" onClick={() => setCartOpen(false)}>×</button>
+                  </div>
+                  {customer&&<div className="od-cart-destination">
+                    <span className="od-location-pin">📍</span>
+                    <span className="od-location-copy">
+                      <small>발주처</small>
+                      <strong>{deliveryOrderLabel(customer, selectedDeliveryLocation)}</strong>
+                      <em>{selectedDeliveryLocation ? deliverySubLabel(selectedDeliveryLocation, customer.name) : customer.name}</em>
+                    </span>
+                  </div>}
+                </>;
+              }
+              // 연결된 식당을 처음부터 모두 보여주고 한 번 눌러서 고르게 함 (2곳=2칸, 3곳=3칸, 4곳 이상=2×2)
+              const destinations = [
+                ...locations.map((location) => ({
+                  key: `c:${location.id}`,
+                  label: customerLocationCode(location),
+                  sub: location.name,
+                  current: location.id === customer.id && !selectedDeliveryLocation,
+                  cartKey: customerCartKey(location.id, null),
+                  pick: () => void switchLocation(location),
+                })),
+                ...deliveryLocations.map((location) => ({
+                  key: `d:${location.id}`,
+                  label: deliveryOrderLabel(customer, location),
+                  sub: deliverySubLabel(location, locations.find((item) => item.id === location.customer_id)?.name ?? customer.name),
+                  current: selectedDeliveryLocation?.id === location.id,
+                  cartKey: customerCartKey(location.customer_id, location.id),
+                  pick: () => void switchExtraDelivery(location),
+                })),
+              ];
+              const columns = destinations.length === 3 ? 3 : 2;
+              return <>
+                <div className="od-cart-title od-cart-ask">
+                  <div><h2>어느 식당으로 보낼까요?</h2><p>식당을 눌러서 고르세요</p></div>
+                  <button type="button" aria-label="닫기" onClick={() => setCartOpen(false)}>×</button>
+                </div>
+                <div className="od-cart-dest-grid" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup" aria-label="발주할 식당">
+                  {destinations.map((item) => {
+                    const count = item.current ? cart.length : storedCartCount(item.cartKey);
+                    return <button type="button" key={item.key} role="radio" aria-checked={item.current} className={item.current ? "current" : ""}
+                      disabled={switchingLocation} onClick={() => { if (!item.current) item.pick(); }}>
+                      {item.current && <i aria-hidden="true">✓</i>}
+                      <b>{item.label}</b>
+                      <span>{item.sub}</span>
+                      <em>{count ? `담은 상품 ${count}개` : "비어있음"}</em>
+                    </button>;
+                  })}
+                </div>
+              </>;
             })()}
             <div className="od-cart-lines">
               {cart.map((line) => {
@@ -1082,7 +1148,7 @@ function OrderApp({ store }: { store: StoreData }) {
               {!cart.length && <div className="od-empty">담긴 상품이 없습니다.<br />상품의 ＋ 버튼을 눌러 담아주세요.</div>}
             </div>
             {cart.length > 0 && <div className="od-cart-total"><span>총 {cart.length}품목</span><strong>{cartSummary(cart)}</strong></div>}
-            <button type="button" className="od-send" onClick={composeSms} disabled={!cart.length}>📩 문자로 주문 보내기</button>
+            <button type="button" className="od-send" onClick={composeSms} disabled={!cart.length}>📩 {customer ? `${withRo(deliveryOrderLabel(customer, selectedDeliveryLocation))} 주문 보내기` : "문자로 주문 보내기"}</button>
             <p className="od-send-help">누르면 문자 앱이 열리고 주문 내용이 자동으로 입력됩니다.<br />문자 앱에서 <b>보내기</b>를 눌러야 주문이 접수됩니다.</p>
             <div className="od-cart-alt">
               <button type="button" onClick={copyOrder} disabled={!cart.length}>{copied ? "✓ 복사됨" : "📋 주문내용 복사"}</button>

@@ -4261,3 +4261,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .od-cart-destination:disabled { cursor: default; opacity: 1; }
 .od-cart-destination .od-location-copy strong { font-size: 22px; }
 .od-location-backdrop { z-index: 120; }
+
+/* 장바구니: 어느 식당으로 보낼지 크게 묻고, 연결된 식당을 모두 버튼으로 */
+.od-cart-ask h2 { font-size: 24px; line-height: 1.25; letter-spacing: -.02em; color: #0b3d22; }
+.od-cart-ask p { margin: 4px 0 0; color: #4d5b52; font-size: 15px; font-weight: 700; }
+.od-cart-dest-grid { display: grid; gap: 8px; margin: 12px 0 14px; }
+.od-cart-dest-grid button {
+  position: relative; min-height: 84px; display: grid; align-content: center; gap: 2px;
+  padding: 10px 10px 10px 12px; border: 2px solid #cfd9d2; border-radius: 14px;
+  background: #fff; color: #1d2b22; text-align: left; cursor: pointer;
+}
+.od-cart-dest-grid button b { font-size: 22px; line-height: 1.1; letter-spacing: -.02em; color: #0b6a39; overflow-wrap: anywhere; }
+.od-cart-dest-grid button span { overflow: hidden; font-size: 12px; font-weight: 700; color: #59655d; text-overflow: ellipsis; white-space: nowrap; }
+.od-cart-dest-grid button em { font-size: 12px; font-style: normal; font-weight: 800; color: #8a948d; }
+.od-cart-dest-grid button.current { border-color: #0b6a39; background: #0b6a39; color: #fff; box-shadow: 0 6px 16px rgba(11,106,57,.22); }
+.od-cart-dest-grid button.current b, .od-cart-dest-grid button.current span, .od-cart-dest-grid button.current em { color: #fff; }
+.od-cart-dest-grid button i {
+  position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; display: grid; place-items: center;
+  border-radius: 50%; background: #fff; color: #0b6a39; font-size: 15px; font-style: normal; font-weight: 900;
+}
+.od-cart-dest-grid button:disabled { cursor: progress; }
