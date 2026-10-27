@@ -9,7 +9,7 @@ export const Route = createFileRoute("/admin_/accounts")({
 
 type AdminStatus={authenticated:boolean;staff?:{displayName:string}|null};
 type StaffRow={id:string;username:string;display_name:string;role:"ADMIN"|"DRIVER";active:number|boolean};
-type CustomerRow={id:string;code:string;name:string;active:boolean};
+type CustomerRow={id:string;code:string;name:string;active:boolean;businessNumber?:string;phone?:string;storePhone?:string;address?:string};
 type CustomerUser={id:string;customer_id:string;username:string;display_name:string;active:number|boolean;customer_code:string;customer_name:string};
 type CustomerUserLink={customer_user_id:string;customer_id:string;sort_order:number};
 type PlanRow={customerId:string;code:string;name:string;loginId:string;rule:"block-lot"|"code"|"code-duplicate"};
@@ -74,6 +74,8 @@ function AccountsPage(){
   const[importRows,setImportRows]=useState<Array<Record<string,string>>>([]);
   const[importFileName,setImportFileName]=useState("");
   const[importing,setImporting]=useState("");
+  const[accountSearch,setAccountSearch]=useState("");
+  const[accountPage,setAccountPage]=useState(1);
 
   async function load(){
     const[sr,st,cr,ur]=await Promise.all([
@@ -213,6 +215,31 @@ function AccountsPage(){
     await load();await previewProvision();
   }
 
+  const accountQuery=normalizeSearch(accountSearch);
+  const linkedCustomerIdsByUser=new Map<string,string[]>();
+  for(const link of customerLinks){
+    const current=linkedCustomerIdsByUser.get(link.customer_user_id)??[];
+    current.push(link.customer_id);
+    linkedCustomerIdsByUser.set(link.customer_user_id,current);
+  }
+  const filteredCustomerUsers=customerUsers.filter(row=>{
+    if(!accountQuery)return true;
+    const primary=customers.find(customer=>customer.id===row.customer_id);
+    const linked=(linkedCustomerIdsByUser.get(row.id)??[])
+      .map(id=>customers.find(customer=>customer.id===id))
+      .filter((customer):customer is CustomerRow=>Boolean(customer));
+    const haystack=[
+      row.customer_name,row.customer_code,row.username,row.display_name,
+      primary?.businessNumber??"",primary?.phone??"",primary?.storePhone??"",primary?.address??"",
+      ...linked.flatMap(customer=>[customer.name,customer.code,customer.businessNumber??"",customer.phone??"",customer.storePhone??"",customer.address??""]),
+    ].map(value=>normalizeSearch(String(value))).join("|");
+    return haystack.includes(accountQuery);
+  });
+  const accountPageSize=10;
+  const accountPageCount=Math.max(1,Math.ceil(filteredCustomerUsers.length/accountPageSize));
+  const safeAccountPage=Math.min(accountPage,accountPageCount);
+  const pagedCustomerUsers=filteredCustomerUsers.slice((safeAccountPage-1)*accountPageSize,safeAccountPage*accountPageSize);
+
   async function logout(){
     await Promise.allSettled([
       fetch("/api/admin/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}),
@@ -229,7 +256,7 @@ function AccountsPage(){
       <div className="session-actions"><span><b>{status?.staff?.displayName||"관리자"}</b><small>관리자</small></span><button type="button" onClick={logout}>로그아웃</button></div>
     </header>
     <main className="accounts-main">
-      <div className="accounts-head"><div><p>부자유통 통합관리</p><h1>계정관리</h1><span>부자유통 직원과 거래처 직원을 분리해서 관리합니다.</span></div><a href="/admin">← 통합관리자로 돌아가기</a></div>
+      <div className="accounts-head"><div><p>부자유통 통합관리</p><h1>계정관리</h1><span>부자유통 직원과 거래처 계정을 분리해서 관리합니다.</span></div><a href="/admin">← 통합관리자로 돌아가기</a></div>
       {error&&<p className="admin-banner-error">{error}</p>}
 
       <section className="account-section">
@@ -247,7 +274,7 @@ function AccountsPage(){
       </section>
 
       <section className="account-section">
-        <div className="account-section-head"><div><p>CUSTOMER</p><h2>거래처 직원 계정</h2><small>식당별로 아이디 + 비밀번호를 만들어 전달합니다. 아이디는 전체 거래처에서 중복 사용할 수 없습니다.</small></div><span>{customerUsers.length}명</span></div>
+        <div className="account-section-head"><div><p>CUSTOMER</p><h2>거래처 계정</h2><small>거래처별 로그인 계정과 연결 배송처를 관리합니다. 아이디는 전체 거래처에서 중복 사용할 수 없습니다.</small></div><span>{customerUsers.length}개</span></div>
         <div className="customer-user-create">
           <select value={customerId} onChange={e=>setCustomerId(e.target.value)}>{customers.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
           <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="직원 이름 예: 사장님 / 점장"/>
@@ -256,8 +283,20 @@ function AccountsPage(){
           <button disabled={!customerId||!displayName.trim()||!username.trim()||password.trim().length<2} onClick={()=>void createCustomerUser()}>+ 거래처 계정 추가</button>
         </div>
         {createdCredential&&<div className="customer-credential-card"><div><b>계정이 생성되었습니다.</b><span>{createdCredential.customerName} · {createdCredential.displayName}</span><code>아이디 {createdCredential.username} / 비밀번호 {createdCredential.password}</code></div><button type="button" onClick={()=>void copyCreatedCredential()}>로그인 정보 복사</button></div>}
+        <div className="account-list-toolbar">
+          <div className="account-search-box">
+            <span>⌕</span>
+            <input
+              value={accountSearch}
+              onChange={e=>{setAccountSearch(e.target.value);setAccountPage(1);}}
+              placeholder="거래처 검색 · 상호명, 거래처번호, 로그인ID, 이름, 사업자번호, 전화번호"
+            />
+            {accountSearch&&<button type="button" onClick={()=>{setAccountSearch("");setAccountPage(1);}}>×</button>}
+          </div>
+          <small>{accountSearch?`검색결과 ${filteredCustomerUsers.length}개`:`전체 ${customerUsers.length}개`} · 10개씩 보기</small>
+        </div>
         <div className="accounts-grid">
-          {customerUsers.map(row=><article className={`account-card ${!Boolean(row.active)?"disabled":""}`} key={row.id}>
+          {pagedCustomerUsers.map(row=><article className={`account-card ${!Boolean(row.active)?"disabled":""}`} key={row.id}>
             <div><span className="role-customer">거래처</span><h3>{row.display_name}</h3><p>{row.customer_code} · {row.customer_name}</p><p>아이디 {row.username}</p><p>배송처 {Math.max(1,customerLinks.filter(link=>link.customer_user_id===row.id).length)}곳</p></div>
             <div className="account-card-actions">
               <button onClick={()=>{const v=prompt("새 직원 이름",row.display_name);if(v)void act("/api/admin/customer-users",{action:"update",id:row.id,username:row.username,displayName:v});}}>이름 변경</button>
@@ -268,7 +307,13 @@ function AccountsPage(){
             </div>
           </article>)}
         </div>
-        {!customerUsers.length&&<p className="accounts-empty">아직 등록된 거래처 직원 계정이 없습니다.</p>}
+        {!customerUsers.length&&<p className="accounts-empty">아직 등록된 거래처 계정이 없습니다.</p>}
+        {customerUsers.length>0&&!filteredCustomerUsers.length&&<p className="accounts-empty">검색되는 거래처 계정이 없습니다.</p>}
+        {filteredCustomerUsers.length>0&&<div className="account-pagination">
+          <button type="button" disabled={safeAccountPage<=1} onClick={()=>setAccountPage(page=>Math.max(1,page-1))}>‹ 이전</button>
+          <span><b>{safeAccountPage}</b> / {accountPageCount}</span>
+          <button type="button" disabled={safeAccountPage>=accountPageCount} onClick={()=>setAccountPage(page=>Math.min(accountPageCount,page+1))}>다음 ›</button>
+        </div>}
       </section>
 
       <section className="account-section">
