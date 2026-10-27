@@ -3917,3 +3917,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .account-link-backdrop { padding: 0; align-items: end; }
   .account-link-modal { width: 100%; max-height: 92dvh; border-radius: 20px 20px 0 0; }
 }
+
+
+/* ===== 거래처 주문 로그인 보안 게이트 ===== */
+.order-login-card > h1 { font-size: 31px; }
+.order-login-card form input { letter-spacing: .03em; font-weight: 850; }
+.od-account-actions .full { grid-column: 1 / -1; width: 100%; }
+@media (max-width: 600px) {
+  .order-login-page { min-height: 100svh; padding: 12px; }
+  .order-login-card { padding: 24px 20px; }
+}
