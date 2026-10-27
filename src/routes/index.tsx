@@ -49,6 +49,10 @@ type Tab = "home" | "category" | "promo" | "account";
 
 const CART_STORAGE_KEY = "buja-simple-cart-v1";
 const SENT_STORAGE_KEY = "buja-simple-cart-sent-v1";
+
+function customerCartKey(customerId?: string) {
+  return customerId ? `${CART_STORAGE_KEY}:${customerId}` : CART_STORAGE_KEY;
+}
 const ALL = "전체";
 
 
@@ -266,46 +270,67 @@ function OrderPage() {
   const [copied, setCopied] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [locations, setLocations] = useState<CustomerProfile[]>([]);
   const [customerChecked, setCustomerChecked] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [switchingLocation, setSwitchingLocation] = useState(false);
+  const [cartKey, setCartKey] = useState(CART_STORAGE_KEY);
 
   const promo = store.promoCategory && store.promoCategory in store.categories ? store.promoCategory : "";
   const recipient = (store.sms || "").replace(/[^0-9+]/g, "");
   const productById = useMemo(() => new Map(store.products.map((product) => [product.id, product])), [store.products]);
 
-  // 저장된 장바구니만 불러온다.
-  // 기존 최근주문 데이터(buja-simple-history-v1)는 삭제하지 않고 각 기기에 그대로 보존한다.
+  // 로그인된 배송처마다 장바구니를 따로 보관합니다.
   useEffect(() => {
-    const raw = readStorage(CART_STORAGE_KEY);
-    if (raw) {
-      try {
-        const saved = JSON.parse(raw) as CartLine[];
-        setCart(reconcile(Array.isArray(saved) ? saved : []).lines);
-      } catch {
-        writeStorage(CART_STORAGE_KEY, null);
-      }
-    }
-    if (readStorage(SENT_STORAGE_KEY)) setAskSent(true);
-    setHydrated(true);
-    // 처음 한 번만 복원 (이후에는 화면의 장바구니가 기준)
+    let active = true;
+    void fetch("/api/customer/status", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json() as { authenticated?: boolean; customer?: CustomerProfile | null; locations?: CustomerProfile[] };
+        if (!active) return;
+        const current = data.authenticated && data.customer ? data.customer : null;
+        const linked = current ? (data.locations?.length ? data.locations : [current]) : [];
+        setCustomer(current);
+        setLocations(linked);
+
+        const key = customerCartKey(current?.id);
+        setCartKey(key);
+        const scopedRaw = readStorage(key);
+        const legacyRaw = current ? readStorage(CART_STORAGE_KEY) : null;
+        const raw = scopedRaw ?? legacyRaw;
+        if (raw) {
+          try {
+            const saved = JSON.parse(raw) as CartLine[];
+            setCart(reconcile(Array.isArray(saved) ? saved : []).lines);
+            if (!scopedRaw && current) writeStorage(key, raw);
+          } catch {
+            writeStorage(key, null);
+            setCart([]);
+          }
+        } else {
+          setCart([]);
+        }
+        if (readStorage(SENT_STORAGE_KEY)) setAskSent(true);
+        setHydrated(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setCustomer(null);
+        setLocations([]);
+        const raw = readStorage(CART_STORAGE_KEY);
+        if (raw) {
+          try { setCart(reconcile(JSON.parse(raw) as CartLine[]).lines); } catch { setCart([]); }
+        }
+        setHydrated(true);
+      })
+      .finally(() => { if (active) setCustomerChecked(true); });
+    return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
-    writeStorage(CART_STORAGE_KEY, cart.length ? JSON.stringify(cart) : null);
-  }, [cart, hydrated]);
-
-  useEffect(() => {
-    let active = true;
-    void fetch("/api/customer/status", { cache: "no-store" })
-      .then(async (response) => {
-        const data = await response.json() as { authenticated?: boolean; customer?: CustomerProfile | null };
-        if (active) setCustomer(data.authenticated && data.customer ? data.customer : null);
-      })
-      .catch(() => { if (active) setCustomer(null); })
-      .finally(() => { if (active) setCustomerChecked(true); });
-    return () => { active = false; };
-  }, []);
+    writeStorage(cartKey, cart.length ? JSON.stringify(cart) : null);
+  }, [cart, hydrated, cartKey]);
 
   useEffect(() => {
     if (!toast) return;
@@ -481,6 +506,42 @@ function OrderPage() {
     if (sent && cart.length) {
       setCart([]);
       setToast({ id: Date.now(), text: "주문해 주셔서 감사합니다." });
+    }
+  }
+
+  async function switchLocation(next: CustomerProfile) {
+    if (!customer || next.id === customer.id || switchingLocation) {
+      setLocationOpen(false);
+      return;
+    }
+    setSwitchingLocation(true);
+    try {
+      writeStorage(cartKey, cart.length ? JSON.stringify(cart) : null);
+      const response = await fetch("/api/customer/switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId: next.id }),
+      });
+      const data = await response.json() as { customer?: CustomerProfile; error?: string };
+      if (!response.ok || !data.customer) throw new Error(data.error || "배송처 변경에 실패했습니다.");
+
+      const changed = data.customer;
+      const nextKey = customerCartKey(changed.id);
+      const raw = readStorage(nextKey);
+      let nextCart: CartLine[] = [];
+      if (raw) {
+        try { nextCart = reconcile(JSON.parse(raw) as CartLine[]).lines; } catch { nextCart = []; }
+      }
+      setCustomer(changed);
+      setCartKey(nextKey);
+      setCart(nextCart);
+      setLocationOpen(false);
+      setCartOpen(false);
+      setToast({ id: Date.now(), text: `${customerOrderLabel(changed)} 발주처로 변경했습니다.` });
+    } catch (error) {
+      setToast({ id: Date.now(), text: error instanceof Error ? error.message : "배송처 변경에 실패했습니다." });
+    } finally {
+      setSwitchingLocation(false);
     }
   }
 
