@@ -31,6 +31,68 @@ export const Route = createFileRoute("/api/admin/customers")({
         const action = cleanText(body.action, 30);
         const staff = await getStaff(request);
         const actor = staff ? staffActor(staff) : { type: "admin" as const, id: "legacy-admin", name: "관리자" };
+        if (action === "import-batch") {
+          const rawRows = Array.isArray(body.rows) ? body.rows : [];
+          if (!rawRows.length || rawRows.length > 50) throw new Error("한 번에 1~50개 거래처만 등록할 수 있습니다.");
+
+          const statements = [];
+          let activeCount = 0;
+          let inactiveCount = 0;
+          const imported: Array<{code:string;name:string;active:boolean}> = [];
+
+          for (const raw of rawRows) {
+            if (!raw || typeof raw !== "object") continue;
+            const row = raw as Record<string, unknown>;
+            const code = normalizeCustomerCode(cleanText(row.code, 40));
+            const name = cleanText(row.name, 120);
+            if (!code || !name) continue;
+
+            const phone = cleanText(row.phone, 30);
+            const businessNumber = cleanText(row.businessNumber, 30);
+            const address = cleanText(row.address, 240);
+            const storePhone = cleanText(row.storePhone, 30);
+            const region = cleanText(row.region, 80);
+            const active = row.active === false || row.active === 0 || String(row.active) === "0" ? 0 : 1;
+            if (active) activeCount += 1; else inactiveCount += 1;
+
+            statements.push(
+              db().prepare(`
+                INSERT INTO customers
+                  (id,code,name,phone,business_number,address,store_phone,region,price_group,active)
+                VALUES (?,?,?,?,?,?,?,?, 'A', ?)
+                ON CONFLICT(code) DO UPDATE SET
+                  name=excluded.name,
+                  phone=CASE WHEN excluded.phone<>'' THEN excluded.phone ELSE customers.phone END,
+                  business_number=CASE WHEN excluded.business_number<>'' THEN excluded.business_number ELSE customers.business_number END,
+                  address=CASE WHEN excluded.address<>'' THEN excluded.address ELSE customers.address END,
+                  store_phone=CASE WHEN excluded.store_phone<>'' THEN excluded.store_phone ELSE customers.store_phone END,
+                  region=CASE WHEN excluded.region<>'' THEN excluded.region ELSE customers.region END,
+                  active=excluded.active,
+                  updated_at=datetime('now')
+              `).bind(
+                `C-ERP-${code}`, code, name, phone, businessNumber, address, storePhone, region, active,
+              ),
+            );
+            if (!active) {
+              statements.push(
+                db().prepare("DELETE FROM customer_sessions WHERE customer_id IN (SELECT id FROM customers WHERE code=?)").bind(code),
+              );
+            }
+            imported.push({ code, name, active: active === 1 });
+          }
+
+          if (!statements.length) throw new Error("등록할 거래처 데이터가 없습니다.");
+          await db().batch(statements);
+          await writeAudit({
+            actor,
+            action:"customer_bulk_import",
+            entityType:"customer",
+            entityId:"bulk",
+            summary:`거래처 일괄등록 ${imported.length}곳 (활성 ${activeCount}, 비활성 ${inactiveCount})`,
+            metadata:{count:imported.length,activeCount,inactiveCount},
+          });
+          return Response.json({ ok:true, imported:imported.length, active:activeCount, inactive:inactiveCount });
+        }
         if (action === "create") {
           const code = normalizeCustomerCode(cleanText(body.code, 40));
           const name = cleanText(body.name, 120);
