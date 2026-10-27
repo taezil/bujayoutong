@@ -1,9 +1,9 @@
 {
-  "id": "/price-list",
+  "id": "/",
   "name": "부자유통 단가표",
   "short_name": "부자유통",
   "description": "부자유통 거래처 전용 실시간 단가표",
-  "start_url": "/price-list",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#FCFCF9",
