@@ -32,7 +32,12 @@ export const Route = createFileRoute("/api/admin/customer-users")({
       const links = await db().prepare(
         "SELECT customer_user_id,customer_id,sort_order FROM customer_user_customers ORDER BY customer_user_id,sort_order,customer_id",
       ).all();
-      return Response.json({ users: rows.results, links: links.results }, { headers: { "Cache-Control": "no-store" } });
+      const deliveryLocations = await db().prepare(`
+        SELECT id,customer_id,name,address,phone,note,active,sort_order
+        FROM customer_delivery_locations
+        ORDER BY customer_id,sort_order,name,id
+      `).all();
+      return Response.json({ users: rows.results, links: links.results, deliveryLocations: deliveryLocations.results }, { headers: { "Cache-Control": "no-store" } });
     },
     POST: async ({ request }) => {
       if (!validMutationOrigin(request) || !(await isAdmin(request))) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 403 });
@@ -49,6 +54,53 @@ export const Route = createFileRoute("/api/admin/customer-users")({
           const limit = Math.max(1, Math.min(30, Math.floor(Number(body.limit) || 20)));
           const result = await runCustomerAccountPlan(db(), limit);
           return Response.json({ ok: true, ...result }, { headers: { "Cache-Control": "no-store" } });
+        }
+        if (action === "create-delivery-location") {
+          const customerId = cleanText(body.customerId, 80);
+          const name = cleanText(body.name, 80);
+          const address = cleanText(body.address, 240);
+          const phone = cleanText(body.phone, 30);
+          const note = cleanText(body.note, 200);
+          if (!customerId || !name) throw new Error("거래처와 배송처 이름을 입력해 주세요.");
+          const customer = await db().prepare("SELECT id FROM customers WHERE id=? AND active=1 LIMIT 1").bind(customerId).first();
+          if (!customer) throw new Error("사용할 수 없는 거래처입니다.");
+          const id = `DL-${crypto.randomUUID()}`;
+          const orderRow = await db().prepare("SELECT COALESCE(MAX(sort_order),-1)+1 AS next_sort FROM customer_delivery_locations WHERE customer_id=?").bind(customerId).first<{next_sort:number}>();
+          await db().prepare(`
+            INSERT INTO customer_delivery_locations(id,customer_id,name,address,phone,note,active,sort_order)
+            VALUES(?,?,?,?,?,?,1,?)
+          `).bind(id,customerId,name,address,phone,note,Number(orderRow?.next_sort ?? 0)).run();
+          return Response.json({ ok: true, id });
+        }
+        if (action === "update-delivery-location") {
+          const deliveryLocationId = cleanText(body.deliveryLocationId, 80);
+          const name = cleanText(body.name, 80);
+          if (!deliveryLocationId || !name) throw new Error("배송처와 배송처 이름을 확인해 주세요.");
+          await db().prepare(`
+            UPDATE customer_delivery_locations
+            SET name=?,address=?,phone=?,note=?,updated_at=datetime('now')
+            WHERE id=?
+          `).bind(name,cleanText(body.address,240),cleanText(body.phone,30),cleanText(body.note,200),deliveryLocationId).run();
+          return Response.json({ ok: true });
+        }
+        if (action === "toggle-delivery-location") {
+          const deliveryLocationId = cleanText(body.deliveryLocationId, 80);
+          const active = body.active === true || body.active === 1;
+          if (!deliveryLocationId) throw new Error("배송처를 선택해 주세요.");
+          await db().prepare("UPDATE customer_delivery_locations SET active=?,updated_at=datetime('now') WHERE id=?")
+            .bind(active ? 1 : 0, deliveryLocationId).run();
+          return Response.json({ ok: true });
+        }
+        if (action === "delete-delivery-location") {
+          const deliveryLocationId = cleanText(body.deliveryLocationId, 80);
+          if (!deliveryLocationId) throw new Error("배송처를 선택해 주세요.");
+          const used = await db().prepare("SELECT id FROM orders WHERE delivery_location_id=? LIMIT 1").bind(deliveryLocationId).first();
+          if (used) {
+            await db().prepare("UPDATE customer_delivery_locations SET active=0,updated_at=datetime('now') WHERE id=?").bind(deliveryLocationId).run();
+          } else {
+            await db().prepare("DELETE FROM customer_delivery_locations WHERE id=?").bind(deliveryLocationId).run();
+          }
+          return Response.json({ ok: true, archived: Boolean(used) });
         }
         if (action === "create") {
           const customerId = cleanText(body.customerId, 80);
