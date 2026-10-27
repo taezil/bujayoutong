@@ -142,7 +142,10 @@ async function main() {
       INSERT OR IGNORE INTO customer_user_customers(customer_user_id,customer_id,sort_order)
         SELECT id,'C-CI-8515',1 FROM customer_users WHERE username='12013';
       INSERT OR IGNORE INTO customer_user_customers(customer_user_id,customer_id,sort_order)
-        SELECT id,'C-CI-7302',2 FROM customer_users WHERE username='12013';`);
+        SELECT id,'C-CI-7302',2 FROM customer_users WHERE username='12013';
+      INSERT OR REPLACE INTO customer_delivery_locations(id,customer_id,name,address,phone,note,active,sort_order)
+        SELECT 'DL-CI-11813',id,'118-13','테스트 추가배송처','','같이 운영',1,0
+        FROM customers WHERE code='00124' LIMIT 1;`);
     linkedOk = true;
   } catch (error) {
     check("테스트용 배송처 연결(wrangler d1 execute)", false, String(error.stderr || error.message).slice(0, 300));
@@ -150,6 +153,7 @@ async function main() {
   if (linkedOk) {
     const s2 = await customer.json("/api/customer/status");
     check("연결된 배송처 3곳 조회", (s2.body?.locations ?? []).length === 3, JSON.stringify((s2.body?.locations ?? []).map((l) => l.name)));
+    check("엑셀에 없는 추가 배송처 118-13 조회", (s2.body?.deliveryLocations ?? []).some((l) => l.name === "118-13"), JSON.stringify(s2.body?.deliveryLocations ?? []));
     const deny = await customer.json("/api/customer/switch", { method: "POST", json: { customerId: "C-CI-OTHER" } });
     check("연결 안 된 거래처로 전환 거부(403)", deny.status === 403, `${deny.status} ${JSON.stringify(deny.body)}`);
     const after = await customer.json("/api/customer/status");
@@ -305,6 +309,16 @@ async function main() {
     check("[화면] 120-13 장바구니 1품목", (await cartCount()) === 1, String(await cartCount()));
     const textA = await copiedOrder();
     check("[화면] 문자 제목 [120-13 발주]", textA.startsWith("[120-13 발주]") && textA.includes(available[0].name), textA.split("\n")[0]);
+
+    await switchTo("118-13");
+    check("[화면] 추가 배송처 118-13 전환 시 장바구니 비어 있음", (await cartCount()) === 0, String(await cartCount()));
+    await addProduct(available[3]);
+    const textExtra = await copiedOrder();
+    check("[화면] 추가 배송처 문자 제목 [118-13 발주]", textExtra.startsWith("[118-13 발주]") && textExtra.includes(available[3].name) && !textExtra.includes(available[0].name), textExtra.split("\n")[0]);
+
+    await switchTo("120-13");
+    const textAExtraBack = await copiedOrder();
+    check("[화면] 추가 배송처에서 기본 120-13으로 돌아오면 장바구니 유지", (await cartCount()) === 1 && textAExtraBack.includes(available[0].name) && !textAExtraBack.includes(available[3].name), `${await cartCount()}품목`);
 
     await switchTo("85-15");
     check("[화면] 85-15로 전환 시 장바구니 비어 있음", (await cartCount()) === 0, String(await cartCount()));
