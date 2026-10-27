@@ -295,7 +295,7 @@ function PriceListLogin({ onLogin, checking = false }: { onLogin: () => Promise<
           <label>아이디<input value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoComplete="username" autoCapitalize="none" /></label>
           <label>비밀번호<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" /></label>
           {error && <p className="price-login-error">{error}</p>}
-          <button type="submit" disabled={busy || !identifier.trim() || password.trim().length < 6}>{busy ? "확인 중..." : "로그인"}</button>
+          <button type="submit" disabled={busy || !identifier.trim() || password.trim().length < 2}>{busy ? "확인 중..." : "로그인"}</button>
         </form>}
         <div className="price-login-help">
           <b>한 번 로그인하면 계속 로그인됩니다.</b>
