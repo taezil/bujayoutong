@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BUJA_LOGO_DATA } from "../brand-assets";
 
-export const Route = createFileRoute("/admin/accounts")({
+export const Route = createFileRoute("/admin_/accounts")({
   head: () => ({ meta: [{ title: "부자유통 계정관리" }, { name: "robots", content: "noindex,nofollow" }] }),
   component: AccountsPage,
 });
