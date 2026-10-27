@@ -56,21 +56,50 @@ export const Route = createFileRoute("/api/admin/customer-users")({
           return Response.json({ ok: true, ...result }, { headers: { "Cache-Control": "no-store" } });
         }
         if (action === "create-delivery-location") {
+          const customerUserId = cleanText(body.customerUserId, 80);
           const customerId = cleanText(body.customerId, 80);
           const name = cleanText(body.name, 80);
           const address = cleanText(body.address, 240);
           const phone = cleanText(body.phone, 30);
           const note = cleanText(body.note, 200);
-          if (!customerId || !name) throw new Error("거래처와 배송처 이름을 입력해 주세요.");
-          const customer = await db().prepare("SELECT id FROM customers WHERE id=? AND active=1 LIMIT 1").bind(customerId).first();
-          if (!customer) throw new Error("사용할 수 없는 거래처입니다.");
+          if (!customerUserId || !customerId || !name) throw new Error("거래처 계정, 거래처와 배송처 이름을 확인해 주세요.");
+
+          const allowed = await db().prepare(`
+            SELECT u.id
+            FROM customer_users u
+            JOIN customers c ON c.id=?
+            LEFT JOIN customer_user_customers m ON m.customer_user_id=u.id AND m.customer_id=c.id
+            WHERE u.id=? AND u.active=1 AND c.active=1
+              AND (u.customer_id=c.id OR m.customer_id IS NOT NULL)
+            LIMIT 1
+          `).bind(customerId,customerUserId).first();
+          if (!allowed) throw new Error("이 계정에 연결되지 않은 거래처입니다.");
+
+          await db().prepare(
+            "INSERT OR IGNORE INTO customer_user_customers(customer_user_id,customer_id,sort_order) VALUES(?,?,0)",
+          ).bind(customerUserId,customerId).run();
+
+          const existing = await db().prepare(`
+            SELECT id FROM customer_delivery_locations
+            WHERE customer_id=? AND lower(trim(name))=lower(trim(?))
+            LIMIT 1
+          `).bind(customerId,name).first<{id:string}>();
+          if (existing?.id) {
+            await db().prepare(`
+              UPDATE customer_delivery_locations
+              SET address=?,phone=?,note=?,active=1,updated_at=datetime('now')
+              WHERE id=?
+            `).bind(address,phone,note,existing.id).run();
+            return Response.json({ ok: true, id: existing.id, updated: true });
+          }
+
           const id = `DL-${crypto.randomUUID()}`;
           const orderRow = await db().prepare("SELECT COALESCE(MAX(sort_order),-1)+1 AS next_sort FROM customer_delivery_locations WHERE customer_id=?").bind(customerId).first<{next_sort:number}>();
           await db().prepare(`
             INSERT INTO customer_delivery_locations(id,customer_id,name,address,phone,note,active,sort_order)
             VALUES(?,?,?,?,?,?,1,?)
           `).bind(id,customerId,name,address,phone,note,Number(orderRow?.next_sort ?? 0)).run();
-          return Response.json({ ok: true, id });
+          return Response.json({ ok: true, id, updated: false });
         }
         if (action === "update-delivery-location") {
           const deliveryLocationId = cleanText(body.deliveryLocationId, 80);
