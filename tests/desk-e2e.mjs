@@ -456,6 +456,38 @@ async function main() {
     check("배송기사도 단가표 열림", staffPriceList.status === 200, `${staffPriceList.status}`);
   }
 
+  /* ---------- 7-5. 품목 카테고리 순서 · 여러 주문 한 번에 처리 · 오늘 요약 ---------- */
+  {
+    const cats = sql("SELECT name, sort_order FROM categories ORDER BY sort_order");
+    const products = (store.body?.products ?? []).filter((p) => !p.soldout && (p.packOptions ?? []).length);
+    const order = cats.map((c) => c.name);
+    // 카테고리 순서가 다른 상품 3개를 '거꾸로' 담아서 주문
+    const picks = [];
+    for (const cat of [...order].reverse()) {
+      const p = products.find((x) => x.category === cat && cat !== store.body?.promoCategory);
+      if (p) picks.push(p);
+      if (picks.length === 3) break;
+    }
+    const sorted = await customer.json("/api/orders", { method: "POST", json: {
+      items: picks.map((p) => ({ productId: p.id, optionLabel: p.packOptions[0].label, quantity: p.packOptions[0].step || 1 })),
+      requestId: randomUUID(), deliveryDate: kstDate(7), deliverySlot: "AM", confirmAnomaly: true } });
+    const sortedOrder = (await pcA.json(`/api/desk/orders?id=${sorted.body?.order?.id}`)).body?.order;
+    const shownCats = (sortedOrder?.items ?? []).map((i) => order.indexOf(i.category));
+    check("발주 품목이 카테고리 관리 순서대로 정렬", picks.length >= 2 && shownCats.every((v, i) => i === 0 || shownCats[i - 1] <= v), j({ picked: picks.map((p) => p.category), shown: (sortedOrder?.items ?? []).map((i) => i.category) }));
+    const second2 = await customer.json("/api/orders", { method: "POST", json: {
+      items: [{ productId: picks[0].id, optionLabel: picks[0].packOptions[0].label, quantity: picks[0].packOptions[0].step || 1 }],
+      requestId: randomUUID(), deliveryDate: kstDate(7), deliverySlot: "AM", confirmAnomaly: true } });
+    const ids = [sorted.body?.order?.id, second2.body?.order?.id];
+    const startMany = await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "start", orderIds: ids } });
+    check("합친 발주 2건 한 번에 입력 시작", startMany.status === 200 && (startMany.body?.results ?? []).every((r) => r.ok && r.order?.desk?.state === "entering"), j(startMany.body));
+    const conflictMany = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "start", orderIds: ids } });
+    check("다른 PC가 같은 묶음 시작 → 주문별 충돌 안내", conflictMany.status === 200 && (conflictMany.body?.results ?? []).every((r) => !r.ok && String(r.error).includes("입력 중")), j(conflictMany.body));
+    const doneMany = await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderIds: ids } });
+    check("합친 발주 2건 한 번에 입력완료", (doneMany.body?.results ?? []).every((r) => r.ok && r.order?.desk?.state === "done"), j(doneMany.body));
+    const pulseStats = (await pcA.json("/api/desk/pulse")).body;
+    check("오늘 접수·오늘 완료 숫자 제공", Number(pulseStats?.todayReceived) >= 2 && Number(pulseStats?.todayDone) >= 2, j(pulseStats));
+  }
+
   /* ---------- 8. 권한 해제 ---------- */
   const logoutB = await pcB.json("/api/desk/logout", { method: "POST", origin: false, json: {} });
   check("PC B 로그아웃", logoutB.status === 200);

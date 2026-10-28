@@ -38,6 +38,30 @@ export const Route = createFileRoute("/api/desk/orders")({
       try {
         const staff = await requireDeskStaff(request);
         const body = await request.json().catch(() => ({})) as { action?: string; orderId?: string; force?: boolean; reason?: string };
+        // 합친 발주: 여러 주문을 한 번에 처리 (각 주문마다 결과를 돌려줌)
+        const many = (body as { orderIds?: unknown }).orderIds;
+        if (Array.isArray(many)) {
+          const ids = Array.from(new Set(many.map((v) => String(v ?? "").trim().slice(0, 80)).filter(Boolean))).slice(0, 50);
+          if (!ids.length) throw new DeskError("주문을 선택해 주세요.");
+          const action = String(body.action ?? "");
+          if (action !== "delete" && !ACTIONS.includes(action as DeskAction)) throw new DeskError("지원하지 않는 작업입니다.");
+          const results: Array<Record<string, unknown>> = [];
+          for (const id of ids) {
+            try {
+              const result = action === "delete"
+                ? await deskDeleteOrder(staff, id, String(body.reason ?? ""))
+                : await deskChangeState(staff, id, action as DeskAction, body.force === true);
+              results.push({ id, ok: true, order: result.order, alreadyDone: (result as { alreadyDone?: boolean }).alreadyDone ?? false });
+            } catch (error) {
+              if (error instanceof DeskError && error.status < 500) {
+                results.push({ id, ok: false, error: error.message, status: error.status, order: (error.extra as { order?: unknown }).order });
+                continue;
+              }
+              throw error;
+            }
+          }
+          return deskJson({ ok: true, results });
+        }
         if (body.action === "delete") {
           const orderId = String(body.orderId ?? "").trim().slice(0, 80);
           if (!orderId) throw new DeskError("주문을 선택해 주세요.");

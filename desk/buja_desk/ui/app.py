@@ -259,6 +259,8 @@ class DeskController(QObject):
             self.last_error = result.error
             if was_connected:
                 self.window.show_message(f"서버 연결이 끊겼습니다. 자동으로 다시 연결합니다. ({result.error})", seconds=15)
+        if result.today_received is not None:
+            self.window.set_today_stats(int(result.today_received or 0), int(result.today_done or 0))
         if result.orders is not None:
             self.open_orders = result.orders
             self.window.set_orders(result.orders)
@@ -360,14 +362,27 @@ class DeskController(QObject):
     def api(self) -> DeskApi:
         return DeskApi(self.settings.server_url, self.token)
 
+    def _find_entry(self, entry_id: str) -> dict[str, Any]:
+        for source in (self.window.entries, self.open_orders):
+            found = next((o for o in source if o.get("id") == entry_id), None)
+            if found is not None:
+                return found
+        if self.window.detail.current_id() == entry_id and self.window.detail.order:
+            return self.window.detail.order
+        if self.window.history_detail.current_id() == entry_id and self.window.history_detail.order:
+            return self.window.history_detail.order
+        return {}
+
     def change_state(self, action: str, order_id: str, force: bool) -> None:
         if self._busy:
             return
-        order = next((o for o in self.open_orders if o.get("id") == order_id), None) or \
-            (self.window.history_detail.order if self.window.history_detail.current_id() == order_id else None) or {}
+        order = self._find_entry(order_id)
         desk = order.get("desk") or {}
         if action == "delete":
             self._delete_order(order_id, order)
+            return
+        if order.get("isBundle"):
+            self._change_bundle(action, order, force)
             return
         if force:
             who = desk.get("enteringBy") or "다른 직원"
@@ -421,11 +436,69 @@ class DeskController(QObject):
 
         self.background.run(lambda: api.change_state(order_id, action, force), done)
 
+    def _change_bundle(self, action: str, entry: dict[str, Any], force: bool) -> None:
+        """합친 발주: 안에 든 주문 전체에 같은 작업을 한 번에 적용."""
+        ids = list(entry.get("memberIds") or [])
+        count = len(ids)
+        if force:
+            who = (entry.get("desk") or {}).get("enteringBy") or "다른 직원"
+            answer = QMessageBox.question(self.window, APP_NAME, f"{who}님이 입력 중인 발주입니다.\n중복 입력이 아닌지 확인한 뒤 진행할까요?")
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        self._busy = True
+        self.window.set_busy(True)
+        api = self.api()
+
+        def done(results, error) -> None:
+            self._busy = False
+            self.window.set_busy(False)
+            if isinstance(error, AuthError):
+                self.require_login(str(error))
+                return
+            if error is not None:
+                QMessageBox.warning(self.window, APP_NAME, f"처리하지 못했습니다.\n인터넷 연결을 확인한 뒤 다시 눌러 주세요.\n\n({error})")
+                self.request_refresh()
+                return
+            updated = [r.get("order") for r in results if isinstance(r.get("order"), dict)]
+            failed = [r for r in results if not r.get("ok")]
+            self.window.after_actions(updated, action)
+            name = entry.get("customerName", "")
+            if failed:
+                QMessageBox.information(self.window, APP_NAME,
+                                        f"{count}건 중 {count - len(failed)}건만 처리했습니다.\n\n" + "\n".join(f"· {r.get('error')}" for r in failed))
+            elif action == "done":
+                self.window.show_message(f"{name} 합친 발주 {count}건을 입력완료 처리했습니다.", undo=lambda: self._undo_many(ids))
+            elif action == "start":
+                self.window.show_message(f"{name} 합친 발주 {count}건 입력 시작. 다른 PC에도 '입력 중'으로 표시됩니다.")
+            elif action == "release":
+                self.window.show_message(f"{name} 입력 중 표시를 해제했습니다.")
+            self.request_refresh()
+
+        self.background.run(lambda: api.change_many(ids, action, force), done)
+
+    def _undo_many(self, ids: list[str]) -> None:
+        api = self.api()
+
+        def done(results, error) -> None:
+            if error is not None:
+                QMessageBox.warning(self.window, APP_NAME, f"되돌리지 못했습니다.\n{error}")
+                return
+            self.window.after_actions([r.get("order") for r in results if isinstance(r.get("order"), dict)], "reopen")
+            if ids:
+                self.window.open_order(ids[0])
+            self.window.show_message("입력완료를 되돌렸습니다.")
+            self.request_refresh()
+
+        self.background.run(lambda: api.change_many(ids, "reopen"), done)
+
     def _delete_order(self, order_id: str, order: dict[str, Any]) -> None:
         from PySide6.QtWidgets import QInputDialog, QLineEdit
 
         desk = order.get("desk") or {}
+        ids = list(order.get("memberIds") or [order_id])
         who = f"{order.get('customerCode', '')} {order.get('customerName', '')}".strip()
+        if len(ids) > 1:
+            who += f" (합친 발주 {len(ids)}건 모두)"
         warn = ""
         if desk.get("state") == "entering" and desk.get("enteringById") != (self.staff.id if self.staff else ""):
             warn = f"\n⚠ {desk.get('enteringBy') or '다른 직원'}님이 입력 중인 주문입니다."
@@ -449,21 +522,26 @@ class DeskController(QObject):
                 QMessageBox.warning(self.window, APP_NAME, f"삭제하지 못했습니다.\n{error}")
                 self.request_refresh()
                 return
-            latest = result.get("order") or {}
-            self.window.after_action(latest, "done")
-            self.window.show_message(f"{order.get('customerName', '')} 발주를 삭제했습니다.")
+            updated = [r.get("order") for r in result if isinstance(r.get("order"), dict)]
+            failed = [r for r in result if not r.get("ok")]
+            self.window.after_actions(updated, "done")
+            if failed:
+                QMessageBox.information(self.window, APP_NAME, "일부 발주를 삭제하지 못했습니다.\n\n" + "\n".join(f"· {r.get('error')}" for r in failed))
+            else:
+                self.window.show_message(f"{order.get('customerName', '')} 발주 {len(ids)}건을 삭제했습니다." if len(ids) > 1 else f"{order.get('customerName', '')} 발주를 삭제했습니다.")
             if self.window.tabs.currentIndex() == 1:
                 self.window.search_history()
             self.request_refresh()
 
-        self.background.run(lambda: api.delete_order(order_id, reason.strip()), done)
+        self.background.run(lambda: api.change_many(ids, "delete", False, reason.strip()), done)
 
     def _refresh_one(self, order_id: str) -> None:
         """알림을 눌렀을 때 그 주문의 최신 상태(다른 PC에서 '입력 중'인지)를 바로 받아 표시."""
         api = self.api()
 
         def done(result, error) -> None:
-            if error is None and result and self.window.detail.current_id() == order_id:
+            current = self.window.detail.order or {}
+            if error is None and result and (current.get("id") == order_id or order_id in (current.get("memberIds") or [])):
                 self.window.after_action(result, "refresh")
 
         self.background.run(lambda: api.order(order_id), done)

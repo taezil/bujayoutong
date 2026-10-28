@@ -43,6 +43,8 @@ class SyncResult:
     error: str = ""
     open_count: int = 0
     synced_at: float = 0.0
+    today_received: int | None = None
+    today_done: int | None = None
 
 
 def _order_notice(order: dict[str, Any], kind: str) -> Notice:
@@ -144,7 +146,8 @@ class SyncEngine:
         marker = str(pulse.get("marker") or "")
         need_full = (self.force_full or was_disconnected or self.orders is None or marker != self.last_marker
                      or now - self.last_full >= FULL_REFRESH_SECONDS)
-        result = SyncResult(connected=True, staff=self.staff, open_count=int(pulse.get("openCount") or 0), synced_at=now)
+        result = SyncResult(connected=True, staff=self.staff, open_count=int(pulse.get("openCount") or 0), synced_at=now,
+                            today_received=pulse.get("todayReceived"), today_done=pulse.get("todayDone"))
         if need_full:
             try:
                 data = self.api.open_orders()

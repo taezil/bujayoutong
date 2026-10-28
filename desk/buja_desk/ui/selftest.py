@@ -24,7 +24,10 @@ def _sample_orders() -> list[dict]:
             {"productName": "치킨텐더", "spec": "1kg", "unit": "박스", "quantity": 1},
         ],
     }
+    merged = {**base, "deliveryDate": "2026-10-30", "deliverySlot": "PM", "customerId": "C-MERGE", "customerName": "남해분식 73-2"}
     return [
+        {**merged, "id": "OMERGE1", "isAdditional": False, "contentVersion": "1", "desk": {"state": "new", "revision": 0}},
+        {**merged, "id": "OMERGE2", "isAdditional": True, "contentVersion": "1", "createdAt": "2026-10-28T00:40:00Z", "desk": {"state": "new", "revision": 0}},
         {**base, "id": "OTEST1", "isAdditional": False, "contentVersion": "1", "desk": {"state": "new", "revision": 0}},
         {**base, "id": "OTEST2", "isAdditional": True, "contentVersion": "1", "note": "오전 10시 전 도착",
          "priceGroup": "B", "hasPromo": True,
@@ -70,6 +73,9 @@ def run_self_test(argv: list[str]) -> int:
         assert controller.window.detail.current_id() == "OTEST1", "상세화면 열기 실패"
         assert controller.window.detail.start_button.isVisible() or not controller.window.isVisible()
         controller.window.open_order("OTEST2")
+        controller.window.open_order("OMERGE2")
+        assert controller.window.detail.current_id() == "bundle:OMERGE1", "합친 발주 열기 실패"
+        lines.append(f"merged entries: {sum(1 for e in controller.window.entries if e.get('isBundle'))}")
         controller.window.group_check.setChecked(True)
         controller.window.set_history(orders)
         log.info("selftest: history set")
