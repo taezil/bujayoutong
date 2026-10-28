@@ -182,8 +182,8 @@ async function loadOrders(where: string, params: unknown[], orderBy: string, lim
            (SELECT p.id FROM orders p
              WHERE p.customer_id=o.customer_id AND p.delivery_date=o.delivery_date AND p.id<>o.id
                AND p.status<>'cancelled' AND COALESCE(p.delivery_location_id,'')=COALESCE(o.delivery_location_id,'')
-               AND (p.created_at<o.created_at OR (p.created_at=o.created_at AND p.id<o.id))
-             ORDER BY p.created_at DESC LIMIT 1) AS previous_order_id
+               AND (p.created_at<o.created_at OR (p.created_at=o.created_at AND p.rowid<o.rowid))
+             ORDER BY p.created_at DESC, p.rowid DESC LIMIT 1) AS previous_order_id
     FROM orders o
     JOIN customers c ON c.id=o.customer_id
     LEFT JOIN order_desk_status d ON d.order_id=o.id
