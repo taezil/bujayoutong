@@ -141,6 +141,8 @@ export type Product = {
   hidden?: boolean;
   /** 행사가격 (대표 가격, 원). 없으면 null */
   promoPrice?: number | null;
+  /** 상품 사진 전체 (첫 장 = 대표 사진 photo). 상세 화면에서 넘겨 봄 */
+  photos?: string[];
   packOptions: PackOption[];
 };
 
@@ -173,6 +175,8 @@ export type StoreData = {
   categories: Record<string, string[]>;
   /** 카테고리별 대표 사진 URL (없으면 빈 값) */
   categoryImages: Record<string, string>;
+  /** 카테고리 보관 구분: frozen(냉동) | chilled(냉장) | dry(공산품) | '' */
+  categoryStorage?: Record<string, string>;
   promoCategory: string;
   sms: string;
   heroImage: string;
@@ -295,6 +299,51 @@ async function ensureDeskSchema(database: D1Database) {
   await database.exec("INSERT OR IGNORE INTO order_desk_status(order_id,state) SELECT o.id,'new' FROM orders o WHERE o.created_at >= (SELECT value FROM app_settings WHERE key='desk_tracking_since') AND NOT EXISTS (SELECT 1 FROM order_desk_status d WHERE d.order_id=o.id)");
 }
 
+/**
+ * v1.2: 구역(배송 규칙)·창고 위치·보관 구분·상품 사진 여러 장·거래처 확인 알림·휴대폰 알림
+ */
+async function ensureZoneSchema(database: D1Database) {
+  await database.exec("CREATE TABLE IF NOT EXISTS delivery_zones (name TEXT PRIMARY KEY, sort_order INTEGER NOT NULL DEFAULT 0, am_until TEXT NOT NULL DEFAULT '', pm_runs TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))");
+  await database.exec("CREATE TABLE IF NOT EXISTS warehouse_locations (name TEXT PRIMARY KEY, sort_order INTEGER NOT NULL DEFAULT 0, storage TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))");
+  await ensureColumn(database, "categories", "storage", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "products", "photos", "TEXT NOT NULL DEFAULT ''");
+  // 오후 배송 차수 (1차·2차). 차수가 하나뿐인 구역/오전 배송은 0
+  await ensureColumn(database, "orders", "delivery_run", "INTEGER NOT NULL DEFAULT 0");
+  // 휴대폰 반복 알림 기록
+  await ensureColumn(database, "order_desk_status", "alert_count", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(database, "order_desk_status", "last_alert_at", "TEXT NOT NULL DEFAULT ''");
+  await database.exec("CREATE TABLE IF NOT EXISTS customer_notices (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id TEXT NOT NULL, order_id TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'confirmed', title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), dismissed_at TEXT NOT NULL DEFAULT '')");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_customer_notices_open ON customer_notices(customer_id, dismissed_at)");
+  await database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_notices_order ON customer_notices(order_id, kind) WHERE order_id<>''");
+  await database.exec("CREATE TABLE IF NOT EXISTS push_subscriptions (id TEXT PRIMARY KEY, endpoint TEXT NOT NULL UNIQUE, token_hash TEXT NOT NULL, label TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), last_ok_at TEXT NOT NULL DEFAULT '', fail_count INTEGER NOT NULL DEFAULT 0)");
+  if ((await settingValue(database, "zones_seed_v1")) !== "1") {
+    const seeds: Array<[string, number, string, string]> = [
+      ["1단지", 1, "10:00", "15:00"],
+      ["2단지", 2, "10:00", "13:00,15:00"],
+      ["외곽", 3, "", ""],
+      ["서구", 4, "", ""],
+      ["부천", 5, "", ""],
+    ];
+    const statements = seeds.map(([name, order, am, pm]) =>
+      database.prepare("INSERT OR IGNORE INTO delivery_zones(name,sort_order,am_until,pm_runs) VALUES(?,?,?,?)").bind(name, order, am, pm));
+    statements.push(database.prepare("INSERT OR IGNORE INTO delivery_zones(name,sort_order) SELECT DISTINCT TRIM(region), 50 FROM customers WHERE TRIM(region)<>'' AND TRIM(region)<>'미지정'"));
+    const locations: Array<[string, number, string]> = [
+      ["냉동창고 좌측", 1, "frozen"], ["냉동창고 우측", 2, "frozen"], ["냉장창고", 3, "chilled"],
+      ["창고1층", 4, "dry"], ["창고2층", 5, "dry"], ["야외", 6, "dry"],
+    ];
+    for (const [name, order, storage] of locations) {
+      statements.push(database.prepare("INSERT OR IGNORE INTO warehouse_locations(name,sort_order,storage) VALUES(?,?,?)").bind(name, order, storage));
+    }
+    statements.push(database.prepare("INSERT OR IGNORE INTO warehouse_locations(name,sort_order) SELECT DISTINCT TRIM(warehouse_zone), 50 FROM products WHERE TRIM(warehouse_zone)<>''"));
+    // 카테고리 보관 구분 추정 (관리자 화면에서 바꿀 수 있음)
+    statements.push(database.prepare("UPDATE categories SET storage='frozen' WHERE storage='' AND name LIKE '%냉동%'"));
+    statements.push(database.prepare("UPDATE categories SET storage='chilled' WHERE storage='' AND (name LIKE '%김치%' OR name LIKE '%신선%' OR name LIKE '%냉장%' OR name LIKE '%반찬%')"));
+    statements.push(database.prepare("UPDATE categories SET storage='dry' WHERE storage='' AND (name LIKE '%공산%' OR name LIKE '%건어물%' OR name LIKE '%소모품%' OR name LIKE '%양념%')"));
+    statements.push(database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('zones_seed_v1','1')"));
+    await database.batch(statements);
+  }
+}
+
 async function settingValue(database: D1Database, key: string) {
   const row = await database.prepare("SELECT value FROM app_settings WHERE key=?").bind(key).first<{ value: string }>();
   return row?.value ?? null;
@@ -384,7 +433,7 @@ let schemaSignature: string | null = null;
 
 async function currentSchemaSignature() {
   if (!schemaSignature) {
-    const source = [ensureDatabaseFull, ensureOperationsSchema, ensureDeskSchema, runAuthMaintenance, importExcelCatalog, ensureColumn, ensureCustomerLogin]
+    const source = [ensureDatabaseFull, ensureOperationsSchema, ensureDeskSchema, ensureZoneSchema, runAuthMaintenance, importExcelCatalog, ensureColumn, ensureCustomerLogin]
       .map((fn) => fn.toString())
       .join("\n");
     schemaSignature = await sha256(`${source}\n${migrationSql}\n${erpMigrationSql}`);
@@ -440,6 +489,7 @@ async function ensureDatabaseFull(database: D1Database) {
   await ensureColumn(database, "pack_options", "spec", "TEXT NOT NULL DEFAULT ''");
   await ensureOperationsSchema(database);
   await ensureDeskSchema(database);
+  await ensureZoneSchema(database);
 
   await runAuthMaintenance(database);
 
@@ -606,18 +656,20 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
   const database = db();
   await ensureDatabase(database);
   const [categoryRows, subRows, productRows, optionRows, settingsRows] = await Promise.all([
-    database.prepare("SELECT name, sort_order, is_promo, image FROM categories ORDER BY sort_order, name").all(),
+    database.prepare("SELECT name, sort_order, is_promo, image, storage FROM categories ORDER BY sort_order, name").all(),
     database.prepare("SELECT category_name, name, sort_order FROM subcategories ORDER BY category_name, sort_order, name").all(),
-    database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone, description, servings_per_unit, box_contents, servings_per_box, storage_method, price_list_visible, price_display_mode, hidden, promo_price FROM products ORDER BY sort_order, name").all(),
+    database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone, description, servings_per_unit, box_contents, servings_per_box, storage_method, price_list_visible, price_display_mode, hidden, promo_price, photos FROM products ORDER BY sort_order, name").all(),
     database.prepare("SELECT product_id, label, spec, price, price_a, price_b, step, sort_order FROM pack_options ORDER BY product_id, sort_order, id").all(),
     database.prepare("SELECT key, value FROM app_settings").all(),
   ]);
 
   const categories: Record<string, string[]> = {};
   const categoryImages: Record<string, string> = {};
+  const categoryStorage: Record<string, string> = {};
   for (const row of categoryRows.results as Array<Record<string, unknown>>) {
     categories[String(row.name)] = [];
     categoryImages[String(row.name)] = String(row.image ?? "");
+    categoryStorage[String(row.name)] = String(row.storage ?? "");
   }
   for (const row of subRows.results as Array<Record<string, unknown>>) {
     const category = String(row.category_name);
@@ -668,6 +720,7 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
     priceDisplayMode: String(row.price_display_mode ?? "fixed") === "market" ? "market" : String(row.price_display_mode ?? "fixed") === "inquiry" ? "inquiry" : "fixed",
     hidden: Number(row.hidden ?? 0) === 1,
     promoPrice: row.promo_price == null ? null : Number(row.promo_price),
+    photos: productPhotos(String(row.photo ?? ""), row.photos),
     packOptions: optionsByProduct.get(String(row.id)) ?? [],
   }));
 
@@ -679,6 +732,7 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
     products,
     categories,
     categoryImages,
+    categoryStorage,
     promoCategory: settings.promoCategory || String(promoFromTable?.name ?? ""),
     sms: settings.sms || "",
     heroImage: settings.heroImage || "",
@@ -696,6 +750,14 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
       cancelMinutes: Number(settings.cancelMinutes || 15),
     },
   };
+}
+
+/** 대표 사진 + 추가 사진(JSON 배열) → 중복 없는 사진 목록 (최대 10장) */
+export function productPhotos(main: string, extra: unknown): string[] {
+  let list: unknown = [];
+  try { list = JSON.parse(String(extra ?? "") || "[]"); } catch { list = []; }
+  const urls = [main, ...(Array.isArray(list) ? list : [])].map((url) => String(url ?? "").trim()).filter(Boolean);
+  return Array.from(new Set(urls)).slice(0, 10);
 }
 
 export async function bumpVersion(database = db()) {

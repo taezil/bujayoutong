@@ -6,6 +6,7 @@ import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
 import { CATEGORY_IMAGE_DATA } from "../category-images";
 import { customerShortLabel, normalizeLoginId, orderTitle } from "../lib/customer-login-id";
 import { thumbUrl } from "../lib/photo-url";
+import { DEFAULT_RULE, deliveryText, slotChoices, todaySelectable, type DeliveryRule, type SlotChoice } from "../lib/delivery-rules";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ name: "robots", content: "noindex,nofollow" }] }),
@@ -45,6 +46,8 @@ type DeliveryLocation = {
 };
 
 type Tab = "home" | "category" | "promo" | "account";
+
+type CustomerNotice = { id: number; orderId: string; kind: string; title: string; body: string; createdAt: string };
 
 const CART_STORAGE_KEY = "buja-simple-cart-v1";
 const SENT_STORAGE_KEY = "buja-simple-cart-sent-v1";
@@ -324,6 +327,11 @@ const ORDER_PHONE = "0328228874";
 const ORDER_PHONE_LABEL = "032-822-8874";
 type DeliverySlot = "AM" | "PM";
 
+const PLACEHOLDER_CHOICES: SlotChoice[] = [
+  { slot: "AM", run: 0, label: "오전 배송", hint: "", available: false, reason: "" },
+  { slot: "PM", run: 0, label: "오후 배송", hint: "", available: false, reason: "" },
+];
+
 function slotLabel(slot: DeliverySlot | "") {
   return slot === "PM" ? "오후 배송" : slot === "AM" ? "오전 배송" : "";
 }
@@ -335,7 +343,7 @@ function shiftMonth(month: string, delta: number) {
 }
 
 /** 배송일 달력: 오늘은 빨간 굵은 동그라미 + '오늘', 선택한 날은 초록 동그라미. 지난 날·60일 이후는 선택 불가 */
-function DeliveryCalendar({ value, onChange, disabled, maxDate }: { value: string; onChange: (date: string) => void; disabled?: boolean; maxDate?: string }) {
+function DeliveryCalendar({ value, onChange, disabled, maxDate, todayClosed }: { value: string; onChange: (date: string) => void; disabled?: boolean; maxDate?: string; todayClosed?: boolean }) {
   const today = kstDateClient(0);
   const tomorrow = kstDateClient(1);
   const last = maxDate || kstDateClient(60);
@@ -358,13 +366,13 @@ function DeliveryCalendar({ value, onChange, disabled, maxDate }: { value: strin
         {["일", "월", "화", "수", "목", "금", "토"].map((label) => <span key={label} className="od-cal-wd">{label}</span>)}
         {cells.map((date, index) => {
           if (!date) return <span key={`e${index}`} />;
-          const blocked = date < today || date > last;
-          const classes = [date === today ? "today" : "", date === value ? "selected" : ""].filter(Boolean).join(" ");
+          const blocked = date < today || date > last || (date === today && Boolean(todayClosed));
+          const classes = [date === today ? "today" : "", date === today && todayClosed ? "closed" : "", date === value ? "selected" : ""].filter(Boolean).join(" ");
           return (
             <button type="button" key={date} className={classes} disabled={blocked || disabled} aria-pressed={date === value}
               data-date={date} aria-label={`${date}${date === today ? " 오늘" : ""}`} onClick={() => onChange(date)}>
               <span className="n">{Number(date.slice(8))}</span>
-              {date === today ? <small>오늘</small> : date === tomorrow ? <small>내일</small> : null}
+              {date === today ? <small>{todayClosed ? "마감" : "오늘"}</small> : date === tomorrow ? <small>내일</small> : null}
             </button>
           );
         })}
@@ -536,7 +544,13 @@ function OrderApp({ store }: { store: StoreData }) {
   const [submitError, setSubmitError] = useState("");
   const [submitUncertain, setSubmitUncertain] = useState(false);
   const [quantityWarnings, setQuantityWarnings] = useState<Array<{ message: string }> | null>(null);
-  const [placedOrder, setPlacedOrder] = useState<{ id: string; label: string; deliveryDate: string; deliverySlot: DeliverySlot | ""; itemCount: number; duplicate: boolean } | null>(null);
+  const [placedOrder, setPlacedOrder] = useState<{ id: string; label: string; deliveryDate: string; deliverySlot: DeliverySlot | ""; deliveryRun: number; itemCount: number; duplicate: boolean } | null>(null);
+  // 구역별 배송 마감 규칙 (서버 /api/customer/status). 서버 시계와의 차이를 보정해서 계산
+  const [deliveryRule, setDeliveryRule] = useState<DeliveryRule>(DEFAULT_RULE);
+  const [clockOffset, setClockOffset] = useState(0);
+  const [clockTick, setClockTick] = useState(0);
+  const [notices, setNotices] = useState<CustomerNotice[]>([]);
+  const [closingNotices, setClosingNotices] = useState(false);
   const [copied, setCopied] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
@@ -549,11 +563,40 @@ function OrderApp({ store }: { store: StoreData }) {
   const [cartKey, setCartKey] = useState(CART_STORAGE_KEY);
 
   const promo = store.promoCategory && store.promoCategory in store.categories ? store.promoCategory : "";
+
+  function applyDeliveryRule(rule: DeliveryRule | null | undefined, serverNow?: number) {
+    if (rule && Array.isArray(rule.pmRuns) && rule.pmRuns.length) setDeliveryRule({ ...DEFAULT_RULE, ...rule });
+    if (typeof serverNow === "number" && Number.isFinite(serverNow)) setClockOffset(serverNow - Date.now());
+  }
   const recipient = (store.sms || "").replace(/[^0-9+]/g, "");
   const productById = useMemo(() => new Map(store.products.map((product) => [product.id, product])), [store.products]);
   // 행사품목이 하나라도 담겨 있으면 오늘·내일 배송만 가능 (서버도 같은 규칙으로 확인)
   const promoInCart = Boolean(promo) && cart.some((line) => productById.get(line.productId)?.category === promo);
   const maxDeliveryDate = promoInCart ? kstDateClient(1) : kstDateClient(60);
+  // 마감 계산 (30초마다 다시 계산 → 화면을 켜 둔 채 마감 시각이 지나도 바로 반영)
+  // clockTick 이 바뀌면 다시 그려지면서 현재 시각으로 다시 계산됨
+  const nowMs = Date.now() + clockOffset;
+  const todayClosed = !todaySelectable(deliveryRule, nowMs);
+  const choices = deliveryDate ? slotChoices(deliveryRule, deliveryDate, nowMs) : [];
+  const selectedChoice = choices.find((choice) => choice.slot === deliverySlot && choice.available) ?? null;
+  useEffect(() => {
+    if (!cartOpen) return;
+    const timer = window.setInterval(() => setClockTick((value) => value + 1), 30000);
+    return () => window.clearInterval(timer);
+  }, [cartOpen]);
+  useEffect(() => {
+    if (deliveryDate && deliveryDate === kstDateClient(0) && todayClosed) {
+      setDeliveryDate("");
+      setDeliverySlot("");
+      if (orderStep === "confirm") setOrderStep("date");
+      return;
+    }
+    if (deliverySlot && deliveryDate && !choices.some((choice) => choice.slot === deliverySlot && choice.available)) {
+      setDeliverySlot("");
+      if (orderStep === "confirm") setOrderStep("date");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryDate, deliverySlot, todayClosed, clockTick, deliveryRule, orderStep]);
   useEffect(() => {
     if (deliveryDate && deliveryDate > maxDeliveryDate) {
       setDeliveryDate("");
@@ -572,7 +615,10 @@ function OrderApp({ store }: { store: StoreData }) {
           customer?: CustomerProfile | null;
           locations?: CustomerProfile[];
           deliveryLocations?: DeliveryLocation[];
+          deliveryRule?: DeliveryRule | null;
+          serverNow?: number;
         };
+        applyDeliveryRule(data.deliveryRule, data.serverNow);
         if (!active) return;
         const current = data.authenticated && data.customer ? data.customer : null;
         const linked = current ? (data.locations?.length ? data.locations : [current]) : [];
@@ -639,7 +685,10 @@ function OrderApp({ store }: { store: StoreData }) {
           customer?: CustomerProfile | null;
           locations?: CustomerProfile[];
           deliveryLocations?: DeliveryLocation[];
+          deliveryRule?: DeliveryRule | null;
+          serverNow?: number;
         };
+        applyDeliveryRule(data.deliveryRule, data.serverNow);
         if (!alive || !data.authenticated || !data.customer) return;
 
         const current = data.customer;
@@ -669,6 +718,46 @@ function OrderApp({ store }: { store: StoreData }) {
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [customer?.id]);
+
+  // 사무실 '발주 확인' 알림: 화면을 열 때·다시 볼 때·1분마다 확인. 거래처가 [확인]을 누를 때까지 계속 표시
+  useEffect(() => {
+    if (!customer) { setNotices([]); return; }
+    let alive = true;
+    const check = async () => {
+      try {
+        const response = await fetch("/api/customer/notices", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json() as { notices?: CustomerNotice[] };
+        if (alive) setNotices(Array.isArray(data.notices) ? data.notices : []);
+      } catch {
+        // 다음 확인 때 다시 시도
+      }
+    };
+    void check();
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void check(); }, 60000);
+    const onVisible = () => { if (document.visibilityState === "visible") void check(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [customer?.id]);
+
+  async function closeNotices() {
+    const ids = notices.map((notice) => notice.id);
+    setClosingNotices(true);
+    try {
+      await fetch("/api/customer/notices", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+      setNotices([]);
+    } catch {
+      setToast({ id: Date.now(), text: "인터넷 연결을 확인한 뒤 다시 눌러 주세요." });
+    } finally {
+      setClosingNotices(false);
+    }
+  }
 
   useEffect(() => {
     if (!hydrated) return;
@@ -882,9 +971,16 @@ function OrderApp({ store }: { store: StoreData }) {
         window.clearTimeout(timer);
       }
       const data = await response.json().catch(() => ({})) as {
-        ok?: boolean; error?: string; warning?: boolean; warnings?: Array<{ message: string }>;
-        order?: { id: string; deliveryDate: string; deliverySlot?: string; itemCount: number; duplicate?: boolean };
+        ok?: boolean; error?: string; warning?: boolean; warnings?: Array<{ message: string }>; deliveryClosed?: boolean;
+        order?: { id: string; deliveryDate: string; deliverySlot?: string; deliveryRun?: number; itemCount: number; duplicate?: boolean };
       };
+      if (data.deliveryClosed) {
+        // 화면을 보는 사이 마감 시각이 지남 → 배송일 단계로 돌아가 다시 고르게 함
+        setClockTick((value) => value + 1);
+        setDeliverySlot("");
+        setOrderStep("date");
+        throw new SubmitFailure(data.error || "선택한 배송이 마감되었습니다. 배송일을 다시 골라 주세요.");
+      }
       if (response.status === 409 && data.warning) {
         setQuantityWarnings(data.warnings?.length ? data.warnings : [{ message: data.error || "평소보다 많은 수량이 있습니다." }]);
         return;
@@ -896,6 +992,7 @@ function OrderApp({ store }: { store: StoreData }) {
       setPlacedOrder({
         id: data.order.id, label, deliveryDate: data.order.deliveryDate || deliveryDate,
         deliverySlot: data.order.deliverySlot === "PM" ? "PM" : data.order.deliverySlot === "AM" ? "AM" : deliverySlot,
+        deliveryRun: Number(data.order.deliveryRun ?? 0),
         itemCount: data.order.itemCount, duplicate: Boolean(data.order.duplicate),
       });
       setCart([]);
@@ -1262,27 +1359,14 @@ function OrderApp({ store }: { store: StoreData }) {
         <div className="od-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setDetail(null); }}>
           <section className="od-sheet od-detail" role="dialog" aria-modal="true" aria-label={`${detail.name} 상세`}>
             <button type="button" className="od-sheet-close" aria-label="닫기" onClick={() => setDetail(null)}>×</button>
-            <button
-              type="button"
-              className="od-detail-photo"
-              disabled={!detail.photo}
-              onClick={() => detail.photo && setZoomPhoto({ src: detail.photo, name: detail.name })}
-              aria-label={detail.photo ? "사진 크게 보기" : "사진 준비중"}
-            >
-              {detail.photo ? <img src={detail.photo} alt={detail.name} /> : <span className="od-photo-empty"><img src={BUJA_MARK_DATA} alt="" />사진 준비중</span>}
-              {detail.photo && <i aria-hidden="true">⤢ 크게 보기</i>}
-            </button>
+            <PhotoGallery key={detail.id} product={detail} onZoom={(src) => setZoomPhoto({ src, name: detail.name })} />
             <div className="od-detail-body">
               <ProductTags product={detail} promo={promo} />
               <h2>{detail.name}</h2>
-              {detail.unit && <p className="od-detail-spec">규격 <b>{detail.unit}</b></p>}
-              <ServingsBox product={detail} />
-              {(detail.description ?? "").trim() && (
-                <div className="od-detail-desc"><span>상품설명</span><p>{(detail.description ?? "").trim()}</p></div>
-              )}
               {detail.soldout
                 ? <div className="od-soldout-text">현재 품절된 상품입니다</div>
                 : <OptionSteppers product={detail} quantityFor={quantityFor} onQuantity={changeFromCard} large />}
+              <ProductInfo product={detail} />
               <button type="button" className="od-sheet-done" onClick={() => setDetail(null)}>확인</button>
             </div>
           </section>
@@ -1381,25 +1465,31 @@ function OrderApp({ store }: { store: StoreData }) {
               <span className="od-step">1 / 2 단계</span>
               <h3>배송일을 선택하세요</h3>
               {promoInCart && <p className="od-promo-date-note">🏷️ 행사품목이 있어 오늘·내일 배송만 선택할 수 있어요</p>}
-              <DeliveryCalendar value={deliveryDate} maxDate={maxDeliveryDate} onChange={(date) => setDeliveryDate(date)} />
+              {todayClosed && <p className="od-cutoff-note" data-testid="today-closed">⏰ 오늘 배송은 마감되었어요. 내일부터 고를 수 있습니다. <small>주문은 지금 하셔도 됩니다</small></p>}
+              {submitError && <div className="od-confirm-error" role="alert"><p>{submitError}</p></div>}
+              <DeliveryCalendar value={deliveryDate} maxDate={maxDeliveryDate} todayClosed={todayClosed} onChange={(date) => { setDeliveryDate(date); setSubmitError(""); }} />
               <div className="od-slot">
                 <span>{deliveryDate ? `${dateLabel(deliveryDate)} 배송 시간` : "배송 시간"}</span>
                 <div className="od-slot-buttons" role="radiogroup" aria-label="배송 시간">
-                  {(["AM", "PM"] as DeliverySlot[]).map((slot) => (
-                    <button type="button" key={slot} role="radio" aria-checked={deliverySlot === slot} disabled={!deliveryDate}
-                      className={deliverySlot === slot ? "selected" : ""} onClick={() => setDeliverySlot(slot)}>{slot === "AM" ? "☀️ 오전 배송" : "🌇 오후 배송"}</button>
+                  {(deliveryDate ? choices : PLACEHOLDER_CHOICES).map((choice) => (
+                    <button type="button" key={choice.slot} role="radio" aria-checked={deliverySlot === choice.slot} disabled={!deliveryDate || !choice.available}
+                      data-slot={choice.slot}
+                      className={deliverySlot === choice.slot ? "selected" : ""} onClick={() => setDeliverySlot(choice.slot)}>
+                      <b>{choice.slot === "AM" ? "☀️" : "🌇"} {choice.label}</b>
+                      {deliveryDate && <small>{choice.available ? choice.hint : choice.reason}</small>}
+                    </button>
                   ))}
                 </div>
               </div>
-              <button type="button" className="od-send od-next" disabled={!deliveryDate || !deliverySlot} onClick={() => setOrderStep("confirm")}>다음</button>
-              <p className="od-step-hint">{deliveryDate && deliverySlot ? `${dateLabel(deliveryDate)} ${slotLabel(deliverySlot)}으로 다음 단계로 갑니다` : "날짜와 오전/오후를 고르면 다음이 켜집니다"}</p>
+              <button type="button" className="od-send od-next" disabled={!deliveryDate || !selectedChoice} onClick={() => setOrderStep("confirm")}>다음</button>
+              <p className="od-step-hint">{deliveryDate && selectedChoice ? `${dateLabel(deliveryDate)} ${selectedChoice.label}으로 다음 단계로 갑니다` : "날짜와 배송 시간을 고르면 다음이 켜집니다"}</p>
               <button type="button" className="od-continue" onClick={() => setOrderStep("cart")}>← 장바구니로</button>
             </div>}
             {orderStep === "confirm" && <div className="od-confirm" aria-live="polite">
               <span className="od-step">2 / 2 단계</span>
               <h3>주문 확인</h3>
               <div className="od-confirm-row"><span>배송처</span><b>{deliveryOrderLabel(customer, selectedDeliveryLocation)}</b></div>
-              <div className="od-confirm-row"><span>배송일</span><b className="od-confirm-when">{dateLabel(deliveryDate)} · {slotLabel(deliverySlot)}</b></div>
+              <div className="od-confirm-row"><span>배송일</span><b className="od-confirm-when">{dateLabel(deliveryDate)} · {selectedChoice?.label ?? slotLabel(deliverySlot)}</b></div>
               <div className="od-confirm-row"><span>주문</span><b>{cart.length}품목 · {cartSummary(cart)}</b></div>
               <label className="od-confirm-note">
                 <span>요청사항 (선택)</span>
@@ -1437,7 +1527,8 @@ function OrderApp({ store }: { store: StoreData }) {
           <section className="od-sent od-placed" role="dialog" aria-modal="true" aria-label="주문 접수 완료">
             <div className="od-placed-icon" aria-hidden="true">✅</div>
             <h2>주문이 접수되었습니다</h2>
-            <p><b>{placedOrder.label}</b><br />배송일 {dateLabel(placedOrder.deliveryDate)} {slotLabel(placedOrder.deliverySlot)} · {placedOrder.itemCount}품목</p>
+            <p><b>{placedOrder.label}</b><br />배송일 {dateLabel(placedOrder.deliveryDate)} {placedOrder.deliverySlot ? `${deliveryText(placedOrder.deliverySlot, placedOrder.deliveryRun)} 배송` : ""} · {placedOrder.itemCount}품목</p>
+            <p className="od-placed-small">사무실에서 확인하면 이 화면에 ‘발주 확인’ 알림이 뜹니다.</p>
             {placedOrder.duplicate && <p className="od-placed-note">이미 접수된 주문이라 한 번만 접수했습니다.</p>}
             <p className="od-placed-small">접수번호 {placedOrder.id}<br />변경이 필요하면 부자유통으로 연락해 주세요.</p>
             <button type="button" className="od-send" onClick={() => setPlacedOrder(null)}>확인</button>
@@ -1445,6 +1536,24 @@ function OrderApp({ store }: { store: StoreData }) {
         </div>
       )}
 
+
+      {notices.length > 0 && !placedOrder && (
+        <div className="od-backdrop center od-notice-backdrop">
+          <section className="od-notice" role="alertdialog" aria-modal="true" aria-label="발주 확인 알림">
+            <div className="od-notice-icon" aria-hidden="true">✅</div>
+            <h2>{notices.length > 1 ? `발주 ${notices.length}건이 확인되었습니다` : notices[0].title}</h2>
+            <p className="od-notice-lead">부자유통 사무실에서 주문을 확인하고 입력을 마쳤습니다.</p>
+            <ul>
+              {notices.map((notice) => (
+                <li key={notice.id}>
+                  {notice.body.split("\n").filter(Boolean).map((line, index) => index === 0 ? <b key={index}>{line}</b> : <span key={index}>{line}</span>)}
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="od-send" disabled={closingNotices} onClick={() => void closeNotices()}>{closingNotices ? "닫는 중…" : "확인했습니다"}</button>
+          </section>
+        </div>
+      )}
 
       {zoomPhoto && (
         <div className="od-zoom" role="dialog" aria-modal="true" aria-label={`${zoomPhoto.name} 사진`} onClick={() => setZoomPhoto(null)}>
@@ -1481,32 +1590,91 @@ function ProductGrid({ products, empty, ...props }: CardProps & { products: Prod
   );
 }
 
+function productPhotoList(product: Product) {
+  const list = product.photos?.length ? product.photos : product.photo ? [product.photo] : [];
+  return list.filter(Boolean);
+}
+
+/** 상품 카드: 사진 · 이름 · 단위별 가격 · 수량만. 입수·인분·설명은 사진을 누르면 나오는 상세 화면에 */
 function ProductCard({ product, promo, quantityFor, onQuantity, onOpen }: CardProps & { product: Product }) {
   const isPromo = !!promo && product.category === promo;
-  const servings = servingsLines(product);
-  const hasDescription = Boolean((product.description ?? "").trim());
+  const photoCount = productPhotoList(product).length;
   return (
-    <article className={`od-card ${product.soldout ? "soldout" : ""}`}>
+    <article className={`od-card od-card-v2 ${product.soldout ? "soldout" : ""}`}>
       <button type="button" className="od-card-photo" onClick={() => onOpen(product)} aria-label={`${product.name} 자세히 보기`}>
         {product.photo
           ? <img src={thumbUrl(product.photo)} alt="" loading="lazy" decoding="async" />
           : <span className="od-photo-empty"><img src={BUJA_MARK_DATA} alt="" />사진 준비중</span>}
         {isPromo && <em className="od-badge">행사</em>}
+        {photoCount > 1 && <span className="od-photo-count" aria-label={`사진 ${photoCount}장`}>▦ {photoCount}</span>}
         {product.soldout && <b className="od-soldout-cover">품절</b>}
       </button>
       <div className="od-card-body">
-        <div className="od-card-title-row">
-          <button type="button" className="od-card-name" onClick={() => onOpen(product)}>{product.name}</button>
-          {servings.length > 0 && (
-            <ul className="od-card-servings od-card-servings-inline">{servings.map((line) => <li key={line}>{line}</li>)}</ul>
-          )}
-        </div>
-        {hasDescription && <button type="button" className="od-card-more" onClick={() => onOpen(product)}>상품설명 보기 ›</button>}
+        <button type="button" className="od-card-name" onClick={() => onOpen(product)}>{product.name}</button>
         {product.soldout
           ? <div className="od-soldout-text">품절</div>
           : <OptionSteppers product={product} quantityFor={quantityFor} onQuantity={onQuantity} />}
       </div>
     </article>
+  );
+}
+
+/** 상세 화면 사진 넘겨보기 (여러 장이면 옆으로 밀기 + 점 표시) */
+function PhotoGallery({ product, onZoom }: { product: Product; onZoom: (src: string) => void }) {
+  const photos = productPhotoList(product);
+  const [index, setIndex] = useState(0);
+  if (!photos.length) {
+    return <div className="od-gallery empty"><span className="od-photo-empty"><img src={BUJA_MARK_DATA} alt="" />사진 준비중</span></div>;
+  }
+  return (
+    <div className="od-gallery">
+      <div className="od-gallery-track" onScroll={(e) => {
+        const el = e.currentTarget;
+        const next = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
+        if (next !== index) setIndex(next);
+      }}>
+        {photos.map((src, i) => (
+          <button type="button" key={src} className="od-gallery-slide" onClick={() => onZoom(src)} aria-label={`사진 ${i + 1} 크게 보기`}>
+            <img src={src} alt={`${product.name} 사진 ${i + 1}`} loading={i === 0 ? "eager" : "lazy"} />
+          </button>
+        ))}
+      </div>
+      {photos.length > 1 && (
+        <>
+          <span className="od-gallery-count">{index + 1} / {photos.length}</span>
+          <div className="od-gallery-dots" aria-hidden="true">{photos.map((src, i) => <i key={src} className={i === index ? "on" : ""} />)}</div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** 상세 화면 상품 정보 표 (규격·입수·인분·보관·설명) */
+function ProductInfo({ product }: { product: Product }) {
+  const rows: Array<[string, string]> = [];
+  const options = productOptions(product);
+  const specs = options.map((option) => {
+    const spec = optionSpec(product, option);
+    return spec ? `${option.label} ${spec}` : "";
+  }).filter(Boolean);
+  if (specs.length) rows.push(["규격", specs.join(" · ")]);
+  else if (product.unit) rows.push(["규격", product.unit]);
+  const word = smallPackWord(options);
+  const contents = boxContentsText(product.boxContents ?? "", word);
+  if (contents) rows.push(["1박스 입수", contents]);
+  const boxServings = servingText(product.servingsPerBox ?? "");
+  if (boxServings) rows.push(["1박스 인분", boxServings]);
+  const unitServings = servingText(product.servingsPerUnit ?? "");
+  if (unitServings) rows.push([`1${word || "단위"} 인분`, unitServings]);
+  if ((product.storageMethod ?? "").trim()) rows.push(["보관", (product.storageMethod ?? "").trim()]);
+  const description = (product.description ?? "").trim();
+  if (!rows.length && !description) return null;
+  return (
+    <div className="od-info">
+      <h3>상품 정보</h3>
+      {rows.length > 0 && <dl>{rows.map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>}
+      {description && <p className="od-info-desc">{description}</p>}
+    </div>
   );
 }
 
@@ -1517,16 +1685,6 @@ function ProductTags({ product, promo }: { product: Product; promo: string }) {
       {isPromo && <span className="t-promo">행사</span>}
       {product.sub && <span className="t-sub">{product.sub}</span>}
     </div>
-  );
-}
-
-function ServingsBox({ product }: { product: Product }) {
-  const lines = servingsLines(product);
-  if (!lines.length) return null;
-  return (
-    <ul className="od-servings" aria-label="인분 안내">
-      {lines.map((line) => <li key={line}>{line}</li>)}
-    </ul>
   );
 }
 
@@ -1542,17 +1700,20 @@ function OptionSteppers({
   large?: boolean;
 }) {
   return (
-    <div className={`od-options ${large ? "large" : ""}`}>
+    <div className={`od-opts ${large ? "large" : ""}`}>
       {productOptions(product).map((option) => {
         const label = option.label || product.unit;
         const quantity = quantityFor(product.id, label);
         const step = option.step || 1;
+        const spec = optionSpec(product, option);
         return (
-          <div className={`od-option ${quantity > 0 ? "active" : ""}`} key={label}>
-            <span className={`od-option-label ${label.includes("박스") ? "unit-box" : label.includes("봉") ? "unit-bag" : "unit-other"}`}>
-              <strong>{label}</strong>{optionSpec(product, option) && <small>({optionSpec(product, option)})</small>}
-              <em className="od-option-price">{optionPriceText(product, option)}</em>
-            </span>
+          <div className={`od-opt ${quantity > 0 ? "active" : ""}`} key={label}>
+            <div className="od-opt-head">
+              <span className={`od-opt-unit ${label.includes("박스") ? "unit-box" : label.includes("봉") ? "unit-bag" : "unit-other"}`}>
+                {label}{spec && <small>{spec}</small>}
+              </span>
+              <em className="od-opt-price">{optionPriceText(product, option)}</em>
+            </div>
             <div className={`od-stepper ${quantity > 0 ? "active" : ""}`}>
               <button type="button" aria-label={`${label} 수량 줄이기`} onClick={() => onQuantity(product, option, quantity - step)} disabled={quantity <= 0}>−</button>
               <b>{quantity}</b>

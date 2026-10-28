@@ -210,6 +210,11 @@ async function main() {
   check("취소 확인 → 목록에서 제거", ack.status === 200 && !((await pcA.json("/api/desk/orders")).body?.orders ?? []).some((o) => o.id === thirdId));
 
   /* ---------- 7-1. 휴대폰 화면: 주문 보내기 → 확인 → 주문 확정 ---------- */
+  // 앞에서 입력완료한 주문의 '발주 확인' 알림이 화면을 가리지 않게 먼저 닫아 둠 (알림 화면은 7-6 에서 점검)
+  {
+    const pendingNotices = (await customer.json("/api/customer/notices")).body?.notices ?? [];
+    if (pendingNotices.length) await customer.json("/api/customer/notices", { method: "POST", json: { ids: pendingNotices.map((n) => n.id) } });
+  }
   try {
     const { chromium, devices } = await import("playwright");
     const browser = await chromium.launch();
@@ -229,7 +234,7 @@ async function main() {
       await page.locator(".od-search input").fill("");
     }
     await page.locator(".od-search input").fill(product.name);
-    const priceLocator = page.locator(".od-card", { hasText: product.name }).first().locator(".od-option-price").first();
+    const priceLocator = page.locator(".od-card", { hasText: product.name }).first().locator(".od-opt-price").first();
     await priceLocator.waitFor({ timeout: 10000 });
     let priceShown = "";
     for (let i = 0; i < 20 && !priceShown; i += 1) {
@@ -245,10 +250,18 @@ async function main() {
     const todayKst = kstDate(0);
     const todayCell = page.locator(`.od-cal-grid button[data-date="${todayKst}"]`);
     check("[화면] 주문 보내기 → 1단계 배송일 달력 먼저 표시", await page.locator(".od-cal-grid").count() === 1);
-    check("[화면] 달력: 오늘에 빨간 동그라미 + '오늘' 표시, 미리 선택 안 됨",
-      (await todayCell.getAttribute("class") || "").includes("today") && (await todayCell.innerText()).includes("오늘")
-      && !(await todayCell.getAttribute("class") || "").includes("selected")
-      && await todayCell.locator(".n").evaluate((el) => getComputedStyle(el).boxShadow.includes("224, 49, 49")));
+    // 오늘 배송 가능 시간(기본 01:00~15:00)이 지나면 '마감'으로 막힘 → CI 실행 시각에 따라 둘 중 하나
+    const todayClass = await todayCell.getAttribute("class") || "";
+    const kstHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+    const expectClosed = kstHour >= 15 || kstHour < 1;
+    check(`[화면] 달력: 오늘 표시(빨간 동그라미) · ${expectClosed ? "마감 시각 지나 막힘" : "선택 가능"}, 미리 선택 안 됨`,
+      todayClass.includes("today") && !todayClass.includes("selected")
+      && (expectClosed
+        ? todayClass.includes("closed") && (await todayCell.innerText()).includes("마감") && await todayCell.isDisabled()
+          && await page.locator("[data-testid=today-closed]").count() === 1
+        : (await todayCell.innerText()).includes("오늘") && await todayCell.isEnabled()
+          && await todayCell.locator(".n").evaluate((el) => getComputedStyle(el).boxShadow.includes("224, 49, 49"))),
+      `${todayClass} hour=${kstHour}`);
     check("[화면] 달력: 지난 날짜 선택 불가", await page.locator(`.od-cal-grid button[data-date="${kstDate(-1)}"]`).count() === 0
       || await page.locator(`.od-cal-grid button[data-date="${kstDate(-1)}"]`).isDisabled());
     const nextButton = page.locator(".od-step-date .od-next");
@@ -259,12 +272,14 @@ async function main() {
     }
     await pickDate(tomorrow);
     check("[화면] 날짜만 고르면 아직 [다음] 꺼짐", await nextButton.isDisabled());
-    await page.locator(".od-slot-buttons button", { hasText: "오후 배송" }).click();
+    const pmButtonText = await page.locator('.od-slot-buttons button[data-slot="PM"]').innerText();
+    check("[화면] 2단지 거래처: 내일 오후는 '오후 1차 배송'으로 표시", pmButtonText.includes("오후 1차 배송"), pmButtonText);
+    await page.locator('.od-slot-buttons button[data-slot="PM"]').click();
     check("[화면] 날짜 + 오후 배송 고르면 [다음] 켜짐", await nextButton.isEnabled());
     await nextButton.click();
     await page.locator(".od-confirm-main").waitFor({ timeout: 10000 });
     const confirmText = await page.locator(".od-confirm").innerText();
-    check("[화면] 2단계 주문 확인: 배송일·오후 배송 표시", confirmText.includes("2 / 2") && confirmText.includes("오후 배송"), confirmText.slice(0, 200));
+    check("[화면] 2단계 주문 확인: 배송일·오후 배송 표시", confirmText.includes("2 / 2") && confirmText.includes("오후 1차 배송"), confirmText.slice(0, 200));
     const phone = page.locator(".od-confirm a.od-phone-order");
     check("[화면] 주문 확정 아래 전화 주문(032-822-8874), 문자 주문 없음", await phone.getAttribute("href") === "tel:0328228874"
       && !confirmText.includes("문자") && await page.locator('a[href^="sms:"]').count() === 0);
@@ -302,7 +317,8 @@ async function main() {
     check("[화면] 접수 후 장바구니 비움", /장바구니 0품목/.test(cartLabel || ""), cartLabel || "");
     const deskView = (await pcA.json("/api/desk/orders")).body?.orders?.find((o) => o.note === uiNote);
     check("[화면] 휴대폰 주문 → 알림센터 목록에 표시(내일 오후 배송)", deskView?.deliveryDate === tomorrow && deskView.deliverySlot === "PM" && deskView.items.length === 1, j(deskView));
-    check("[화면] 접수 완료 화면에 오후 배송 표시", placedText.includes("오후 배송"), placedText.replace(/\n/g, " "));
+    check("[화면] 접수 완료 화면에 오후 1차 배송 표시", placedText.includes("오후 1차 배송"), placedText.replace(/\n/g, " "));
+    check("[화면] 알림센터에도 1차로 저장", deskView?.deliveryRun === 1, j(deskView?.deliveryRun));
 
     // 서버가 거절하면(예: 주문 중지) 성공 표시 없음
     sql("UPDATE app_settings SET value='0' WHERE key='orderEnabled'");
@@ -311,7 +327,7 @@ async function main() {
     await page.locator(".od-cart-icon").click();
     await page.locator(".od-send").first().click();
     await pickDate(tomorrow);
-    await page.locator(".od-slot-buttons button", { hasText: "오전 배송" }).click();
+    await page.locator('.od-slot-buttons button[data-slot="AM"]').click();
     await nextButton.click();
     await page.locator(".od-confirm-main").click();
     await page.locator(".od-confirm-error").waitFor({ timeout: 20000 });
@@ -486,6 +502,223 @@ async function main() {
     check("합친 발주 2건 한 번에 입력완료", (doneMany.body?.results ?? []).every((r) => r.ok && r.order?.desk?.state === "done"), j(doneMany.body));
     const pulseStats = (await pcA.json("/api/desk/pulse")).body;
     check("오늘 접수·오늘 완료 숫자 제공", Number(pulseStats?.todayReceived) >= 2 && Number(pulseStats?.todayDone) >= 2, j(pulseStats));
+  }
+
+  /* ---------- 7-6. v1.2: 구역·배송 마감 · 창고 위치 · 상차준비표 · 거래처 확인 알림 · 사진 여러 장 · 휴대폰 알림 ---------- */
+  {
+    const adminSalt = randomBytes(16).toString("hex");
+    sql(`INSERT OR REPLACE INTO admin_credentials (id, salt, hash) VALUES (1, '${adminSalt}', '${pbkdf2Sync("ci-admin-password", adminSalt, 100000, 32, "sha256").toString("hex")}')`);
+    const admin = new Client();
+    await admin.json("/api/admin/login", { method: "POST", json: { username: "admin", password: "ci-admin-password" } });
+    const zonesData = (await admin.json("/api/admin/zones")).body;
+    check("구역 기본값: 1단지·2단지·외곽·서구·부천 + 창고 위치 6곳", ["1단지", "2단지", "외곽", "서구", "부천"].every((z) => zonesData?.zones?.some((r) => r.name === z))
+      && ["냉동창고 좌측", "냉동창고 우측", "냉장창고", "창고1층", "창고2층", "야외"].every((n) => zonesData?.locations?.some((r) => r.name === n)), j(zonesData?.zones));
+    check("2단지 오후 차수 13:00·15:00, 1단지 15:00", zonesData?.zones?.find((z) => z.name === "2단지")?.pmRuns === "13:00,15:00"
+      && zonesData?.zones?.find((z) => z.name === "1단지")?.pmRuns === "15:00", j(zonesData?.zones?.slice(0, 2)));
+    check("비관리자 구역 API 차단", (await anon.json("/api/admin/zones")).status === 403
+      && (await anon.json("/api/admin/zones", { method: "POST", json: { action: "zone-add", name: "x" } })).status === 403);
+
+    const me = sql("SELECT id, region FROM customers WHERE code='00124' LIMIT 1")[0];
+    const status2 = (await customer.json("/api/customer/status")).body;
+    check("거래처 상태에 구역 배송 규칙(2단지) 포함", status2?.deliveryRule?.zone === "2단지" && status2.deliveryRule.pmRuns?.join(",") === "13:00,15:00" && typeof status2.serverNow === "number", j(status2?.deliveryRule));
+
+    // 새 구역 만들고 거래처 옮기기 → 거래처 화면 규칙이 바뀜
+    const addZone = await admin.json("/api/admin/zones", { method: "POST", json: { action: "zone-add", name: "CI구역" } });
+    const saveZone = await admin.json("/api/admin/zones", { method: "POST", json: { action: "zone-save", name: "CI구역", amUntil: "09:30", pmRuns: "12:00, 14:00, 23:59" } });
+    const assign = await admin.json("/api/admin/zones", { method: "POST", json: { action: "assign", customerIds: [me.id], zone: "CI구역" } });
+    const status3 = (await customer.json("/api/customer/status")).body;
+    check("관리자: 구역 추가·마감 저장·거래처 옮기기 → 거래처 규칙 반영", addZone.status === 200 && saveZone.status === 200 && assign.status === 200
+      && status3?.deliveryRule?.zone === "CI구역" && status3.deliveryRule.amUntil === "09:30" && status3.deliveryRule.pmRuns.join(",") === "12:00,14:00,23:59", j({ a: addZone.body, s: saveZone.body, r: status3?.deliveryRule }));
+    const badTime = await admin.json("/api/admin/zones", { method: "POST", json: { action: "zone-save", name: "CI구역", amUntil: "25:99", pmRuns: "" } });
+    check("잘못된 마감 시각 거절", badTime.status === 400, j(badTime.body));
+
+    // 오늘 배송 마감: 오늘배송 가능 시간을 지금이 아닌 시간대로 → 오늘 주문 거절(달력과 같은 메시지), 내일은 가능
+    const nowHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+    const closedWindow = nowHour < 12 ? { openFrom: "22:00", sameDayCutoff: "23:00" } : { openFrom: "00:00", sameDayCutoff: "01:00" };
+    await admin.json("/api/admin/zones", { method: "POST", json: { action: "defaults-save", ...closedWindow, amUntil: "10:00", pmRuns: "15:00" } });
+    const todayOrder = await customer.json("/api/orders", { method: "POST", json: { items: [items[0]], requestId: randomUUID(), deliveryDate: kstDate(0), deliverySlot: "PM", confirmAnomaly: true } });
+    check("오늘 배송 마감 후 오늘 배송 주문 → 거절(마감 안내)", todayOrder.status === 400 && todayOrder.body?.deliveryClosed === true && /마감|주문 가능/.test(String(todayOrder.body?.error)), j(todayOrder.body));
+    const tomorrowPm = await customer.json("/api/orders", { method: "POST", json: { items: [items[0]], requestId: randomUUID(), deliveryDate: kstDate(1), deliverySlot: "PM", note: "CI 내일 오후", confirmAnomaly: true } });
+    check("마감 후에도 내일 배송 주문은 접수 · 예약 오후는 1차", tomorrowPm.status === 200 && tomorrowPm.body?.order?.deliveryRun === 1, j(tomorrowPm.body));
+    // 오늘 하루 종일 열기 → 지금 시각 기준 차수 계산 (12:00 전 1차 / 14:00 전 2차 / 그 뒤 3차)
+    await admin.json("/api/admin/zones", { method: "POST", json: { action: "defaults-save", openFrom: "00:00", sameDayCutoff: "23:59", amUntil: "10:00", pmRuns: "15:00" } });
+    const nowHm = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+    if (nowHm < "23:57") {
+      const todayPm = await customer.json("/api/orders", { method: "POST", json: { items: [items[0]], requestId: randomUUID(), deliveryDate: kstDate(0), deliverySlot: "PM", confirmAnomaly: true } });
+      const expectRun = nowHm < "12:00" ? 1 : nowHm < "14:00" ? 2 : 3;
+      check(`오늘 오후 주문 차수 = 접수 시각 기준(${nowHm} → ${expectRun}차)`, todayPm.status === 200 && todayPm.body?.order?.deliveryRun === expectRun, j(todayPm.body));
+      const todayAm = await customer.json("/api/orders", { method: "POST", json: { items: [items[0]], requestId: randomUUID(), deliveryDate: kstDate(0), deliverySlot: "AM", confirmAnomaly: true } });
+      if (nowHm < "09:25" || nowHm > "09:35") {
+        check(`오늘 오전 배송: 09:30 마감(${nowHm})`, nowHm < "09:25" ? todayAm.status === 200 : todayAm.status === 400 && todayAm.body?.deliveryClosed === true, j(todayAm.body));
+      }
+      const tp = (await pcA.json(`/api/desk/orders?id=${todayPm.body?.order?.id}`)).body?.order;
+      check("알림센터 주문에 차수·구역 표시용 값", tp?.deliveryRun === expectRun && tp?.zone === "CI구역", j({ run: tp?.deliveryRun, zone: tp?.zone }));
+    }
+    await admin.json("/api/admin/zones", { method: "POST", json: { action: "defaults-save", openFrom: "01:00", sameDayCutoff: "15:00", amUntil: "10:00", pmRuns: "15:00" } });
+
+    // 창고 위치: 상품 위치 지정 → 상차준비표 데이터에 반영
+    const locTarget = items[0].productId;
+    const setLoc = await admin.json("/api/admin/zones", { method: "POST", json: { action: "products-location", productIds: [locTarget], location: "냉동창고 우측" } });
+    const storeLoc = (await admin.json("/api/store?all=1")).body?.products?.find((p) => p.id === locTarget);
+    check("관리자: 상품 창고 위치 지정", setLoc.status === 200 && storeLoc?.warehouseZone === "냉동창고 우측", j(setLoc.body));
+    const sheet = await pcA.json(`/api/desk/load-sheet?date=${kstDate(1)}`);
+    const sheetOrder = (sheet.body?.orders ?? []).find((o) => o.id === tomorrowPm.body?.order?.id);
+    check("상차준비표 데이터: 구역·위치·보관구분·차수", sheet.status === 200 && sheetOrder?.zone === "CI구역" && sheetOrder.deliveryRun === 1
+      && sheetOrder.items?.[0]?.location === "냉동창고 우측" && sheet.body?.locations?.some((l) => l.name === "냉동창고 우측" && l.storage === "frozen")
+      && sheet.body?.zones?.includes("CI구역"), j(sheetOrder));
+    check("상차준비표 API: 토큰 없으면 401", (await anon.json(`/api/desk/load-sheet?date=${kstDate(1)}`)).status === 401);
+    const mark = await pcA.json("/api/desk/load-sheet", { method: "POST", origin: false, json: { orderIds: [sheetOrder?.id], label: "CI" } });
+    const sheet2 = await pcA.json(`/api/desk/load-sheet?date=${kstDate(1)}`);
+    check("상차준비표 출력 표시 → 다음엔 '새 발주만'에서 빠짐", mark.status === 200 && Boolean((sheet2.body?.orders ?? []).find((o) => o.id === sheetOrder?.id)?.loadPrintedAt), j(mark.body));
+    writeFileSync("desk-loadsheet.json", JSON.stringify(sheet2.body ?? {}));
+
+    // 거래처 '발주 확인' 알림: 입력완료 → 표시, 닫기 전까지 유지, 입력완료 취소 → 회수
+    const noticeOrder = tomorrowPm.body?.order?.id;
+    check("입력완료 전에는 확인 알림 없음", !((await customer.json("/api/customer/notices")).body?.notices ?? []).some((n) => n.orderId === noticeOrder));
+    await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId: noticeOrder } });
+    const n1 = (await customer.json("/api/customer/notices")).body?.notices ?? [];
+    const myNotice = n1.find((n) => n.orderId === noticeOrder);
+    check("입력완료 → 거래처에 '발주가 확인되었습니다' 알림", myNotice?.title === "발주가 확인되었습니다" && myNotice.body.includes("오후 1차 배송"), j(myNotice));
+    check("다시 열어도 알림 유지(닫기 전)", ((await customer.json("/api/customer/notices")).body?.notices ?? []).some((n) => n.orderId === noticeOrder));
+    const other = new Client();
+    check("다른 사람(비로그인)은 알림 못 봄·못 닫음", (await other.json("/api/customer/notices")).status === 401
+      && (await other.json("/api/customer/notices", { method: "POST", json: { ids: [myNotice?.id] } })).status === 401);
+    const dismiss = await customer.json("/api/customer/notices", { method: "POST", json: { ids: [myNotice?.id] } });
+    check("거래처가 [확인] → 알림 닫힘", dismiss.body?.dismissed === 1 && !((await customer.json("/api/customer/notices")).body?.notices ?? []).some((n) => n.orderId === noticeOrder), j(dismiss.body));
+    const extraOrder = await customer.json("/api/orders", { method: "POST", json: { items: [items[0]], requestId: randomUUID(), deliveryDate: kstDate(3), deliverySlot: "AM", confirmAnomaly: true } });
+    await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId: extraOrder.body?.order?.id } });
+    await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "reopen", orderId: extraOrder.body?.order?.id } });
+    check("입력완료 취소 → 아직 안 닫은 알림 회수", !((await customer.json("/api/customer/notices")).body?.notices ?? []).some((n) => n.orderId === extraOrder.body?.order?.id));
+    await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId: extraOrder.body?.order?.id } });
+    writeFileSync("desk-notice.json", JSON.stringify({ orderId: extraOrder.body?.order?.id }));
+
+    // 상품 사진 여러 장
+    const photoProduct = (await admin.json("/api/store?all=1")).body?.products?.find((p) => p.id === locTarget);
+    const photos = ["/api/photo?id=ci-a.webp", "/api/photo?id=ci-b.webp", "/api/photo?id=ci-c.webp"];
+    const savePhotos = await admin.json("/api/admin/products", { method: "POST", json: { action: "update", product: { ...photoProduct, photo: photos[0], photos } } });
+    const afterPhotos = (await customer.json("/api/store")).body?.products?.find((p) => p.id === locTarget);
+    check("상품 사진 여러 장 저장 → 거래처 화면에 3장(첫 장 대표)", savePhotos.status === 200 && afterPhotos?.photo === photos[0] && afterPhotos?.photos?.join("|") === photos.join("|"), j(afterPhotos?.photos));
+    writeFileSync("desk-photo.json", JSON.stringify({ productId: locTarget, name: photoProduct?.name }));
+
+    // 휴대폰 알림 (텔레그램·푸시 미설정 상태)
+    const alertsInfo = await admin.json("/api/admin/alerts");
+    check("휴대폰 알림 설정: 푸시 공개키 발급, 봇 토큰은 화면에 안 나감", alertsInfo.status === 200 && /^[A-Za-z0-9_-]{80,90}$/.test(alertsInfo.body?.publicKey ?? "")
+      && !("telegramToken" in (alertsInfo.body?.settings ?? {})), j(alertsInfo.body));
+    check("미처리 발주 요약(신규 건수)", Number(alertsInfo.body?.pending?.count) >= 1, j(alertsInfo.body?.pending));
+    const badToken = await admin.json("/api/admin/alerts", { method: "POST", json: { action: "save", telegramToken: "not-a-token" } });
+    check("잘못된 텔레그램 토큰 거절", badToken.status === 400, j(badToken.body));
+    const saveRepeat = await admin.json("/api/admin/alerts", { method: "POST", json: { action: "save", repeatMinutes: 5, repeatMax: 3, repeatFrom: "06:00", repeatTo: "18:00", instant: true } });
+    const afterRepeat = (await admin.json("/api/admin/alerts")).body?.settings;
+    check("반복 알림 설정 저장", saveRepeat.status === 200 && afterRepeat?.repeatMinutes === 5 && afterRepeat?.repeatMax === 3 && afterRepeat?.repeatFrom === "06:00", j(afterRepeat));
+    const esc = await admin.json("/api/admin/alerts", { method: "POST", json: { action: "run-escalation", force: true } });
+    check("알림 채널이 없으면 다시 알림 안 보냄(오류 없음)", esc.status === 200 && esc.body?.count === 0, j(esc.body));
+    check("푸시 요약은 구독 토큰 없으면 401", (await anon.json("/api/push/summary")).status === 401);
+    check("푸시 구독은 관리자만", (await anon.json("/api/push/subscribe", { method: "POST", json: { endpoint: "https://example.com/x" } })).status === 403);
+    const sub = await admin.json("/api/push/subscribe", { method: "POST", json: { endpoint: "https://push.example.invalid/ci-endpoint", label: "CI" } });
+    const summary = await fetch(`${BASE}/api/push/summary`, { headers: { authorization: `Bearer ${sub.body?.token}` } }).then((r) => r.json());
+    check("구독 토큰으로 푸시 요약 받기(처리 안 된 발주 n건)", sub.status === 200 && String(summary?.title ?? "").includes("발주"), j(summary));
+    await admin.json("/api/push/subscribe", { method: "DELETE", json: { endpoint: "https://push.example.invalid/ci-endpoint" } });
+    check("구독 해제 → 토큰 무효", (await fetch(`${BASE}/api/push/summary`, { headers: { authorization: `Bearer ${sub.body?.token}` } })).status === 401);
+
+    // 화면: 발주 확인 알림 · 상품 카드(가격 보임) · 상세 사진 넘겨보기 · 관리자 구역/창고 화면 · 휴대폰 알림 페이지
+    try {
+      const { chromium, devices } = await import("playwright");
+      const browser = await chromium.launch();
+      const mobile = await browser.newContext({ ...devices["Pixel 7"], baseURL: BASE });
+      const page = await mobile.newPage();
+      await page.goto("/");
+      await page.locator('input[name="username"]').fill("12013");
+      await page.locator('input[name="password"]').fill("12013");
+      await page.locator('button[type="submit"]').click();
+      await page.locator(".od-notice").waitFor({ timeout: 30000 });
+      const noticeText = await page.locator(".od-notice").innerText();
+      check("[화면] 입력완료된 발주 → 거래처 화면에 큰 '발주 확인' 알림", noticeText.includes("확인되었습니다") && noticeText.includes("배송"), noticeText.replace(/\n/g, " ").slice(0, 160));
+      await page.waitForTimeout(500);
+      const noticeBox = await page.locator(".od-notice").boundingBox();
+      const viewport = page.viewportSize();
+      check("[화면] 발주 확인 알림이 화면 가운데 다 보임", Boolean(noticeBox && viewport && noticeBox.x >= 0 && noticeBox.x + noticeBox.width <= viewport.width + 1), j(noticeBox));
+      await page.screenshot({ path: "desk-shot-web-notice.png" });
+      await page.mouse.click(5, 5);
+      check("[화면] 바깥을 눌러도 알림 안 닫힘", await page.locator(".od-notice").isVisible());
+      await page.locator(".od-notice .od-send").click();
+      await page.locator(".od-notice").waitFor({ state: "detached", timeout: 10000 });
+      await page.reload();
+      await page.locator(".od-search input").waitFor({ timeout: 30000 });
+      await page.waitForTimeout(1500);
+      check("[화면] [확인했습니다] 누르면 다시 열어도 안 뜸", await page.locator(".od-notice").count() === 0);
+
+      const photoInfo = { name: photoProduct?.name ?? "" };
+      await page.locator(".od-search input").fill(photoInfo.name);
+      const card = page.locator(".od-card", { hasText: photoInfo.name }).first();
+      await card.waitFor({ timeout: 10000 });
+      const priceBox = await card.locator(".od-opt-price").first().boundingBox();
+      const cardBox = await card.boundingBox();
+      check("[화면] 카드에 단위 옆 가격이 잘리지 않고 보임", Boolean(priceBox && cardBox && priceBox.width > 20 && priceBox.x + priceBox.width <= cardBox.x + cardBox.width + 1), j({ priceBox, cardBox }));
+      check("[화면] 카드에는 입수·인분·설명 없음(사진·이름·가격·수량만)", await card.locator(".od-card-servings, .od-card-more").count() === 0);
+      check("[화면] 사진 여러 장 표시(▦ 3)", (await card.locator(".od-photo-count").innerText()).includes("3"));
+      await page.locator(".od-search input").fill("");
+      await page.locator(".od-search input").fill(sellable[0].name);
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: "desk-shot-web-cards.png" });
+      await page.locator(".od-search input").fill(photoInfo.name);
+      await card.locator(".od-card-photo").click();
+      await page.locator(".od-gallery").waitFor({ timeout: 10000 });
+      check("[화면] 사진 누르면 상세: 사진 1 / 3 넘겨보기", (await page.locator(".od-gallery-count").innerText()).trim() === "1 / 3" && await page.locator(".od-gallery-slide").count() === 3);
+      await page.locator(".od-gallery-track").evaluate((el) => el.scrollTo({ left: el.clientWidth, behavior: "instant" }));
+      await page.waitForTimeout(400);
+      check("[화면] 옆으로 밀면 2 / 3", (await page.locator(".od-gallery-count").innerText()).trim() === "2 / 3");
+      await page.screenshot({ path: "desk-shot-web-detail.png" });
+      await page.locator(".od-sheet-done").click();
+
+      await page.locator(".od-search input").fill(sellable[0].name);
+      await page.locator(".od-card", { hasText: sellable[0].name }).first().locator('button[aria-label$="수량 늘리기"]').first().click();
+      await page.locator(".od-cart-icon").click();
+      await page.locator(".od-send").first().click();
+      await page.locator(".od-step-date").waitFor({ timeout: 10000 });
+      const tmr = kstDate(1);
+      if (await page.locator(`.od-cal-grid button[data-date="${tmr}"]`).count() === 0) await page.locator('.od-cal-head button[aria-label="다음 달"]').click();
+      await page.locator(`.od-cal-grid button[data-date="${tmr}"]`).click();
+      await page.locator(".od-step-date .od-next").scrollIntoViewIfNeeded();
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: "desk-shot-web-date.png" });
+
+      const pc = await browser.newContext({ viewport: { width: 1360, height: 900 }, baseURL: BASE });
+      const adminPage = await pc.newPage();
+      await adminPage.goto("/admin");
+      await adminPage.locator('input[type="password"]').fill("ci-admin-password");
+      await adminPage.locator('button[type="submit"]').click();
+      await adminPage.locator(".adm-side nav button", { hasText: "구역" }).click();
+      await adminPage.locator(".adm-zone").first().waitFor({ timeout: 20000 });
+      check("[화면] 관리자 '구역 · 배송 마감' 메뉴: 구역 목록·마감 설명", (await adminPage.locator(".adm-zone-rule").first().innerText()).includes("오전 배송"));
+      await adminPage.screenshot({ path: "desk-shot-web-admin-zones.png", fullPage: false });
+      await adminPage.locator(".adm-side nav button", { hasText: "창고 위치" }).click();
+      await adminPage.locator(".adm-loc").first().waitFor({ timeout: 20000 });
+      check("[화면] 관리자 '창고 위치' 메뉴: 위치 순서 6곳 이상", await adminPage.locator(".adm-loc-list").first().locator(".adm-loc").count() >= 6);
+      await adminPage.screenshot({ path: "desk-shot-web-admin-locations.png", fullPage: false });
+      await adminPage.locator(".adm-side nav button", { hasText: "상품 관리" }).click();
+      await adminPage.locator('.adm-main input[type="search"]').first().fill(photoInfo.name);
+      await adminPage.waitForTimeout(500);
+      await adminPage.locator(".adm-btn-edit").first().click();
+      await adminPage.locator(".adm-photos-grid").waitFor({ timeout: 10000 });
+      check("[화면] 상품 수정: 사진 3장 + 창고 위치 선택", await adminPage.locator(".adm-photos-grid figure").count() === 3
+        && (await adminPage.locator(".adm-editor select").evaluateAll((els) => els.map((e) => e.value))).includes("냉동창고 우측"));
+      await adminPage.screenshot({ path: "desk-shot-web-admin-editor.png", fullPage: false });
+
+      const alertsPage = await (await browser.newContext({ ...devices["Pixel 7"], baseURL: BASE })).newPage();
+      await alertsPage.goto("/alerts");
+      await alertsPage.locator('input[type="password"]').fill("ci-admin-password");
+      await alertsPage.locator("button.alerts-primary").click();
+      await alertsPage.locator(".alerts-status").waitFor({ timeout: 20000 });
+      check("[화면] 휴대폰 알림 페이지: 미처리 요약·앱 알림·텔레그램 설정", (await alertsPage.locator("main").innerText()).includes("텔레그램")
+        && await alertsPage.locator('link[rel="manifest"][href="/alerts.webmanifest"]').count() === 1);
+      await alertsPage.screenshot({ path: "desk-shot-web-alerts.png", fullPage: true });
+      await browser.close();
+    } catch (error) {
+      check("[화면] v1.2 화면 점검", false, String(error?.message || error).slice(0, 400));
+    }
+
+    // 거래처를 원래 구역으로
+    await admin.json("/api/admin/zones", { method: "POST", json: { action: "assign", customerIds: [me.id], zone: me.region || "2단지" } });
   }
 
   /* ---------- 8. 권한 해제 ---------- */

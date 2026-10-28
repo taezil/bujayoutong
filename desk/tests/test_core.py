@@ -383,3 +383,88 @@ def test_entering_bundle_stays_together_new_additional_separate():
     entries = merge_orders(orders)
     bundles = [e for e in entries if e.get("isBundle")]
     assert len(entries) == 2 and len(bundles) == 1 and bundles[0]["memberIds"] == ["A", "B"]
+
+
+def test_pm_runs_are_never_merged_and_labelled():
+    from buja_desk.core.model import slot_label
+
+    base = [_item("P1", "돈까스", 1, [0, 0, 1, 0])]
+    first = _bundle_order("R1", "2026-10-29T03:00:00Z", base, slot="PM")
+    second = _bundle_order("R2", "2026-10-29T04:30:00Z", base, slot="PM")
+    first["deliveryRun"], second["deliveryRun"] = 1, 2
+    entries = merge_orders([first, second])
+    assert len(entries) == 2 and not any(e.get("isBundle") for e in entries)
+    assert slot_label(first) == "오후 1차 배송" and slot_label(second) == "오후 2차 배송"
+    assert slot_label({"deliverySlot": "PM", "deliveryRun": 0}) == "오후 배송"
+    assert slot_label({"deliverySlot": "AM", "deliveryRun": 2}) == "오전 배송"
+
+
+def _sheet_data():
+    def item(pid, name, qty, location, category="냉동식품", sort=(1, 1, 1, 1), unit="박스"):
+        return {"productId": pid, "productName": name, "unit": unit, "spec": "", "quantity": qty, "location": location,
+                "category": category, "sortKey": list(sort)}
+
+    return {
+        "zones": ["1단지", "2단지"],
+        "locations": [
+            {"name": "냉동창고 좌측", "storage": "frozen", "sortOrder": 1}, {"name": "냉동창고 우측", "storage": "frozen", "sortOrder": 2},
+            {"name": "냉장창고", "storage": "chilled", "sortOrder": 3}, {"name": "창고1층", "storage": "dry", "sortOrder": 4},
+            {"name": "창고2층", "storage": "dry", "sortOrder": 5}, {"name": "야외", "storage": "dry", "sortOrder": 6},
+        ],
+        "categoryStorage": {"냉동식품": "frozen", "김치": "chilled", "공산품": "dry"},
+        "orders": [
+            {"id": "O1", "customerId": "C1", "customerCode": "001", "customerName": "태승급식소 120-13/2단지", "zone": "2단지",
+             "deliverySlot": "AM", "deliveryRun": 0, "note": "10시 전", "items": [
+                 item("P-oil", "식용유", 2, "야외", "공산품", (9, 1, 1, 1), "통"), item("P-don", "돈까스", 2, "냉동창고 좌측"),
+                 item("P-kim", "김치", 1, "냉장창고", "김치", (3, 1, 1, 1)), item("P-new", "신상품", 1, "", "냉동식품", (1, 9, 1, 1), "봉")]},
+            {"id": "O2", "customerId": "C2", "customerCode": "002", "customerName": "남해분식 73-2", "zone": "2단지",
+             "deliverySlot": "AM", "source": "driver", "items": [item("P-don", "돈까스", 3, "냉동창고 좌측"), item("P-mack", "고등어", 1, "냉동창고 우측")]},
+            {"id": "O3", "customerId": "C1", "customerCode": "001", "customerName": "태승급식소 120-13/2단지", "zone": "2단지",
+             "deliverySlot": "AM", "loadPrintedAt": "2026-10-29 01:00:00", "items": [item("P-don", "돈까스", 1, "냉동창고 좌측")]},
+            {"id": "O4", "customerId": "C3", "customerCode": "003", "customerName": "동해식당", "zone": "1단지",
+             "deliverySlot": "PM", "deliveryRun": 0, "items": [item("P-kim", "김치", 4, "냉장창고", "김치", (3, 1, 1, 1))]},
+            {"id": "O5", "customerId": "C4", "customerCode": "004", "customerName": "서해", "zone": "2단지",
+             "deliverySlot": "PM", "deliveryRun": 2, "items": [item("P-don", "돈까스", 5, "냉동창고 좌측")]},
+            {"id": "O6", "customerId": "C5", "customerCode": "005", "customerName": "부평식당", "zone": "",
+             "deliverySlot": "AM", "items": [item("P-cup", "종이컵", 1, "창고1층", "공산품", (9, 2, 1, 1))]},
+        ],
+    }
+
+
+def test_load_sheet_groups_zone_and_sorts_by_warehouse_location():
+    from buja_desk.core.loadsheet import SheetOptions, build_sheets
+
+    sheets = build_sheets(_sheet_data(), SheetOptions("2026-10-30", slot="AM"))
+    assert [s.zone for s in sheets] == ["2단지", "구역 미지정"]  # 관리자 구역 순서, 미지정은 맨 뒤
+    zone2 = sheets[0]
+    titles = [section.title for section in zone2.sections]
+    assert titles == ["냉동창고 좌측", "냉동창고 우측", "냉장창고", "야외", "위치 미지정 · 냉동"]
+    don = zone2.sections[0].rows[0]
+    assert don.name == "돈까스" and don.total == 6  # 구역 전체 합계 (태승 2+1, 남해 3)
+    assert don.parts == [("태승급식소 120-13", 3.0), ("남해분식 73-2", 3.0)]
+    assert sorted(zone2.order_ids) == ["O1", "O2", "O3"]
+    customers = {c.name: c for c in zone2.customers}
+    assert customers["태승급식소 120-13"].order_count == 2 and customers["남해분식 73-2"].driver
+    # 거래처별 확인표도 창고 순서 (돈까스 → 김치 → 식용유 → 미지정)
+    assert [i[0] for i in customers["태승급식소 120-13"].items] == ["돈까스", "김치", "식용유", "신상품"]
+
+
+def test_load_sheet_filters_slot_run_zone_and_only_new():
+    from buja_desk.core.loadsheet import UNASSIGNED, SheetOptions, build_sheets, render_html
+
+    data = _sheet_data()
+    assert [s.zone for s in build_sheets(data, SheetOptions("2026-10-30", slot="PM"))] == ["1단지", "2단지"]
+    run2 = build_sheets(data, SheetOptions("2026-10-30", slot="PM", run=2))
+    assert len(run2) == 1 and run2[0].order_ids == ["O5"]
+    assert build_sheets(data, SheetOptions("2026-10-30", zone="1단지"))[0].order_ids == ["O4"]
+    assert build_sheets(data, SheetOptions("2026-10-30", zone=UNASSIGNED))[0].order_ids == ["O6"]
+    only_new = build_sheets(data, SheetOptions("2026-10-30", zone="2단지", slot="AM", only_new=True))
+    assert sorted(only_new[0].order_ids) == ["O1", "O2"]
+    page = render_html(build_sheets(data, SheetOptions("2026-10-30")), SheetOptions("2026-10-30"), staff_name="테스트", auto_print=False)
+    assert page.count('class="page"') == 3 and "상차준비표 · 2단지" in page and "break-before: page" in page
+    assert "<script" not in page
+    assert "<script" in render_html([], SheetOptions("2026-10-30"))
+    assert "출력할 발주가 없습니다" in render_html([], SheetOptions("2026-10-30"), auto_print=False)
+    # 거래처 이름 등은 HTML 이스케이프
+    data["orders"][0]["customerName"] = "<b>해킹</b>"
+    assert "<b>해킹</b>" not in render_html(build_sheets(data, SheetOptions("2026-10-30")), SheetOptions("2026-10-30"))

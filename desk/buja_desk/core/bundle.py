@@ -1,7 +1,7 @@
 """발주 자동 합치기 (Qt 와 무관, 모든 PC 가 같은 규칙으로 계산 → 화면이 서로 같음).
 
 규칙
-- 같은 거래처 + 같은 배송일 + 같은 배송처 + 같은 배송 시간(오전/오후) 이면 하나로 합침
+- 같은 거래처 + 같은 배송일 + 같은 배송처 + 같은 배송 시간(오전/오후 1차·2차) 이면 하나로 합침
 - '신규' 상태끼리만 합침. 누가 [입력 시작]한 묶음은 그 사람이 입력 중인 주문끼리 그대로 유지
 - 이미 입력 중/입력완료인 발주 뒤에 들어온 발주는 합치지 않고 '추가발주'로 따로 표시
 - 취소된 주문은 합치지 않음 (취소 확인 필요)
@@ -27,7 +27,8 @@ def _group_key(order: dict[str, Any]) -> tuple | None:
     else:
         return None
     location = order.get("deliveryLocationId") or ((order.get("deliveryLocation") or {}).get("name") if order.get("deliveryLocation") else "")
-    return (order.get("customerId"), order.get("deliveryDate"), location or "", order.get("deliverySlot") or "", bucket)
+    run = int(order.get("deliveryRun") or 0) if order.get("deliverySlot") == "PM" else 0
+    return (order.get("customerId"), order.get("deliveryDate"), location or "", order.get("deliverySlot") or "", run, bucket)
 
 
 def _sort_key(item: dict[str, Any]) -> tuple:

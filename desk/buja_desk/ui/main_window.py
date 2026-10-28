@@ -276,6 +276,12 @@ class MainWindow(QMainWindow):
         self.rail_badge.move(44, 2)
         self.rail_badge.setVisible(False)
 
+        layout.addSpacing(4)
+        self.load_sheet_button = self._rail_button("🧾\n상차준비표")
+        self.load_sheet_button.setToolTip("구역별 상차준비표 인쇄")
+        self.load_sheet_button.clicked.connect(self.controller.open_load_sheet)
+        layout.addWidget(self.load_sheet_button, 0, Qt.AlignmentFlag.AlignHCenter)
+
         layout.addStretch(1)
         self.sound_button = self._rail_button("", checkable=True)
         self.sound_button.clicked.connect(lambda checked: self.controller.set_sound(checked))

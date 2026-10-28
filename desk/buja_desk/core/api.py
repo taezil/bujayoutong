@@ -134,3 +134,11 @@ class DeskApi:
 
     def change_state(self, order_id: str, action: str, force: bool = False) -> dict[str, Any]:
         return self._request("POST", "/api/desk/orders", json={"action": action, "orderId": order_id, "force": force})
+
+    def load_sheet(self, delivery_date: str) -> dict[str, Any]:
+        """상차준비표: 배송일 하루치 발주 + 구역·창고 위치."""
+        return self._request("GET", "/api/desk/load-sheet", params={"date": delivery_date})
+
+    def mark_load_printed(self, order_ids: list[str], label: str = "") -> int:
+        payload = self._request("POST", "/api/desk/load-sheet", json={"orderIds": order_ids, "label": label})
+        return int(payload.get("changed") or 0)

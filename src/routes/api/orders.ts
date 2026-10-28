@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getCustomer, validMutationOrigin } from "../../lib/auth.server";
-import { createCustomerOrder, kstDate, orderAvailability, OrderWarningError, updateCustomerOrder } from "../../lib/orders.server";
-import { db } from "../../lib/db.server";
+import { createCustomerOrder, findOrderByRequestId, kstDate, orderAvailability, OrderWarningError, updateCustomerOrder } from "../../lib/orders.server";
+import { db, ensureDatabase } from "../../lib/db.server";
 import { writeAudit } from "../../lib/audit.server";
+import { ruleForRegion } from "../../lib/zones.server";
+import { deliveryText, resolveSlot } from "../../lib/delivery-rules";
+import { notifyNewOrder } from "../../lib/alerts.server";
 
 function warningResponse(error: unknown) {
   if (error instanceof OrderWarningError) {
@@ -75,8 +78,23 @@ export const Route = createFileRoute("/api/orders")({
           if (!row) throw new Error("선택한 배송처를 사용할 수 없습니다. 배송처를 다시 선택해 주세요.");
           deliveryLocation = { id: String(row.id), name: String(row.name ?? ""), address: String(row.address ?? ""), phone: String(row.phone ?? "") };
         }
+        // 구역별 배송 마감 확인 (주문은 24시간 가능, 마감 지난 '오늘 배송'만 막음). 차수는 서버가 접수 시각으로 계산
+        // 이미 접수된 요청을 다시 보낸 경우(마감 직후 재시도 포함)는 마감 확인 없이 기존 주문을 돌려줌
+        if (requestId) {
+          await ensureDatabase();
+          const existing = await findOrderByRequestId(customer.id, requestId);
+          if (existing) return Response.json({ ok: true, order: existing }, { headers: { "Cache-Control": "no-store" } });
+        }
+        const rule = await ruleForRegion(customer.region);
+        let deliveryRun = 0;
+        if (deliveryDate && deliverySlot) {
+          const resolved = resolveSlot(rule, deliveryDate, deliverySlot);
+          if (!resolved.ok) return Response.json({ error: resolved.error, deliveryClosed: true }, { status: 400 });
+          deliveryRun = resolved.run;
+        }
+        // 배송일·시간을 보내지 않는 예전 화면 주문은 그대로 받음 (사무실에서 배송일 확인)
         const order = await createCustomerOrder(customer, body.items ?? [], String(body.note ?? ""), "app", {
-          confirmAnomaly: body.confirmAnomaly === true, clientRequestId: requestId, deliveryDate: deliveryDate || undefined, deliverySlot, deliveryLocation,
+          confirmAnomaly: body.confirmAnomaly === true, clientRequestId: requestId, deliveryDate: deliveryDate || undefined, deliverySlot, deliveryRun, deliveryLocation,
         });
         // 같은 요청을 다시 보낸 경우(네트워크 재시도 등): 이미 저장된 주문을 그대로 돌려주고 기록은 남기지 않음
         if (order.duplicate) return Response.json({ ok: true, order }, { headers: { "Cache-Control": "no-store" } });
@@ -86,9 +104,11 @@ export const Route = createFileRoute("/api/orders")({
           action: "customer_order",
           entityType: "order",
           entityId: order.id,
-          summary: `🚨 새 발주 · ${customer.code} ${customer.name}${deliveryLocation ? ` (${deliveryLocation.name})` : ""} · ${order.orderPeriod === "PM" ? "오후발주" : "오전발주"} · 배송 ${order.deliveryDate}${deliverySlot ? (deliverySlot === "PM" ? " 오후" : " 오전") : ""}`,
+          summary: `🚨 새 발주 · ${customer.code} ${customer.name}${deliveryLocation ? ` (${deliveryLocation.name})` : ""} · ${order.orderPeriod === "PM" ? "오후발주" : "오전발주"} · 배송 ${order.deliveryDate}${deliverySlot ? ` ${deliveryText(deliverySlot, order.deliveryRun ?? 0)}` : ""}`,
           metadata: { customerId: customer.id, customerCode: customer.code, deliveryDate: order.deliveryDate, orderPeriod: order.orderPeriod },
         }).catch((auditError) => console.error("order audit failed", auditError));
+        // 사장님 휴대폰(앱 푸시·텔레그램) 즉시 알림. 실패해도 주문 접수에는 영향 없음
+        notifyNewOrder(order.id);
         return Response.json({ ok: true, order }, { headers: { "Cache-Control": "no-store" } });
       } catch (error) {
         const warning = warningResponse(error); if (warning) return warning;

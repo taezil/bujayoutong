@@ -38,7 +38,12 @@ export const Route = createFileRoute("/api/admin/products")({
       const category = cleanText(input.category, 80);
       const sub = cleanText(input.sub, 80);
       const unit = cleanText(input.unit, 50);
-      const photo = cleanText(input.photo, 500);
+      // 사진 여러 장: 첫 장 = 대표 사진(photo), 나머지는 products.photos(JSON)에 저장
+      const photoList = Array.from(new Set([input.photo, ...(Array.isArray(input.photos) ? input.photos : [])]
+        .map((url) => cleanText(url, 500)).filter((url) => url && !/^\s*javascript:/i.test(url))))
+        .slice(0, 10);
+      const photo = photoList[0] ?? "";
+      const extraPhotos = photoList.length > 1 ? JSON.stringify(photoList.slice(1)) : "";
       const price = cleanPrice(input.price);
       const soldout = input.soldout === true || input.soldout === 1;
       const taxType = input.taxType === "exempt" ? "exempt" : "taxable";
@@ -67,11 +72,13 @@ export const Route = createFileRoute("/api/admin/products")({
         const sortRow = await database.prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM products").first<{ n: number }>();
         await database.prepare("INSERT INTO products (id,name,category,sub,unit,price,soldout,photo,sort_order,tax_type,warehouse_zone,description,servings_per_unit,box_contents,servings_per_box,storage_method,price_list_visible,price_display_mode,hidden,promo_price) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
           .bind(id, name, category, sub, unit, price, soldout ? 1 : 0, photo, Number(sortRow?.n ?? 0), taxType, warehouseZone, description, servingsPerUnit, boxContents, servingsPerBox, storageMethod, priceListVisible ? 1 : 0, priceDisplayMode, hidden ? 1 : 0, promoPrice).run();
+        await database.prepare("UPDATE products SET photos=? WHERE id=?").bind(extraPhotos, id).run();
       } else if (body.action === "update") {
         const existing = await database.prepare("SELECT id FROM products WHERE id = ?").bind(id).first();
         if (!existing) throw new Error("수정할 상품을 찾을 수 없습니다.");
         await database.prepare("UPDATE products SET name=?,category=?,sub=?,unit=?,price=?,soldout=?,photo=?,tax_type=?,warehouse_zone=?,description=?,servings_per_unit=?,box_contents=?,servings_per_box=?,storage_method=?,price_list_visible=?,price_display_mode=?,hidden=?,promo_price=?,updated_at=datetime('now') WHERE id=?")
           .bind(name, category, sub, unit, price, soldout ? 1 : 0, photo, taxType, warehouseZone, description, servingsPerUnit, boxContents, servingsPerBox, storageMethod, priceListVisible ? 1 : 0, priceDisplayMode, hidden ? 1 : 0, promoPrice, id).run();
+        await database.prepare("UPDATE products SET photos=? WHERE id=?").bind(extraPhotos, id).run();
       } else throw new Error("지원하지 않는 작업입니다.");
 
       await database.prepare("DELETE FROM pack_options WHERE product_id = ?").bind(id).run();

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DriverRouteImport } from './routes/driver'
 import { Route as PriceListRouteImport } from './routes/price-list'
@@ -20,6 +21,7 @@ import { Route as AdminAccountsRouteImport } from './routes/admin_.accounts'
 import { Route as ApiOrdersRouteImport } from './routes/api/orders'
 import { Route as ApiPhotoRouteImport } from './routes/api/photo'
 import { Route as ApiStoreRouteImport } from './routes/api/store'
+import { Route as ApiAdminAlertsRouteImport } from './routes/api/admin/alerts'
 import { Route as ApiAdminAuditRouteImport } from './routes/api/admin/audit'
 import { Route as ApiAdminCategoriesRouteImport } from './routes/api/admin/categories'
 import { Route as ApiAdminCustomerUsersRouteImport } from './routes/api/admin/customer-users'
@@ -39,17 +41,22 @@ import { Route as ApiAdminSetupRouteImport } from './routes/api/admin/setup'
 import { Route as ApiAdminStaffRouteImport } from './routes/api/admin/staff'
 import { Route as ApiAdminStatusRouteImport } from './routes/api/admin/status'
 import { Route as ApiAdminSuppliersRouteImport } from './routes/api/admin/suppliers'
+import { Route as ApiAdminZonesRouteImport } from './routes/api/admin/zones'
 import { Route as ApiCustomerDashboardRouteImport } from './routes/api/customer/dashboard'
 import { Route as ApiCustomerLoginRouteImport } from './routes/api/customer/login'
 import { Route as ApiCustomerLogoutRouteImport } from './routes/api/customer/logout'
+import { Route as ApiCustomerNoticesRouteImport } from './routes/api/customer/notices'
 import { Route as ApiCustomerStatusRouteImport } from './routes/api/customer/status'
 import { Route as ApiCustomerSwitchRouteImport } from './routes/api/customer/switch'
+import { Route as ApiDeskLoadSheetRouteImport } from './routes/api/desk/load-sheet'
 import { Route as ApiDeskLoginRouteImport } from './routes/api/desk/login'
 import { Route as ApiDeskLogoutRouteImport } from './routes/api/desk/logout'
 import { Route as ApiDeskOrdersRouteImport } from './routes/api/desk/orders'
 import { Route as ApiDeskPulseRouteImport } from './routes/api/desk/pulse'
 import { Route as ApiDriverDataRouteImport } from './routes/api/driver/data'
 import { Route as ApiDriverOrderRouteImport } from './routes/api/driver/order'
+import { Route as ApiPushSubscribeRouteImport } from './routes/api/push/subscribe'
+import { Route as ApiPushSummaryRouteImport } from './routes/api/push/summary'
 import { Route as ApiStaffLoginRouteImport } from './routes/api/staff/login'
 import { Route as ApiStaffLogoutRouteImport } from './routes/api/staff/logout'
 import { Route as ApiStaffStatusRouteImport } from './routes/api/staff/status'
@@ -62,6 +69,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlertsRoute = AlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -107,6 +119,11 @@ const ApiPhotoRoute = ApiPhotoRouteImport.update({
 const ApiStoreRoute = ApiStoreRouteImport.update({
   id: '/api/store',
   path: '/api/store',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminAlertsRoute = ApiAdminAlertsRouteImport.update({
+  id: '/api/admin/alerts',
+  path: '/api/admin/alerts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminAuditRoute = ApiAdminAuditRouteImport.update({
@@ -204,6 +221,11 @@ const ApiAdminSuppliersRoute = ApiAdminSuppliersRouteImport.update({
   path: '/api/admin/suppliers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminZonesRoute = ApiAdminZonesRouteImport.update({
+  id: '/api/admin/zones',
+  path: '/api/admin/zones',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCustomerDashboardRoute = ApiCustomerDashboardRouteImport.update({
   id: '/api/customer/dashboard',
   path: '/api/customer/dashboard',
@@ -219,6 +241,11 @@ const ApiCustomerLogoutRoute = ApiCustomerLogoutRouteImport.update({
   path: '/api/customer/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCustomerNoticesRoute = ApiCustomerNoticesRouteImport.update({
+  id: '/api/customer/notices',
+  path: '/api/customer/notices',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCustomerStatusRoute = ApiCustomerStatusRouteImport.update({
   id: '/api/customer/status',
   path: '/api/customer/status',
@@ -227,6 +254,11 @@ const ApiCustomerStatusRoute = ApiCustomerStatusRouteImport.update({
 const ApiCustomerSwitchRoute = ApiCustomerSwitchRouteImport.update({
   id: '/api/customer/switch',
   path: '/api/customer/switch',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDeskLoadSheetRoute = ApiDeskLoadSheetRouteImport.update({
+  id: '/api/desk/load-sheet',
+  path: '/api/desk/load-sheet',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDeskLoginRoute = ApiDeskLoginRouteImport.update({
@@ -259,6 +291,16 @@ const ApiDriverOrderRoute = ApiDriverOrderRouteImport.update({
   path: '/api/driver/order',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPushSubscribeRoute = ApiPushSubscribeRouteImport.update({
+  id: '/api/push/subscribe',
+  path: '/api/push/subscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPushSummaryRoute = ApiPushSummaryRouteImport.update({
+  id: '/api/push/summary',
+  path: '/api/push/summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStaffLoginRoute = ApiStaffLoginRouteImport.update({
   id: '/api/staff/login',
   path: '/api/staff/login',
@@ -278,6 +320,7 @@ const ApiStaffStatusRoute = ApiStaffStatusRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/alerts': typeof AlertsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
   '/price-list': typeof PriceListRoute
@@ -287,6 +330,7 @@ export interface FileRoutesByFullPath {
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
   '/api/store': typeof ApiStoreRoute
+  '/api/admin/alerts': typeof ApiAdminAlertsRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
   '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
@@ -306,17 +350,22 @@ export interface FileRoutesByFullPath {
   '/api/admin/staff': typeof ApiAdminStaffRoute
   '/api/admin/status': typeof ApiAdminStatusRoute
   '/api/admin/suppliers': typeof ApiAdminSuppliersRoute
+  '/api/admin/zones': typeof ApiAdminZonesRoute
   '/api/customer/dashboard': typeof ApiCustomerDashboardRoute
   '/api/customer/login': typeof ApiCustomerLoginRoute
   '/api/customer/logout': typeof ApiCustomerLogoutRoute
+  '/api/customer/notices': typeof ApiCustomerNoticesRoute
   '/api/customer/status': typeof ApiCustomerStatusRoute
   '/api/customer/switch': typeof ApiCustomerSwitchRoute
+  '/api/desk/load-sheet': typeof ApiDeskLoadSheetRoute
   '/api/desk/login': typeof ApiDeskLoginRoute
   '/api/desk/logout': typeof ApiDeskLogoutRoute
   '/api/desk/orders': typeof ApiDeskOrdersRoute
   '/api/desk/pulse': typeof ApiDeskPulseRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
+  '/api/push/subscribe': typeof ApiPushSubscribeRoute
+  '/api/push/summary': typeof ApiPushSummaryRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
   '/api/staff/logout': typeof ApiStaffLogoutRoute
   '/api/staff/status': typeof ApiStaffStatusRoute
@@ -324,6 +373,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/alerts': typeof AlertsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
   '/price-list': typeof PriceListRoute
@@ -333,6 +383,7 @@ export interface FileRoutesByTo {
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
   '/api/store': typeof ApiStoreRoute
+  '/api/admin/alerts': typeof ApiAdminAlertsRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
   '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
@@ -352,17 +403,22 @@ export interface FileRoutesByTo {
   '/api/admin/staff': typeof ApiAdminStaffRoute
   '/api/admin/status': typeof ApiAdminStatusRoute
   '/api/admin/suppliers': typeof ApiAdminSuppliersRoute
+  '/api/admin/zones': typeof ApiAdminZonesRoute
   '/api/customer/dashboard': typeof ApiCustomerDashboardRoute
   '/api/customer/login': typeof ApiCustomerLoginRoute
   '/api/customer/logout': typeof ApiCustomerLogoutRoute
+  '/api/customer/notices': typeof ApiCustomerNoticesRoute
   '/api/customer/status': typeof ApiCustomerStatusRoute
   '/api/customer/switch': typeof ApiCustomerSwitchRoute
+  '/api/desk/load-sheet': typeof ApiDeskLoadSheetRoute
   '/api/desk/login': typeof ApiDeskLoginRoute
   '/api/desk/logout': typeof ApiDeskLogoutRoute
   '/api/desk/orders': typeof ApiDeskOrdersRoute
   '/api/desk/pulse': typeof ApiDeskPulseRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
+  '/api/push/subscribe': typeof ApiPushSubscribeRoute
+  '/api/push/summary': typeof ApiPushSummaryRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
   '/api/staff/logout': typeof ApiStaffLogoutRoute
   '/api/staff/status': typeof ApiStaffStatusRoute
@@ -371,6 +427,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/alerts': typeof AlertsRoute
   '/dashboard': typeof DashboardRoute
   '/driver': typeof DriverRoute
   '/price-list': typeof PriceListRoute
@@ -380,6 +437,7 @@ export interface FileRoutesById {
   '/api/orders': typeof ApiOrdersRoute
   '/api/photo': typeof ApiPhotoRoute
   '/api/store': typeof ApiStoreRoute
+  '/api/admin/alerts': typeof ApiAdminAlertsRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
   '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
@@ -399,17 +457,22 @@ export interface FileRoutesById {
   '/api/admin/staff': typeof ApiAdminStaffRoute
   '/api/admin/status': typeof ApiAdminStatusRoute
   '/api/admin/suppliers': typeof ApiAdminSuppliersRoute
+  '/api/admin/zones': typeof ApiAdminZonesRoute
   '/api/customer/dashboard': typeof ApiCustomerDashboardRoute
   '/api/customer/login': typeof ApiCustomerLoginRoute
   '/api/customer/logout': typeof ApiCustomerLogoutRoute
+  '/api/customer/notices': typeof ApiCustomerNoticesRoute
   '/api/customer/status': typeof ApiCustomerStatusRoute
   '/api/customer/switch': typeof ApiCustomerSwitchRoute
+  '/api/desk/load-sheet': typeof ApiDeskLoadSheetRoute
   '/api/desk/login': typeof ApiDeskLoginRoute
   '/api/desk/logout': typeof ApiDeskLogoutRoute
   '/api/desk/orders': typeof ApiDeskOrdersRoute
   '/api/desk/pulse': typeof ApiDeskPulseRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
+  '/api/push/subscribe': typeof ApiPushSubscribeRoute
+  '/api/push/summary': typeof ApiPushSummaryRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
   '/api/staff/logout': typeof ApiStaffLogoutRoute
   '/api/staff/status': typeof ApiStaffStatusRoute
@@ -419,6 +482,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/alerts'
     | '/dashboard'
     | '/driver'
     | '/price-list'
@@ -428,6 +492,7 @@ export interface FileRouteTypes {
     | '/api/orders'
     | '/api/photo'
     | '/api/store'
+    | '/api/admin/alerts'
     | '/api/admin/audit'
     | '/api/admin/categories'
     | '/api/admin/customer-users'
@@ -447,17 +512,22 @@ export interface FileRouteTypes {
     | '/api/admin/staff'
     | '/api/admin/status'
     | '/api/admin/suppliers'
+    | '/api/admin/zones'
     | '/api/customer/dashboard'
     | '/api/customer/login'
     | '/api/customer/logout'
+    | '/api/customer/notices'
     | '/api/customer/status'
     | '/api/customer/switch'
+    | '/api/desk/load-sheet'
     | '/api/desk/login'
     | '/api/desk/logout'
     | '/api/desk/orders'
     | '/api/desk/pulse'
     | '/api/driver/data'
     | '/api/driver/order'
+    | '/api/push/subscribe'
+    | '/api/push/summary'
     | '/api/staff/login'
     | '/api/staff/logout'
     | '/api/staff/status'
@@ -465,6 +535,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/alerts'
     | '/dashboard'
     | '/driver'
     | '/price-list'
@@ -474,6 +545,7 @@ export interface FileRouteTypes {
     | '/api/orders'
     | '/api/photo'
     | '/api/store'
+    | '/api/admin/alerts'
     | '/api/admin/audit'
     | '/api/admin/categories'
     | '/api/admin/customer-users'
@@ -493,17 +565,22 @@ export interface FileRouteTypes {
     | '/api/admin/staff'
     | '/api/admin/status'
     | '/api/admin/suppliers'
+    | '/api/admin/zones'
     | '/api/customer/dashboard'
     | '/api/customer/login'
     | '/api/customer/logout'
+    | '/api/customer/notices'
     | '/api/customer/status'
     | '/api/customer/switch'
+    | '/api/desk/load-sheet'
     | '/api/desk/login'
     | '/api/desk/logout'
     | '/api/desk/orders'
     | '/api/desk/pulse'
     | '/api/driver/data'
     | '/api/driver/order'
+    | '/api/push/subscribe'
+    | '/api/push/summary'
     | '/api/staff/login'
     | '/api/staff/logout'
     | '/api/staff/status'
@@ -511,6 +588,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/alerts'
     | '/dashboard'
     | '/driver'
     | '/price-list'
@@ -520,6 +598,7 @@ export interface FileRouteTypes {
     | '/api/orders'
     | '/api/photo'
     | '/api/store'
+    | '/api/admin/alerts'
     | '/api/admin/audit'
     | '/api/admin/categories'
     | '/api/admin/customer-users'
@@ -539,17 +618,22 @@ export interface FileRouteTypes {
     | '/api/admin/staff'
     | '/api/admin/status'
     | '/api/admin/suppliers'
+    | '/api/admin/zones'
     | '/api/customer/dashboard'
     | '/api/customer/login'
     | '/api/customer/logout'
+    | '/api/customer/notices'
     | '/api/customer/status'
     | '/api/customer/switch'
+    | '/api/desk/load-sheet'
     | '/api/desk/login'
     | '/api/desk/logout'
     | '/api/desk/orders'
     | '/api/desk/pulse'
     | '/api/driver/data'
     | '/api/driver/order'
+    | '/api/push/subscribe'
+    | '/api/push/summary'
     | '/api/staff/login'
     | '/api/staff/logout'
     | '/api/staff/status'
@@ -558,6 +642,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  AlertsRoute: typeof AlertsRoute
   DashboardRoute: typeof DashboardRoute
   DriverRoute: typeof DriverRoute
   PriceListRoute: typeof PriceListRoute
@@ -567,6 +652,7 @@ export interface RootRouteChildren {
   ApiOrdersRoute: typeof ApiOrdersRoute
   ApiPhotoRoute: typeof ApiPhotoRoute
   ApiStoreRoute: typeof ApiStoreRoute
+  ApiAdminAlertsRoute: typeof ApiAdminAlertsRoute
   ApiAdminAuditRoute: typeof ApiAdminAuditRoute
   ApiAdminCategoriesRoute: typeof ApiAdminCategoriesRoute
   ApiAdminCustomerUsersRoute: typeof ApiAdminCustomerUsersRoute
@@ -586,17 +672,22 @@ export interface RootRouteChildren {
   ApiAdminStaffRoute: typeof ApiAdminStaffRoute
   ApiAdminStatusRoute: typeof ApiAdminStatusRoute
   ApiAdminSuppliersRoute: typeof ApiAdminSuppliersRoute
+  ApiAdminZonesRoute: typeof ApiAdminZonesRoute
   ApiCustomerDashboardRoute: typeof ApiCustomerDashboardRoute
   ApiCustomerLoginRoute: typeof ApiCustomerLoginRoute
   ApiCustomerLogoutRoute: typeof ApiCustomerLogoutRoute
+  ApiCustomerNoticesRoute: typeof ApiCustomerNoticesRoute
   ApiCustomerStatusRoute: typeof ApiCustomerStatusRoute
   ApiCustomerSwitchRoute: typeof ApiCustomerSwitchRoute
+  ApiDeskLoadSheetRoute: typeof ApiDeskLoadSheetRoute
   ApiDeskLoginRoute: typeof ApiDeskLoginRoute
   ApiDeskLogoutRoute: typeof ApiDeskLogoutRoute
   ApiDeskOrdersRoute: typeof ApiDeskOrdersRoute
   ApiDeskPulseRoute: typeof ApiDeskPulseRoute
   ApiDriverDataRoute: typeof ApiDriverDataRoute
   ApiDriverOrderRoute: typeof ApiDriverOrderRoute
+  ApiPushSubscribeRoute: typeof ApiPushSubscribeRoute
+  ApiPushSummaryRoute: typeof ApiPushSummaryRoute
   ApiStaffLoginRoute: typeof ApiStaffLoginRoute
   ApiStaffLogoutRoute: typeof ApiStaffLogoutRoute
   ApiStaffStatusRoute: typeof ApiStaffStatusRoute
@@ -616,6 +707,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alerts': {
+      id: '/alerts'
+      path: '/alerts'
+      fullPath: '/alerts'
+      preLoaderRoute: typeof AlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -679,6 +777,13 @@ declare module '@tanstack/react-router' {
       path: '/api/store'
       fullPath: '/api/store'
       preLoaderRoute: typeof ApiStoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/alerts': {
+      id: '/api/admin/alerts'
+      path: '/api/admin/alerts'
+      fullPath: '/api/admin/alerts'
+      preLoaderRoute: typeof ApiAdminAlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/audit': {
@@ -814,6 +919,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminSuppliersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/zones': {
+      id: '/api/admin/zones'
+      path: '/api/admin/zones'
+      fullPath: '/api/admin/zones'
+      preLoaderRoute: typeof ApiAdminZonesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/customer/dashboard': {
       id: '/api/customer/dashboard'
       path: '/api/customer/dashboard'
@@ -835,6 +947,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCustomerLogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/customer/notices': {
+      id: '/api/customer/notices'
+      path: '/api/customer/notices'
+      fullPath: '/api/customer/notices'
+      preLoaderRoute: typeof ApiCustomerNoticesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/customer/status': {
       id: '/api/customer/status'
       path: '/api/customer/status'
@@ -847,6 +966,13 @@ declare module '@tanstack/react-router' {
       path: '/api/customer/switch'
       fullPath: '/api/customer/switch'
       preLoaderRoute: typeof ApiCustomerSwitchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/desk/load-sheet': {
+      id: '/api/desk/load-sheet'
+      path: '/api/desk/load-sheet'
+      fullPath: '/api/desk/load-sheet'
+      preLoaderRoute: typeof ApiDeskLoadSheetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/desk/login': {
@@ -891,6 +1017,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDriverOrderRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/push/subscribe': {
+      id: '/api/push/subscribe'
+      path: '/api/push/subscribe'
+      fullPath: '/api/push/subscribe'
+      preLoaderRoute: typeof ApiPushSubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/push/summary': {
+      id: '/api/push/summary'
+      path: '/api/push/summary'
+      fullPath: '/api/push/summary'
+      preLoaderRoute: typeof ApiPushSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/staff/login': {
       id: '/api/staff/login'
       path: '/api/staff/login'
@@ -918,6 +1058,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  AlertsRoute: AlertsRoute,
   DashboardRoute: DashboardRoute,
   DriverRoute: DriverRoute,
   PriceListRoute: PriceListRoute,
@@ -927,6 +1068,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOrdersRoute: ApiOrdersRoute,
   ApiPhotoRoute: ApiPhotoRoute,
   ApiStoreRoute: ApiStoreRoute,
+  ApiAdminAlertsRoute: ApiAdminAlertsRoute,
   ApiAdminAuditRoute: ApiAdminAuditRoute,
   ApiAdminCategoriesRoute: ApiAdminCategoriesRoute,
   ApiAdminCustomerUsersRoute: ApiAdminCustomerUsersRoute,
@@ -946,17 +1088,22 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminStaffRoute: ApiAdminStaffRoute,
   ApiAdminStatusRoute: ApiAdminStatusRoute,
   ApiAdminSuppliersRoute: ApiAdminSuppliersRoute,
+  ApiAdminZonesRoute: ApiAdminZonesRoute,
   ApiCustomerDashboardRoute: ApiCustomerDashboardRoute,
   ApiCustomerLoginRoute: ApiCustomerLoginRoute,
   ApiCustomerLogoutRoute: ApiCustomerLogoutRoute,
+  ApiCustomerNoticesRoute: ApiCustomerNoticesRoute,
   ApiCustomerStatusRoute: ApiCustomerStatusRoute,
   ApiCustomerSwitchRoute: ApiCustomerSwitchRoute,
+  ApiDeskLoadSheetRoute: ApiDeskLoadSheetRoute,
   ApiDeskLoginRoute: ApiDeskLoginRoute,
   ApiDeskLogoutRoute: ApiDeskLogoutRoute,
   ApiDeskOrdersRoute: ApiDeskOrdersRoute,
   ApiDeskPulseRoute: ApiDeskPulseRoute,
   ApiDriverDataRoute: ApiDriverDataRoute,
   ApiDriverOrderRoute: ApiDriverOrderRoute,
+  ApiPushSubscribeRoute: ApiPushSubscribeRoute,
+  ApiPushSummaryRoute: ApiPushSummaryRoute,
   ApiStaffLoginRoute: ApiStaffLoginRoute,
   ApiStaffLogoutRoute: ApiStaffLogoutRoute,
   ApiStaffStatusRoute: ApiStaffStatusRoute,

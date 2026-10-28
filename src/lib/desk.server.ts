@@ -11,6 +11,7 @@
  * - 행이 없으면 '신규' → '입력 중'(누가, 언제) → '입력완료'(누가, 언제)
  * - 상태 변경은 조건부 UPDATE 한 번으로 처리해서 두 PC 가 동시에 눌러도 한 명만 성공합니다.
  */
+import { deliveryText } from "./delivery-rules";
 import type { D1Result } from "@cloudflare/workers-types";
 import { db, ensureDatabase } from "./db.server";
 import { randomHex, sha256, verifyPassword } from "./password.server";
@@ -199,7 +200,7 @@ type OrderRow = Record<string, unknown>;
 async function loadOrders(where: string, params: unknown[], orderBy: string, limit: number) {
   const orders = await db().prepare(`
     SELECT o.id,o.customer_id,o.source,o.status,o.region_snapshot,o.total_amount,o.note,o.created_at,o.updated_at,
-           o.delivery_date,o.order_period,o.delivery_slot,o.price_group,o.is_additional,o.created_by_staff_name,o.cancelled_at,
+           o.delivery_date,o.order_period,o.delivery_slot,o.delivery_run,o.price_group,o.is_additional,o.created_by_staff_name,o.cancelled_at,c.region AS customer_region,
            o.delivery_location_id,o.delivery_location_name,o.delivery_location_address,o.delivery_location_phone,
            c.code AS customer_code,c.name AS customer_name,c.phone AS customer_phone,c.address AS customer_address,
            COALESCE(d.state,'new') AS desk_state,COALESCE(d.revision,0) AS desk_revision,
@@ -285,6 +286,10 @@ function toDeskOrder(r: OrderRow, items: OrderRow[], promoCategory = "") {
     orderPeriod: String(r.order_period) === "PM" ? "PM" : "AM",
     // 거래처가 고른 배송 시간 (AM/PM, 예전 주문·관리자 입력은 '')
     deliverySlot: String(r.delivery_slot ?? "") === "PM" ? "PM" : String(r.delivery_slot ?? "") === "AM" ? "AM" : "",
+    // 오후 배송 차수(1차·2차). 0 = 차수 없음
+    deliveryRun: String(r.delivery_slot ?? "") === "PM" ? Number(r.delivery_run ?? 0) : 0,
+    // 현재 거래처 구역 (관리자 '구역' 화면에서 묶은 값)
+    zone: String(r.customer_region ?? "").trim(),
     isAdditional: additionalBySystem || Boolean(previousOrderId),
     previousOrderId,
     note: String(r.note ?? ""),
@@ -443,6 +448,13 @@ export async function deskChangeState(staff: DeskStaff, orderId: string, action:
 
   // 다른 PC 들이 다음 pulse 에서 바로 알아채도록 변경 카운터 증가
   await db().prepare("UPDATE app_settings SET value=CAST(CAST(value AS INTEGER)+1 AS TEXT) WHERE key='desk_rev'").run();
+  // 거래처 화면 '발주 확인' 알림: 입력완료 → 생성(거래처가 닫을 때까지 표시), 입력완료 취소 → 아직 안 닫았으면 회수
+  try {
+    if (action === "done") await createConfirmNotice(current);
+    if (action === "reopen") await db().prepare("DELETE FROM customer_notices WHERE order_id=? AND kind='confirmed' AND dismissed_at=''").bind(orderId).run();
+  } catch (error) {
+    console.error("customer notice failed", error);
+  }
 
   const labels: Record<DeskAction, string> = { start: "입력 시작", release: "입력 중 해제", done: "입력완료", reopen: "입력완료 취소" };
   await writeAudit({
@@ -453,6 +465,24 @@ export async function deskChangeState(staff: DeskStaff, orderId: string, action:
     summary: `알림센터 ${labels[action]}${force ? "(이어받기)" : ""} · ${String(order.code)} ${String(order.name)} · ${staff.deviceName}`,
   }).catch((error) => console.error("desk audit failed", error));
   return { ok: true, alreadyDone: false, order: current };
+}
+
+function noticeDate(date: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  const weekday = ["일", "월", "화", "수", "목", "금", "토"][new Date(`${date}T00:00:00Z`).getUTCDay()];
+  return `${Number(date.slice(5, 7))}월 ${Number(date.slice(8))}일(${weekday})`;
+}
+
+async function createConfirmNotice(order: Record<string, any>) {
+  const customerId = String(order.customerId ?? "");
+  if (!customerId || order.cancelled) return;
+  const items = Array.isArray(order.items) ? order.items : [];
+  const delivery = `${noticeDate(String(order.deliveryDate ?? ""))} ${deliveryText(String(order.deliverySlot ?? ""), Number(order.deliveryRun ?? 0))} 배송`.trim();
+  const preview = items.slice(0, 3).map((item: Record<string, unknown>) => `${String(item.productName ?? "")} ${String(item.quantity ?? "")}${String(item.unit ?? "")}`).join(", ");
+  const place = String(order.deliveryLocation?.name ?? "") || String(order.customerName ?? "");
+  await db().prepare("INSERT OR IGNORE INTO customer_notices(customer_id,order_id,kind,title,body) VALUES(?,?,'confirmed',?,?)")
+    .bind(customerId, String(order.id), "발주가 확인되었습니다", `${place}\n${delivery}\n${preview}${items.length > 3 ? ` 외 ${items.length - 3}품목` : ""}`)
+    .run();
 }
 
 /**
