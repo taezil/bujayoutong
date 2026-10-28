@@ -48,6 +48,9 @@ class Customer:
         self.session.headers["Origin"] = BASE
         r = self.session.post(f"{BASE}/api/customer/login", json={"identifier": "12013", "password": "12013"}, timeout=20)
         r.raise_for_status()
+        # 로그인 쿠키는 Secure 라서 http://localhost 테스트에서는 직접 헤더로 보냄
+        self.session.headers["Cookie"] = "; ".join(f"{c.name}={c.value}" for c in r.cookies)
+        self.session.cookies.clear()
         products = self.session.get(f"{BASE}/api/store", timeout=30).json()["products"]
         sellable = [p for p in products if not p.get("soldout") and p.get("packOptions")]
         self.items = [{"productId": p["id"], "optionLabel": p["packOptions"][0]["label"], "quantity": p["packOptions"][0].get("step") or 1}

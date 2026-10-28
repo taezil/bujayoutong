@@ -59,7 +59,11 @@ def pump(app: QApplication, until, timeout: float = 25.0) -> bool:
 def place_order() -> str:
     session = requests.Session()
     session.headers["Origin"] = BASE
-    session.post(f"{BASE}/api/customer/login", json={"identifier": "12013", "password": "12013"}, timeout=20).raise_for_status()
+    login = session.post(f"{BASE}/api/customer/login", json={"identifier": "12013", "password": "12013"}, timeout=20)
+    login.raise_for_status()
+    # 로그인 쿠키는 Secure 라서 http://localhost 테스트에서는 직접 헤더로 보냄
+    session.headers["Cookie"] = "; ".join(f"{c.name}={c.value}" for c in login.cookies)
+    session.cookies.clear()
     products = session.get(f"{BASE}/api/store", timeout=30).json()["products"]
     sellable = [p for p in products if not p.get("soldout") and p.get("packOptions")][10:12]
     delivery = (datetime.now(timezone(timedelta(hours=9))) + timedelta(days=4)).strftime("%Y-%m-%d")
