@@ -63,10 +63,10 @@ class Client {
 }
 
 // CI 전용 직원 계정 (사무실 직원 2명 역할)
-function upsertStaff(id, username, displayName, pin) {
+function upsertStaff(id, username, displayName, pin, role = "ADMIN") {
   const salt = randomBytes(16).toString("hex");
   const hash = pbkdf2Sync(pin, salt, 100000, 32, "sha256").toString("hex");
-  sql(`INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash,active) VALUES('${id}','${username}','${displayName}','ADMIN','${salt}','${hash}',1)
+  sql(`INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash,active) VALUES('${id}','${username}','${displayName}','${role}','${salt}','${hash}',1)
        ON CONFLICT(id) DO UPDATE SET auth_salt=excluded.auth_salt, auth_hash=excluded.auth_hash, active=1`);
 }
 
@@ -229,7 +229,13 @@ async function main() {
       await page.locator(".od-search input").fill("");
     }
     await page.locator(".od-search input").fill(product.name);
-    const priceShown = (await page.locator(".od-card", { hasText: product.name }).first().locator(".od-option-price").first().innerText()).trim();
+    const priceLocator = page.locator(".od-card", { hasText: product.name }).first().locator(".od-option-price").first();
+    await priceLocator.waitFor({ timeout: 10000 });
+    let priceShown = "";
+    for (let i = 0; i < 20 && !priceShown; i += 1) {
+      priceShown = (await priceLocator.innerText().catch(() => "")).trim();
+      if (!priceShown) await page.waitForTimeout(250);
+    }
     check("[화면] 상품 카드에 자기 그룹 가격 표시", /원$|가격문의|시세/.test(priceShown), priceShown);
     await page.locator(".od-search input").fill("");
     await addOne();
@@ -393,6 +399,28 @@ async function main() {
     }
     const farNormal = await customer.json("/api/orders", { method: "POST", json: { items: [items[0]], requestId: randomUUID(), deliveryDate: kstDate(5), deliverySlot: "AM", confirmAnomaly: true } });
     check("일반 상품만이면 먼 날짜도 접수", farNormal.status === 200, j(farNormal.body));
+  }
+
+  /* ---------- 7-3. 발주 삭제 ---------- */
+  {
+    const victim = await customer.json("/api/orders", { method: "POST", json: { items: [items[0]], requestId: randomUUID(), deliveryDate: kstDate(2), deliverySlot: "AM", confirmAnomaly: true } });
+    const victimId = victim.body?.order?.id;
+    upsertStaff("S-CI-DESK-D", "cidriver", "배송기사테스트", "975310", "DRIVER");
+    const pcDriver = new Client();
+    pcDriver.token = (await pcDriver.json("/api/desk/login", { method: "POST", origin: false, json: { username: "cidriver", pin: "975310", deviceName: "CI-D" } })).body?.token ?? "";
+    const driverDelete = await pcDriver.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "delete", orderId: victimId } });
+    check("배송기사 권한은 발주 삭제 불가(403)", driverDelete.status === 403, j(driverDelete.body));
+    await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "start", orderId: victimId } });
+    const del = await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "delete", orderId: victimId, reason: "CI 테스트" } });
+    check("관리자 권한 발주 삭제 → 삭제됨", del.status === 200 && del.body?.order?.desk?.deleted === true && del.body.order.cancelled === true, j(del.body?.order?.desk));
+    check("삭제한 발주는 모든 PC 목록에서 빠짐", !((await pcB.json("/api/desk/orders")).body?.orders ?? []).some((o) => o.id === victimId));
+    const again = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId: victimId } });
+    check("삭제된 발주 다른 PC에서 완료 시도 → '이미 삭제' 안내", again.status === 409 && String(again.body?.error).includes("삭제"), j(again.body));
+    const reopenDeleted = await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "reopen", orderId: victimId } });
+    check("삭제된 발주는 입력완료 취소로 되살릴 수 없음", reopenDeleted.status === 409);
+    const custView = (await customer.json("/api/customer/dashboard")).body;
+    check("거래처 최근 주문에서도 빠짐(취소)", !JSON.stringify(custView ?? {}).includes(victimId));
+    check("삭제 기록(사유 포함) 남음", sql(`SELECT summary FROM audit_logs WHERE entity_id='${victimId}' AND action='desk_delete'`).some((r) => String(r.summary).includes("CI 테스트")));
   }
 
   /* ---------- 8. 권한 해제 ---------- */

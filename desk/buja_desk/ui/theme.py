@@ -35,7 +35,7 @@ QLabel#AppTitle {{ font-size: 16pt; font-weight: 800; color: white; }}
 QLabel#Pill {{ border-radius: 12px; padding: 4px 12px; font-weight: 700; }}
 QLabel#Pill[state="ok"] {{ background: rgba(255,255,255,0.18); color: white; }}
 QLabel#Pill[state="bad"] {{ background: {COLORS['danger']}; color: white; }}
-QLabel#CountNew {{ background: white; color: {COLORS['new']}; border-radius: 12px; padding: 4px 12px; font-weight: 800; font-size: 12pt; }}
+QFrame#TopBar QLabel#CountNew {{ background: white; color: {COLORS['new']}; border-radius: 12px; padding: 4px 12px; font-weight: 800; font-size: 12pt; }}
 QPushButton {{ background: white; border: 1px solid {COLORS['line']}; border-radius: 8px; padding: 8px 14px; font-weight: 700; }}
 QPushButton:hover {{ border-color: {COLORS['brand']}; }}
 QPushButton:disabled {{ color: #A0A7B0; background: #F1F3F5; }}

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  DeskError, deskChangeState, deskErrorResponse, deskHistory, deskJson, deskOpenOrders, deskOrderById, deskPulse, requireDeskStaff,
+  DeskError, deskChangeState, deskDeleteOrder, deskErrorResponse, deskHistory, deskJson, deskOpenOrders, deskOrderById, deskPulse, requireDeskStaff,
 } from "../../../lib/desk.server";
 import type { DeskAction } from "../../../lib/desk.server";
 
@@ -37,7 +37,12 @@ export const Route = createFileRoute("/api/desk/orders")({
     POST: async ({ request }) => {
       try {
         const staff = await requireDeskStaff(request);
-        const body = await request.json().catch(() => ({})) as { action?: string; orderId?: string; force?: boolean };
+        const body = await request.json().catch(() => ({})) as { action?: string; orderId?: string; force?: boolean; reason?: string };
+        if (body.action === "delete") {
+          const orderId = String(body.orderId ?? "").trim().slice(0, 80);
+          if (!orderId) throw new DeskError("주문을 선택해 주세요.");
+          return deskJson(await deskDeleteOrder(staff, orderId, String(body.reason ?? "")));
+        }
         const action = String(body.action ?? "") as DeskAction;
         if (!ACTIONS.includes(action)) throw new DeskError("지원하지 않는 작업입니다.");
         const orderId = String(body.orderId ?? "").trim().slice(0, 80);

@@ -286,6 +286,7 @@ async function ensureDeskSchema(database: D1Database) {
   await database.exec("CREATE INDEX IF NOT EXISTS idx_desk_sessions_staff ON desk_sessions(staff_id, expires_at)");
   await database.exec("CREATE TABLE IF NOT EXISTS order_desk_status (order_id TEXT PRIMARY KEY, state TEXT NOT NULL DEFAULT 'new' CHECK(state IN ('new','entering','done')), entering_by_id TEXT NOT NULL DEFAULT '', entering_by_name TEXT NOT NULL DEFAULT '', entering_device TEXT NOT NULL DEFAULT '', entering_at TEXT NOT NULL DEFAULT '', done_by_id TEXT NOT NULL DEFAULT '', done_by_name TEXT NOT NULL DEFAULT '', done_at TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE)");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_order_desk_status_state ON order_desk_status(state, done_at)");
+  await ensureColumn(database, "order_desk_status", "deleted", "INTEGER NOT NULL DEFAULT 0");
   await database.exec("INSERT OR IGNORE INTO app_settings(key,value) VALUES('desk_tracking_since', datetime('now'))");
   // 변경 감지(pulse)를 행 몇 개만 읽고 끝내기 위한 인덱스/카운터 (PC 여러 대가 수 초마다 호출하므로 D1 읽기량 최소화)
   await database.exec("CREATE INDEX IF NOT EXISTS idx_orders_updated ON orders(updated_at)");

@@ -342,11 +342,11 @@ class MainWindow(QMainWindow):
         return page
 
     # ---------- 데이터 반영 ----------
-    def set_staff(self, staff_id: str, text: str) -> None:
+    def set_staff(self, staff_id: str, text: str, can_delete: bool = False) -> None:
         self.my_staff_id = staff_id
         self.staff_label.setText(text)
-        self.detail.set_my_staff(staff_id)
-        self.history_detail.set_my_staff(staff_id)
+        self.detail.set_my_staff(staff_id, can_delete)
+        self.history_detail.set_my_staff(staff_id, can_delete)
 
     def set_connection(self, ok: bool, text: str) -> None:
         self.connection.setText(text)
@@ -589,7 +589,9 @@ class MainWindow(QMainWindow):
             desk = order.get("desk") or {}
             state = state_of(order)
             state_text = {"new": "신규", "entering": "입력 중", "done": "입력완료"}[state]
-            if order.get("cancelled"):
+            if desk.get("deleted"):
+                state_text = "삭제됨"
+            elif order.get("cancelled"):
                 state_text += " (취소된 주문)"
             kind = "추가 🚨" if order.get("isAdditional") else "신규"
             if order.get("priceGroup") == "B":
