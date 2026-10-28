@@ -130,15 +130,15 @@ class OrderCard(QFrame):
         elif state == "new":
             badges.addWidget(_badge("신규", "new")); has_badge = True
         if order.get("isBundle"):
-            badges.addWidget(_badge(f"🔗 {order.get('mergedCount', 2)}건 합침", "merged")); has_badge = True
+            badges.addWidget(_badge(f"🔗{order.get('mergedCount', 2)}건", "merged")); has_badge = True
         if order.get("isAdditional"):
-            badges.addWidget(_badge("추가발주 🚨", "additional")); has_badge = True
+            badges.addWidget(_badge("추가🚨", "additional")); has_badge = True
         if order.get("priceGroup") == "B":
             badges.addWidget(_badge("B그룹", "group_b")); has_badge = True
         drivers = order.get("driverNames") or ([order.get("createdByStaffName")] if order.get("source") == "driver" else [])
         drivers = [d for d in drivers if d]
         if drivers or order.get("source") == "driver":
-            badges.addWidget(_badge(f"🚚 {', '.join(drivers) or '기사'}", "driver")); has_badge = True
+            badges.addWidget(_badge(f"🚚{drivers[0] if drivers else '기사'}", "driver")); has_badge = True
         badges.addStretch(1)
         if has_badge:
             col.addLayout(badges)
