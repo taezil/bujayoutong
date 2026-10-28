@@ -266,6 +266,24 @@ async function ensureOperationsSchema(database: D1Database) {
   }
 }
 
+/**
+ * 사무실 발주 알림센터(Windows 프로그램)용 테이블.
+ * - orders.client_request_id: 거래처 앱 주문 중복 접수 방지 키 (같은 키로 다시 보내면 기존 주문을 돌려줌)
+ * - desk_sessions: PC 프로그램 로그인 토큰(해시만 저장). 쿠키가 아닌 Authorization 헤더로만 사용
+ * - order_desk_status: 얼마에요 입력 처리상태 (행이 없으면 '신규')
+ * - desk_tracking_since: 이 시각 이후 접수된 주문만 알림센터에 표시 (도입 전 주문이 한꺼번에 뜨지 않게)
+ */
+async function ensureDeskSchema(database: D1Database) {
+  await ensureColumn(database, "orders", "client_request_id", "TEXT NOT NULL DEFAULT ''");
+  await database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_request ON orders(customer_id, client_request_id) WHERE client_request_id<>''");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at)");
+  await database.exec("CREATE TABLE IF NOT EXISTS desk_sessions (token_hash TEXT PRIMARY KEY, staff_id TEXT NOT NULL, device_name TEXT NOT NULL DEFAULT '', expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), last_seen_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(staff_id) REFERENCES staff_users(id) ON DELETE CASCADE)");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_desk_sessions_staff ON desk_sessions(staff_id, expires_at)");
+  await database.exec("CREATE TABLE IF NOT EXISTS order_desk_status (order_id TEXT PRIMARY KEY, state TEXT NOT NULL DEFAULT 'new' CHECK(state IN ('new','entering','done')), entering_by_id TEXT NOT NULL DEFAULT '', entering_by_name TEXT NOT NULL DEFAULT '', entering_device TEXT NOT NULL DEFAULT '', entering_at TEXT NOT NULL DEFAULT '', done_by_id TEXT NOT NULL DEFAULT '', done_by_name TEXT NOT NULL DEFAULT '', done_at TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE)");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_order_desk_status_state ON order_desk_status(state, done_at)");
+  await database.exec("INSERT OR IGNORE INTO app_settings(key,value) VALUES('desk_tracking_since', datetime('now'))");
+}
+
 async function settingValue(database: D1Database, key: string) {
   const row = await database.prepare("SELECT value FROM app_settings WHERE key=?").bind(key).first<{ value: string }>();
   return row?.value ?? null;
@@ -355,7 +373,7 @@ let schemaSignature: string | null = null;
 
 async function currentSchemaSignature() {
   if (!schemaSignature) {
-    const source = [ensureDatabaseFull, ensureOperationsSchema, runAuthMaintenance, importExcelCatalog, ensureColumn, ensureCustomerLogin]
+    const source = [ensureDatabaseFull, ensureOperationsSchema, ensureDeskSchema, runAuthMaintenance, importExcelCatalog, ensureColumn, ensureCustomerLogin]
       .map((fn) => fn.toString())
       .join("\n");
     schemaSignature = await sha256(`${source}\n${migrationSql}\n${erpMigrationSql}`);
@@ -410,6 +428,7 @@ async function ensureDatabaseFull(database: D1Database) {
   await ensureColumn(database, "pack_options", "price_b", "INTEGER");
   await ensureColumn(database, "pack_options", "spec", "TEXT NOT NULL DEFAULT ''");
   await ensureOperationsSchema(database);
+  await ensureDeskSchema(database);
 
   await runAuthMaintenance(database);
 

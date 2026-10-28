@@ -190,9 +190,19 @@ export async function createCustomerOrder(
   items: OrderRequestItem[],
   note = "",
   source = "app",
-  options: { deliveryDate?: string; staff?: StaffSession | null; confirmAnomaly?: boolean; orderPeriod?: string } = {},
+  options: {
+    deliveryDate?: string; staff?: StaffSession | null; confirmAnomaly?: boolean; orderPeriod?: string;
+    /** 거래처 앱이 주문마다 만드는 중복 방지 키. 같은 키로 다시 보내면 새로 만들지 않고 기존 주문을 돌려줍니다. */
+    clientRequestId?: string;
+    deliveryLocation?: { id: string; name: string; address: string; phone: string } | null;
+  } = {},
 ) {
   await ensureDatabase();
+  const clientRequestId = String(options.clientRequestId ?? "").trim();
+  if (clientRequestId) {
+    const existing = await findOrderByRequestId(customer.id, clientRequestId);
+    if (existing) return existing;
+  }
   if (source === "app") {
     const availability = await orderAvailability();
     if (!availability.allowed) throw new Error(availability.reason);
@@ -210,12 +220,24 @@ export async function createCustomerOrder(
   const id = randomOrderId();
   const total = Math.round(prepared.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
   const staff = options.staff ?? null;
-  await db().batch([
-    db().prepare(`INSERT INTO orders(id,customer_id,source,status,region_snapshot,total_amount,note,delivery_date,created_by_staff_id,created_by_staff_name,is_additional,order_period)
-                  VALUES(?,?,?,'received',?,?,?,?,?,?,?,?)`)
-      .bind(id, customer.id, source, customer.region || "미지정", total, String(note || "").slice(0, 500), deliveryDate, staff?.id ?? "", staff?.displayName ?? "", isAdditional ? 1 : 0, orderPeriod),
-    ...prepared.map((item) => itemInsert(id, item)),
-  ]);
+  const location = options.deliveryLocation ?? null;
+  try {
+    // orders + order_items 를 한 번의 batch(트랜잭션)로 저장: 일부만 저장되는 일이 없음
+    await db().batch([
+      db().prepare(`INSERT INTO orders(id,customer_id,source,status,region_snapshot,total_amount,note,delivery_date,created_by_staff_id,created_by_staff_name,is_additional,order_period,client_request_id,delivery_location_id,delivery_location_name,delivery_location_address,delivery_location_phone)
+                    VALUES(?,?,?,'received',?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .bind(id, customer.id, source, customer.region || "미지정", total, String(note || "").slice(0, 500), deliveryDate, staff?.id ?? "", staff?.displayName ?? "", isAdditional ? 1 : 0, orderPeriod,
+          clientRequestId, location?.id ?? "", location?.name ?? "", location?.address ?? "", location?.phone ?? ""),
+      ...prepared.map((item) => itemInsert(id, item)),
+    ]);
+  } catch (error) {
+    // 같은 키로 거의 동시에 두 번 들어온 경우: 먼저 저장된 주문을 돌려줌
+    if (clientRequestId) {
+      const existing = await findOrderByRequestId(customer.id, clientRequestId);
+      if (existing) return existing;
+    }
+    throw error;
+  }
 
   if (staff) {
     const itemText = prepared.slice(0, 4).map((i) => `${i.productName}${i.quantity}${i.optionLabel}`).join(", ");
@@ -225,7 +247,21 @@ export async function createCustomerOrder(
       metadata: { customerId: customer.id, customerCode: customer.code, deliveryDate, orderPeriod, isAdditional },
     });
   }
-  return { id, total, itemCount: prepared.length, deliveryDate, orderPeriod, isAdditional, warnings };
+  return { id, total, itemCount: prepared.length, deliveryDate, orderPeriod, isAdditional, warnings, duplicate: false };
+}
+
+async function findOrderByRequestId(customerId: string, clientRequestId: string) {
+  const row = await db().prepare(`
+    SELECT o.id,o.total_amount,o.delivery_date,o.order_period,o.is_additional,o.status,
+           (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id=o.id) AS item_count
+    FROM orders o WHERE o.customer_id=? AND o.client_request_id=? LIMIT 1
+  `).bind(customerId, clientRequestId).first<Record<string, unknown>>();
+  if (!row) return null;
+  return {
+    id: String(row.id), total: Number(row.total_amount ?? 0), itemCount: Number(row.item_count ?? 0),
+    deliveryDate: String(row.delivery_date ?? ""), orderPeriod: (String(row.order_period) === "PM" ? "PM" : "AM") as OrderPeriod,
+    isAdditional: Number(row.is_additional ?? 0) === 1, warnings: [] as OrderQuantityWarning[], duplicate: true,
+  };
 }
 
 export async function updateCustomerOrder(customer: CustomerSummary, orderId: string, items: OrderRequestItem[], note = "", confirmAnomaly = false) {

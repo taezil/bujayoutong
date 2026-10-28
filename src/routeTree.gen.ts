@@ -49,6 +49,10 @@ import { Route as ApiDriverOrderRouteImport } from './routes/api/driver/order'
 import { Route as ApiStaffLoginRouteImport } from './routes/api/staff/login'
 import { Route as ApiStaffLogoutRouteImport } from './routes/api/staff/logout'
 import { Route as ApiStaffStatusRouteImport } from './routes/api/staff/status'
+import { Route as ApiDeskLoginRouteImport } from './routes/api/desk/login'
+import { Route as ApiDeskLogoutRouteImport } from './routes/api/desk/logout'
+import { Route as ApiDeskOrdersRouteImport } from './routes/api/desk/orders'
+import { Route as ApiDeskPulseRouteImport } from './routes/api/desk/pulse'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -250,6 +254,26 @@ const ApiStaffStatusRoute = ApiStaffStatusRouteImport.update({
   path: '/api/staff/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDeskLoginRoute = ApiDeskLoginRouteImport.update({
+  id: '/api/desk/login',
+  path: '/api/desk/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDeskLogoutRoute = ApiDeskLogoutRouteImport.update({
+  id: '/api/desk/logout',
+  path: '/api/desk/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDeskOrdersRoute = ApiDeskOrdersRouteImport.update({
+  id: '/api/desk/orders',
+  path: '/api/desk/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDeskPulseRoute = ApiDeskPulseRouteImport.update({
+  id: '/api/desk/pulse',
+  path: '/api/desk/pulse',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -292,6 +316,10 @@ export interface FileRoutesByFullPath {
   '/api/staff/login': typeof ApiStaffLoginRoute
   '/api/staff/logout': typeof ApiStaffLogoutRoute
   '/api/staff/status': typeof ApiStaffStatusRoute
+  '/api/desk/login': typeof ApiDeskLoginRoute
+  '/api/desk/logout': typeof ApiDeskLogoutRoute
+  '/api/desk/orders': typeof ApiDeskOrdersRoute
+  '/api/desk/pulse': typeof ApiDeskPulseRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -334,6 +362,10 @@ export interface FileRoutesByTo {
   '/api/staff/login': typeof ApiStaffLoginRoute
   '/api/staff/logout': typeof ApiStaffLogoutRoute
   '/api/staff/status': typeof ApiStaffStatusRoute
+  '/api/desk/login': typeof ApiDeskLoginRoute
+  '/api/desk/logout': typeof ApiDeskLogoutRoute
+  '/api/desk/orders': typeof ApiDeskOrdersRoute
+  '/api/desk/pulse': typeof ApiDeskPulseRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -377,6 +409,10 @@ export interface FileRoutesById {
   '/api/staff/login': typeof ApiStaffLoginRoute
   '/api/staff/logout': typeof ApiStaffLogoutRoute
   '/api/staff/status': typeof ApiStaffStatusRoute
+  '/api/desk/login': typeof ApiDeskLoginRoute
+  '/api/desk/logout': typeof ApiDeskLogoutRoute
+  '/api/desk/orders': typeof ApiDeskOrdersRoute
+  '/api/desk/pulse': typeof ApiDeskPulseRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -421,6 +457,10 @@ export interface FileRouteTypes {
     | '/api/staff/login'
     | '/api/staff/logout'
     | '/api/staff/status'
+    | '/api/desk/login'
+    | '/api/desk/logout'
+    | '/api/desk/orders'
+    | '/api/desk/pulse'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -463,6 +503,10 @@ export interface FileRouteTypes {
     | '/api/staff/login'
     | '/api/staff/logout'
     | '/api/staff/status'
+    | '/api/desk/login'
+    | '/api/desk/logout'
+    | '/api/desk/orders'
+    | '/api/desk/pulse'
   id:
     | '__root__'
     | '/'
@@ -505,6 +549,10 @@ export interface FileRouteTypes {
     | '/api/staff/login'
     | '/api/staff/logout'
     | '/api/staff/status'
+    | '/api/desk/login'
+    | '/api/desk/logout'
+    | '/api/desk/orders'
+    | '/api/desk/pulse'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -548,6 +596,10 @@ export interface RootRouteChildren {
   ApiStaffLoginRoute: typeof ApiStaffLoginRoute
   ApiStaffLogoutRoute: typeof ApiStaffLogoutRoute
   ApiStaffStatusRoute: typeof ApiStaffStatusRoute
+  ApiDeskLoginRoute: typeof ApiDeskLoginRoute
+  ApiDeskLogoutRoute: typeof ApiDeskLogoutRoute
+  ApiDeskOrdersRoute: typeof ApiDeskOrdersRoute
+  ApiDeskPulseRoute: typeof ApiDeskPulseRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -832,6 +884,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStaffStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/desk/login': {
+      id: '/api/desk/login'
+      path: '/api/desk/login'
+      fullPath: '/api/desk/login'
+      preLoaderRoute: typeof ApiDeskLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/desk/logout': {
+      id: '/api/desk/logout'
+      path: '/api/desk/logout'
+      fullPath: '/api/desk/logout'
+      preLoaderRoute: typeof ApiDeskLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/desk/orders': {
+      id: '/api/desk/orders'
+      path: '/api/desk/orders'
+      fullPath: '/api/desk/orders'
+      preLoaderRoute: typeof ApiDeskOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/desk/pulse': {
+      id: '/api/desk/pulse'
+      path: '/api/desk/pulse'
+      fullPath: '/api/desk/pulse'
+      preLoaderRoute: typeof ApiDeskPulseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -876,6 +956,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStaffLoginRoute: ApiStaffLoginRoute,
   ApiStaffLogoutRoute: ApiStaffLogoutRoute,
   ApiStaffStatusRoute: ApiStaffStatusRoute,
+  ApiDeskLoginRoute: ApiDeskLoginRoute,
+  ApiDeskLogoutRoute: ApiDeskLogoutRoute,
+  ApiDeskOrdersRoute: ApiDeskOrdersRoute,
+  ApiDeskPulseRoute: ApiDeskPulseRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

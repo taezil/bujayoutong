@@ -1,0 +1,7 @@
+dist/
+build/
+dist-installer/
+__pycache__/
+*.pyc
+packaging/version_info.txt
+.pytest_cache/

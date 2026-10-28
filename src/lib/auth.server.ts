@@ -195,6 +195,8 @@ export async function resetStaffPin(staffId: string, pin: string) {
   await db().batch([
     db().prepare("UPDATE staff_users SET auth_salt=?,auth_hash=?,updated_at=datetime('now') WHERE id=?").bind(salt, hash, staffId),
     db().prepare("DELETE FROM staff_sessions WHERE staff_id=?").bind(staffId),
+    // 발주 알림센터(PC 프로그램) 로그인도 함께 해제
+    db().prepare("DELETE FROM desk_sessions WHERE staff_id=?").bind(staffId),
   ]);
 }
 

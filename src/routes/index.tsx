@@ -261,6 +261,57 @@ async function copyText(text: string) {
   }
 }
 
+/* ---------- 서버 주문 접수 ---------- */
+
+const ORDER_REQUEST_KEY = "buja-order-request-v1";
+
+function kstDateClient(offsetDays = 0) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(new Date(Date.now() + offsetDays * 86400000));
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${pick("year")}-${pick("month")}-${pick("day")}`;
+}
+
+function dateLabel(value: string) {
+  if (value === kstDateClient(0)) return `오늘 (${value.slice(5).replace("-", "/")})`;
+  if (value === kstDateClient(1)) return `내일 (${value.slice(5).replace("-", "/")})`;
+  const date = new Date(`${value}T00:00:00+09:00`);
+  const weekday = ["일", "월", "화", "수", "목", "금", "토"][date.getUTCDay()] ?? "";
+  return `${value.slice(5).replace("-", "/")} (${weekday})`;
+}
+
+function newRequestId() {
+  try {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  } catch {
+    // 아래 방식 사용
+  }
+  return `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/**
+ * 주문 중복 방지 키. 같은 장바구니 내용으로 다시 누르면(네트워크 오류 후 재시도 등) 같은 키를 보내므로
+ * 서버가 새 주문을 만들지 않고 이미 접수된 주문을 돌려줍니다. 접수에 성공하면 키를 지웁니다.
+ */
+function orderRequestId(cartKey: string, signature: string) {
+  const key = `${ORDER_REQUEST_KEY}:${cartKey}`;
+  try {
+    const saved = JSON.parse(readStorage(key) || "null") as { id?: string; signature?: string } | null;
+    if (saved?.id && saved.signature === signature) return saved.id;
+  } catch {
+    // 새 키 발급
+  }
+  const id = newRequestId();
+  writeStorage(key, JSON.stringify({ id, signature }));
+  return id;
+}
+
+function clearOrderRequestId(cartKey: string) {
+  writeStorage(`${ORDER_REQUEST_KEY}:${cartKey}`, null);
+}
+
+class SubmitFailure extends Error {}
+
 function readStorage(key: string) {
   try {
     return window.localStorage.getItem(key);
@@ -416,6 +467,13 @@ function OrderApp({ store }: { store: StoreData }) {
   const [zoomPhoto, setZoomPhoto] = useState<{ src: string; name: string } | null>(null);
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const [askSent, setAskSent] = useState(false);
+  const [confirmStep, setConfirmStep] = useState(false);
+  const [deliveryDate, setDeliveryDate] = useState(() => kstDateClient(1));
+  const [orderNote, setOrderNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [quantityWarnings, setQuantityWarnings] = useState<Array<{ message: string }> | null>(null);
+  const [placedOrder, setPlacedOrder] = useState<{ id: string; label: string; deliveryDate: string; itemCount: number; duplicate: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
@@ -543,6 +601,14 @@ function OrderApp({ store }: { store: StoreData }) {
     if (!hydrated) return;
     writeStorage(cartKey, cart.length ? JSON.stringify(cart) : null);
   }, [cart, hydrated, cartKey]);
+
+  // 장바구니를 닫으면 주문 확인 단계도 처음으로 (접수 중인 요청은 끝까지 진행됨)
+  useEffect(() => {
+    if (cartOpen || submitting) return;
+    setConfirmStep(false);
+    setSubmitError("");
+    setQuantityWarnings(null);
+  }, [cartOpen, submitting]);
 
   useEffect(() => {
     if (!toast) return;
@@ -708,9 +774,80 @@ function OrderApp({ store }: { store: StoreData }) {
     setCart((current) => current.filter((item) => item.key !== line.key));
   }
 
-  function composeSms() {
+  async function submitOrder(confirmAnomaly = false) {
+    if (!cart.length || submitting) return;
+    if (!customer) {
+      setSubmitError("로그인이 필요합니다. 화면을 새로고침한 뒤 다시 로그인해 주세요.");
+      return;
+    }
+    if (!deliveryDate || deliveryDate < kstDateClient(0)) {
+      setSubmitError("배송일을 오늘 이후 날짜로 선택해 주세요.");
+      return;
+    }
+    const items = cart.map((line) => ({ productId: line.productId, optionLabel: line.optionLabel, quantity: line.quantity }));
+    const note = orderNote.trim().slice(0, 300);
+    const deliveryLocationId = selectedDeliveryLocation?.id ?? "";
+    const label = deliveryOrderLabel(customer, selectedDeliveryLocation);
+    const requestId = orderRequestId(cartKey, JSON.stringify({ c: customer.id, l: deliveryLocationId, d: deliveryDate, n: note, items }));
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 25000);
+      let response: Response;
+      try {
+        response = await fetch("/api/orders", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({ items, note, confirmAnomaly, requestId, deliveryDate, deliveryLocationId }),
+        });
+      } finally {
+        window.clearTimeout(timer);
+      }
+      const data = await response.json().catch(() => ({})) as {
+        ok?: boolean; error?: string; warning?: boolean; warnings?: Array<{ message: string }>;
+        order?: { id: string; deliveryDate: string; itemCount: number; duplicate?: boolean };
+      };
+      if (response.status === 409 && data.warning) {
+        setQuantityWarnings(data.warnings?.length ? data.warnings : [{ message: data.error || "평소보다 많은 수량이 있습니다." }]);
+        return;
+      }
+      if (response.status === 401) throw new SubmitFailure("로그인이 풀렸습니다. 화면을 새로고침한 뒤 다시 로그인해 주세요.");
+      // 서버가 주문번호를 돌려준 경우에만 접수 성공으로 표시
+      if (!response.ok || !data.ok || !data.order?.id) throw new SubmitFailure(data.error || "주문을 접수하지 못했습니다.");
+      clearOrderRequestId(cartKey);
+      setPlacedOrder({ id: data.order.id, label, deliveryDate: data.order.deliveryDate || deliveryDate, itemCount: data.order.itemCount, duplicate: Boolean(data.order.duplicate) });
+      setCart([]);
+      setOrderNote("");
+      setQuantityWarnings(null);
+      setConfirmStep(false);
+      setCartOpen(false);
+      writeStorage(customerSentKey(customer.id, selectedDeliveryLocation?.id), null);
+      setAskSent(false);
+    } catch (error) {
+      setQuantityWarnings(null);
+      setSubmitError(error instanceof SubmitFailure
+        ? error.message
+        : "인터넷 연결이 불안정해 접수 결과를 받지 못했습니다. 아래 [다시 시도]를 눌러 주세요. 같은 주문은 두 번 접수되지 않습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function openConfirm() {
     if (!cart.length) return;
-    const body = encodeURIComponent(buildOrderText(cart, customer, selectedDeliveryLocation));
+    setSubmitError("");
+    setQuantityWarnings(null);
+    if (!deliveryDate || deliveryDate < kstDateClient(0)) setDeliveryDate(kstDateClient(1));
+    setConfirmStep(true);
+  }
+
+  function composeSms(fallback = false) {
+    if (!cart.length) return;
+    const text = buildOrderText(cart, customer, selectedDeliveryLocation);
+    const body = encodeURIComponent(fallback ? `${text}\n※ 앱 접수 실패로 문자 발주 (배송일 ${deliveryDate})` : text);
     writeStorage(customerSentKey(customer?.id, selectedDeliveryLocation?.id), String(Date.now()));
     setCartOpen(false);
     setAskSent(true);
@@ -1161,8 +1298,49 @@ function OrderApp({ store }: { store: StoreData }) {
               {!cart.length && <div className="od-empty">담긴 상품이 없습니다.<br />상품의 ＋ 버튼을 눌러 담아주세요.</div>}
             </div>
             {cart.length > 0 && <div className="od-cart-total"><span>총 {cart.length}품목</span><strong>{cartSummary(cart)}</strong></div>}
-            <button type="button" className="od-send" onClick={composeSms} disabled={!cart.length}>📩 {customer ? `${withRo(deliveryOrderLabel(customer, selectedDeliveryLocation))} 주문 보내기` : "문자로 주문 보내기"}</button>
-            <p className="od-send-help">누르면 문자 앱이 열리고 주문 내용이 자동으로 입력됩니다.<br />문자 앱에서 <b>보내기</b>를 눌러야 주문이 접수됩니다.</p>
+            {!confirmStep ? <>
+              <button type="button" className="od-send" onClick={openConfirm} disabled={!cart.length}>📦 {customer ? `${withRo(deliveryOrderLabel(customer, selectedDeliveryLocation))} 주문하기` : "주문하기"}</button>
+              <p className="od-send-help">다음 화면에서 배송일을 확인하고 <b>주문 확정</b>을 누르면 부자유통에 바로 접수됩니다.</p>
+            </> : <div className="od-confirm" aria-live="polite">
+              <h3>주문 확인</h3>
+              <div className="od-confirm-row"><span>배송처</span><b>{deliveryOrderLabel(customer, selectedDeliveryLocation)}</b></div>
+              <div className="od-confirm-row"><span>주문</span><b>{cart.length}품목 · {cartSummary(cart)}</b></div>
+              <div className="od-confirm-date">
+                <span>배송일</span>
+                <div className="od-confirm-date-buttons" role="radiogroup" aria-label="배송일">
+                  {[kstDateClient(0), kstDateClient(1)].map((value, index) => (
+                    <button type="button" key={value} role="radio" aria-checked={deliveryDate === value} className={deliveryDate === value ? "selected" : ""}
+                      disabled={submitting} onClick={() => setDeliveryDate(value)}>{index === 0 ? "오늘" : "내일"}<small>{value.slice(5).replace("-", "/")}</small></button>
+                  ))}
+                  <label className={deliveryDate > kstDateClient(1) ? "selected" : ""}>
+                    다른 날
+                    <input type="date" value={deliveryDate} min={kstDateClient(0)} max={kstDateClient(60)} disabled={submitting}
+                      onChange={(event) => { if (event.target.value) setDeliveryDate(event.target.value); }} />
+                  </label>
+                </div>
+                <em>{dateLabel(deliveryDate)} 배송</em>
+              </div>
+              <label className="od-confirm-note">
+                <span>요청사항 (선택)</span>
+                <textarea value={orderNote} maxLength={300} rows={2} disabled={submitting} placeholder="예: 오전 10시 전 도착 부탁드립니다"
+                  onChange={(event) => setOrderNote(event.target.value)} />
+              </label>
+              {quantityWarnings && <div className="od-confirm-warn" role="alert">
+                <b>평소보다 많은 수량이 있습니다. 확인해 주세요.</b>
+                <ul>{quantityWarnings.map((item, index) => <li key={index}>{item.message}</li>)}</ul>
+                <button type="button" className="od-send" disabled={submitting} onClick={() => void submitOrder(true)}>{submitting ? "접수 중..." : "수량 맞아요, 주문 확정"}</button>
+                <button type="button" className="od-continue" disabled={submitting} onClick={() => { setQuantityWarnings(null); setConfirmStep(false); }}>수량 고치기</button>
+              </div>}
+              {submitError && <div className="od-confirm-error" role="alert">
+                <b>❗ 주문이 아직 접수되지 않았습니다.</b>
+                <p>{submitError}</p>
+              </div>}
+              {!quantityWarnings && <button type="button" className="od-send" disabled={submitting || !cart.length} onClick={() => void submitOrder(false)}>
+                {submitting ? "접수 중... 잠시만 기다려 주세요" : submitError ? "🔄 다시 시도" : "✅ 주문 확정"}
+              </button>}
+              {submitError && recipient && <button type="button" className="od-sms-fallback" disabled={submitting} onClick={() => composeSms(true)}>다시 시도해도 안 될 때만: 📩 문자로 보내기</button>}
+              <button type="button" className="od-continue" disabled={submitting} onClick={() => { setConfirmStep(false); setSubmitError(""); setQuantityWarnings(null); }}>← 장바구니로</button>
+            </div>}
             <div className="od-cart-alt">
               <button type="button" onClick={copyOrder} disabled={!cart.length}>{copied ? "✓ 복사됨" : "📋 주문내용 복사"}</button>
               {recipient && <a href={`tel:${recipient}`}>📞 전화로 주문</a>}
@@ -1172,7 +1350,20 @@ function OrderApp({ store }: { store: StoreData }) {
         </div>
       )}
 
-      {askSent && !cartOpen && (
+      {placedOrder && (
+        <div className="od-backdrop center">
+          <section className="od-sent od-placed" role="dialog" aria-modal="true" aria-label="주문 접수 완료">
+            <div className="od-placed-icon" aria-hidden="true">✅</div>
+            <h2>주문이 접수되었습니다</h2>
+            <p><b>{placedOrder.label}</b><br />배송일 {dateLabel(placedOrder.deliveryDate)} · {placedOrder.itemCount}품목</p>
+            {placedOrder.duplicate && <p className="od-placed-note">이미 접수된 주문이라 한 번만 접수했습니다.</p>}
+            <p className="od-placed-small">접수번호 {placedOrder.id}<br />변경이 필요하면 부자유통으로 연락해 주세요.</p>
+            <button type="button" className="od-send" onClick={() => setPlacedOrder(null)}>확인</button>
+          </section>
+        </div>
+      )}
+
+      {askSent && !cartOpen && !placedOrder && (
         <div className="od-backdrop center">
           <section className="od-sent" role="dialog" aria-modal="true" aria-label="주문 전송 확인">
             <h2>주문 문자를 보내셨나요?</h2>
