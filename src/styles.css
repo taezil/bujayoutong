@@ -4387,3 +4387,4 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* ---------- 배송기사 발주: 배송 시간 + 전체 거래처 목록 ---------- */
 .delivery-slot-toggle button.selected { background: #0b6a39; color: #fff; border-color: #0b6a39; }
 .driver-customer-list { max-height: 320px; overflow-y: auto; }
+.adm-side-hint { display: block; margin: -2px 0 6px; color: #8a929c; font-size: 11px; }
