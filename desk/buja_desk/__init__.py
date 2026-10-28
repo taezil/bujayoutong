@@ -2,4 +2,4 @@
 
 APP_NAME = "부자유통 발주 알림센터"
 APP_ID = "BujaOrderAlert"
-__version__ = "1.0.3"
+__version__ = "1.0.4"

@@ -6,8 +6,9 @@ import type { PackOption, Product, StoreData } from "../lib/db.server";
 // 거래처 단가표: 로그인한 거래처의 가격그룹 가격만 표시 (A=정가, B=B그룹 가격).
 // 비로그인이면 첫 화면(로그인)으로 보냅니다.
 const isCustomerLoggedIn = createServerFn({ method: "GET" }).handler(async () => {
-  const [{ getRequest }, { getCustomer }] = await Promise.all([import("@tanstack/react-start/server"), import("../lib/auth.server")]);
-  return Boolean(await getCustomer(getRequest()));
+  const [{ getRequest }, { getCustomer, getStaff }] = await Promise.all([import("@tanstack/react-start/server"), import("../lib/auth.server")]);
+  const request = getRequest();
+  return Boolean(await getCustomer(request)) || Boolean(await getStaff(request));
 });
 
 export const Route = createFileRoute("/price-list")({
@@ -42,11 +43,12 @@ function PriceListPage() {
           fetch("/api/store", { cache: "no-store" }),
         ]);
         const status = await statusResponse.json() as { authenticated?: boolean; customer?: { name: string } | null };
-        if (!status.authenticated || storeResponse.status === 401) {
+        if (storeResponse.status === 401) {
           window.location.replace("/");
           return;
         }
-        setCustomerName(status.customer?.name ?? "");
+        // 직원(배송기사)은 정가 기준으로 봄
+        setCustomerName(status.authenticated ? status.customer?.name ?? "" : "직원용 · 정가");
         setStore(await storeResponse.json() as StoreData);
       } catch {
         setError("단가표를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
@@ -79,7 +81,7 @@ function PriceListPage() {
   return (
     <main className="pl-page">
       <header className="pl-head">
-        <a href="/" className="pl-back">← 주문하기</a>
+        <a href={customerName === "직원용 · 정가" ? "/driver" : "/"} className="pl-back">← 돌아가기</a>
         <div>
           <h1>단가표</h1>
           <p>{customerName ? `${customerName} · ` : ""}{todayText()} 기준</p>

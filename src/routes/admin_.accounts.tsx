@@ -10,7 +10,7 @@ export const Route = createFileRoute("/admin_/accounts")({
 
 type AdminStatus={authenticated:boolean;staff?:{displayName:string}|null};
 type StaffRow={id:string;username:string;display_name:string;role:"ADMIN"|"DRIVER";active:number|boolean};
-type CustomerRow={id:string;code:string;name:string;active:boolean;businessNumber?:string;phone?:string;storePhone?:string;address?:string};
+type CustomerRow={id:string;code:string;name:string;active:boolean;priceGroup?:string;region?:string;businessNumber?:string;phone?:string;storePhone?:string;address?:string};
 type CustomerUser={id:string;customer_id:string;username:string;display_name:string;active:number|boolean;customer_code:string;customer_name:string};
 type CustomerUserLink={customer_user_id:string;customer_id:string;sort_order:number};
 type DeliveryLocation={id:string;customer_id:string;name:string;address:string;phone:string;note:string;active:number|boolean;sort_order:number};
@@ -83,6 +83,9 @@ function AccountsPage(){
   const[importing,setImporting]=useState("");
   const[accountSearch,setAccountSearch]=useState("");
   const[accountPage,setAccountPage]=useState(1);
+  const[groupSearch,setGroupSearch]=useState("");
+  const[groupFilter,setGroupFilter]=useState<"전체"|"A"|"B">("전체");
+  const[groupPage,setGroupPage]=useState(1);
 
   async function load(){
     const[sr,st,cr,ur]=await Promise.all([
@@ -289,6 +292,40 @@ function AccountsPage(){
           </article>)}
         </div>
       </section>
+
+      {(()=>{
+        const q=normalizeSearch(groupSearch);
+        const rows=customers.filter(c=>c.active!==false)
+          .filter(c=>groupFilter==="전체"||(c.priceGroup==="B"?"B":"A")===groupFilter)
+          .filter(c=>!q||normalizeSearch(`${c.code}${c.name}${c.region??""}`).includes(q));
+        const pageSize=20;
+        const pages=Math.max(1,Math.ceil(rows.length/pageSize));
+        const page=Math.min(groupPage,pages);
+        const countB=customers.filter(c=>c.active!==false&&c.priceGroup==="B").length;
+        const countA=customers.filter(c=>c.active!==false).length-countB;
+        return <section className="account-section price-group-section">
+          <div className="account-section-head"><div><p>PRICE GROUP</p><h2>거래처 가격 그룹</h2><small>A그룹은 정가, B그룹은 상품 관리에서 입력한 'B그룹 가격'으로 보이고 주문됩니다. B그룹 가격이 없는 상품은 B그룹도 정가입니다.</small></div><span>A {countA} · B {countB}</span></div>
+          <div className="price-group-tools">
+            <input value={groupSearch} onChange={e=>{setGroupSearch(e.target.value);setGroupPage(1);}} placeholder="거래처명·코드·지역 검색"/>
+            <div className="price-group-filter" role="group" aria-label="그룹 보기">{(["전체","A","B"] as const).map(g=><button type="button" key={g} className={groupFilter===g?"selected":""} onClick={()=>{setGroupFilter(g);setGroupPage(1);}}>{g==="전체"?"전체":`${g}그룹`}</button>)}</div>
+          </div>
+          <div className="price-group-list">
+            {rows.slice((page-1)*pageSize,page*pageSize).map(c=>{const group=c.priceGroup==="B"?"B":"A";return <div className={`price-group-row group-${group.toLowerCase()}`} key={c.id}>
+              <div><b>{c.name}</b><small>{c.code}{c.region?` · ${c.region}`:""}</small></div>
+              <div className="price-group-toggle" role="radiogroup" aria-label={`${c.name} 가격 그룹`}>
+                {(["A","B"] as const).map(g=><button type="button" role="radio" aria-checked={group===g} key={g} className={group===g?`selected g-${g.toLowerCase()}`:""}
+                  onClick={()=>{if(group!==g)void act("/api/admin/customers",{action:"set-price-group",id:c.id,priceGroup:g});}}>{g==="A"?"A 정가":"B 할인"}</button>)}
+              </div>
+            </div>;})}
+            {!rows.length&&<p className="accounts-empty">검색되는 거래처가 없습니다.</p>}
+          </div>
+          {rows.length>pageSize&&<div className="account-pagination">
+            <button type="button" disabled={page<=1} onClick={()=>setGroupPage(page-1)}>‹ 이전</button>
+            <span><b>{page}</b> / {pages}</span>
+            <button type="button" disabled={page>=pages} onClick={()=>setGroupPage(page+1)}>다음 ›</button>
+          </div>}
+        </section>;
+      })()}
 
       <section className="account-section">
         <div className="account-section-head"><div><p>CUSTOMER</p><h2>거래처 계정</h2><small>거래처별 로그인 계정과 연결 배송처를 관리합니다. 아이디는 전체 거래처에서 중복 사용할 수 없습니다.</small></div><span>{customerUsers.length}개</span></div>

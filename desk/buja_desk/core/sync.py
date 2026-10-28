@@ -54,6 +54,8 @@ def _order_notice(order: dict[str, Any], kind: str) -> Notice:
     if kind == "changed":
         return Notice(kind, "주문 내용 변경", f"{who}\n{when}\n거래처가 주문을 수정했습니다. 다시 확인해 주세요.", [str(order["id"])])
     title = "🚨 추가발주" if kind == "additional" else "🚨 신규 발주"
+    if order.get("source") == "driver":
+        title += f" · 🚚 {order.get('createdByStaffName') or '기사'} 발주"
     if order.get("priceGroup") == "B":
         title += " · 가격 변동그룹(B)"
     return Notice(kind, title, f"{who}\n{when} · {count}품목\n{items_summary(order)}", [str(order["id"])])

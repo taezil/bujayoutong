@@ -24,6 +24,8 @@ COLORS = {
     "note_bg": "#FFF8DB",
     "group_b": "#633806",
     "group_b_bg": "#FAEEDA",
+    "driver": "#3C3489",
+    "driver_bg": "#EEEDFE",
 }
 
 STYLESHEET = f"""

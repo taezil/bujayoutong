@@ -14,9 +14,13 @@ export const Route=createFileRoute("/api/driver/order")({server:{handlers:{POST:
   const staff=await getStaff(request); if(!staff) return Response.json({error:"직원 로그인이 필요합니다."},{status:401});
   await ensureDatabase();
   try{
-    const body=await request.json() as {customerId?:string;deliveryDate?:string;orderPeriod?:string;items?:Array<{productId:string;optionLabel:string;quantity:number}>;note?:string;confirmAnomaly?:boolean};
+    const body=await request.json() as {customerId?:string;deliveryDate?:string;orderPeriod?:string;deliverySlot?:string;requestId?:string;items?:Array<{productId:string;optionLabel:string;quantity:number}>;note?:string;confirmAnomaly?:boolean};
+    const requestId=String(body.requestId??'').trim();
+    if(requestId&&!/^[A-Za-z0-9_-]{8,64}$/.test(requestId)) throw new Error("요청 정보가 올바르지 않습니다. 화면을 새로고침해 주세요.");
+    const deliverySlot=String(body.deliverySlot??'').trim();
+    if(deliverySlot!=="AM"&&deliverySlot!=="PM") throw new Error("배송 시간(오전/오후)을 선택해 주세요.");
     const customer=await customerById(String(body.customerId??'')); if(!customer) throw new Error("거래처를 선택해 주세요.");
-    const order=await createCustomerOrder(customer,body.items??[],String(body.note??''),'driver',{deliveryDate:String(body.deliveryDate??''),orderPeriod:String(body.orderPeriod??''),staff,confirmAnomaly:body.confirmAnomaly===true});
+    const order=await createCustomerOrder(customer,body.items??[],String(body.note??''),'driver',{deliveryDate:String(body.deliveryDate??''),orderPeriod:String(body.orderPeriod??''),deliverySlot,clientRequestId:requestId?`drv-${staff.id}-${requestId}`.slice(0,64):"",staff,confirmAnomaly:body.confirmAnomaly===true});
     return Response.json({ok:true,order});
   }catch(error){if(error instanceof OrderWarningError)return Response.json({warning:true,error:error.message,warnings:error.warnings},{status:409}); return Response.json({error:error instanceof Error?error.message:"현장발주 접수에 실패했습니다."},{status:400});}
 }}}});

@@ -118,6 +118,14 @@ export const Route = createFileRoute("/api/admin/customers")({
           await writeAudit({actor,action:"customer_update",entityType:"customer",entityId:id,summary:`거래처 ${code} ${name} 정보수정`});
           return Response.json({ok:true});
         }
+        if (action === "set-price-group") {
+          const group = cleanPriceGroup(body.priceGroup);
+          const row = await db().prepare("SELECT code,name,price_group FROM customers WHERE id=?").bind(id).first<{code:string;name:string;price_group:string}>();
+          if (!row) throw new Error("거래처를 찾을 수 없습니다.");
+          await db().prepare("UPDATE customers SET price_group=?,updated_at=datetime('now') WHERE id=?").bind(group,id).run();
+          await writeAudit({actor,action:"customer_price_group",entityType:"customer",entityId:id,summary:`거래처 ${row.code} ${row.name} 가격그룹 ${row.price_group || "A"} → ${group}`});
+          return Response.json({ok:true,priceGroup:group});
+        }
         if (action === "reset-pin") {
           const credential = await makeCustomerPinCredential(cleanText(body.pin,6));
           await db().prepare("UPDATE customers SET auth_salt=?,auth_hash=?,updated_at=datetime('now') WHERE id=?").bind(credential.salt,credential.hash,id).run();
