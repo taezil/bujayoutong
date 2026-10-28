@@ -252,3 +252,77 @@ def test_desk_api_http_errors():
         server.shutdown()
     with pytest.raises(NetworkError):
         DeskApi(url, "c" * 64).pulse()  # 서버 꺼짐
+
+
+# ---------- 자동 업데이트 ----------
+
+from buja_desk.core import updater  # noqa: E402
+
+
+class _FakeResponse:
+    def __init__(self, payload=None, body=b""):
+        self._payload = payload
+        self._body = body
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self._payload
+
+    def iter_content(self, chunk_size=0):
+        yield self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+class _FakeSession:
+    def __init__(self, release, body=b""):
+        self.release = release
+        self.body = body
+
+    def get(self, url, **kwargs):
+        if url == updater.LATEST_URL:
+            return _FakeResponse(self.release)
+        return _FakeResponse(body=self.body)
+
+
+def _release(version, body=b"installer", digest=True, url=None):
+    import hashlib as _h
+    return {
+        "tag_name": f"desk-v{version}", "draft": False, "prerelease": False,
+        "assets": [{
+            "name": f"BujaOrderAlert-Setup-{version}.exe", "size": len(body),
+            "browser_download_url": url or f"{updater.ALLOWED_PREFIX}desk-v{version}/BujaOrderAlert-Setup-{version}.exe",
+            "digest": f"sha256:{_h.sha256(body).hexdigest()}" if digest else None,
+        }],
+    }
+
+
+def test_updater_version_compare():
+    assert updater.is_newer("1.0.10", "1.0.9")
+    assert not updater.is_newer("1.0.2", "1.0.2")
+    assert not updater.is_newer("0.9.9", "1.0.0")
+
+
+def test_updater_finds_and_downloads(tmp_path):
+    session = _FakeSession(_release("9.9.9"), b"installer")
+    info = updater.check_latest(session, current="1.0.0")
+    assert info and info.version == "9.9.9" and info.sha256
+    path = updater.download(info, tmp_path, session)
+    assert path.read_bytes() == b"installer"
+    assert updater.check_latest(_FakeSession(_release("1.0.0")), current="1.0.0") is None
+
+
+def test_updater_rejects_bad_hash_and_foreign_url(tmp_path):
+    session = _FakeSession(_release("9.9.9", b"installer"), b"tampered!")
+    info = updater.check_latest(session, current="1.0.0")
+    with pytest.raises(OSError):
+        updater.download(info, tmp_path, session)
+    assert not list(tmp_path.glob("*.exe"))
+    foreign = _FakeSession(_release("9.9.9", url="https://evil.example.com/x.exe"))
+    assert updater.check_latest(foreign, current="1.0.0") is None

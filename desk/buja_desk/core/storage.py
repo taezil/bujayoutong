@@ -59,6 +59,7 @@ class Settings:
     window_geometry: str = ""
     group_by_customer: bool = False
     first_close_notice_shown: bool = False
+    reopen_after_update: bool = False
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "Settings":

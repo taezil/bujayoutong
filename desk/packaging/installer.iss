@@ -48,6 +48,8 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "지금 실행"; Flags: nowait postinstall skipifsilent
+; 자동 업데이트(조용히 설치)가 끝나면 프로그램을 다시 켬
+Filename: "{app}\{#AppExe}"; Parameters: "--minimized --updated"; Flags: nowait runasoriginaluser; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C taskkill /IM {#AppExe} /F"; Flags: runhidden; RunOnceId: "KillApp"
