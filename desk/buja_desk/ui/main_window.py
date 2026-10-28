@@ -224,6 +224,10 @@ class MainWindow(QMainWindow):
         self._tick = QTimer(self)
         self._tick.timeout.connect(self._render_list)
         self._tick.start(60_000)
+        # 창 크기를 바꾸면 카드 폭 다시 맞춤
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.timeout.connect(self._render_list)
 
         geometry = controller.settings.window_geometry
         if geometry:
@@ -433,6 +437,9 @@ class MainWindow(QMainWindow):
         left_layout.addWidget(self.group_check)
         self.list = QListWidget()
         self.list.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.list.setResizeMode(QListWidget.ResizeMode.Adjust)
+        self.list.viewport().installEventFilter(self)
         self.list.currentItemChanged.connect(self._list_selection_changed)
         left_layout.addWidget(self.list, 1)
         self.list_info = QLabel("")
@@ -515,7 +522,7 @@ class MainWindow(QMainWindow):
         self.history_detail.actionRequested.connect(self.controller.change_state)
         self.history_detail.copyRequested.connect(self.controller.copy_order)
         splitter.addWidget(self.history_detail)
-        splitter.setSizes([300, 460])
+        splitter.setSizes([380, 400])
         layout.addWidget(splitter, 1)
         self.history_orders: list[dict[str, Any]] = []
         return page
@@ -654,7 +661,9 @@ class MainWindow(QMainWindow):
         item = QListWidgetItem()
         item.setData(Qt.ItemDataRole.UserRole, entry.get("id"))
         card = OrderCard(entry, self.my_staff_id)
-        item.setSizeHint(card.sizeHint())
+        width = max(240, self.list.viewport().width() - 4)
+        card.setFixedWidth(width)
+        item.setSizeHint(QSize(width, card.sizeHint().height()))
         self.list.addItem(item)
         self.list.setItemWidget(item, card)
 
@@ -844,6 +853,18 @@ class MainWindow(QMainWindow):
         self.history_detail.set_order(order)
 
     # ---------- 창 닫기 = 트레이로 숨김 ----------
+    def eventFilter(self, watched, event) -> bool:  # noqa: N802
+        from PySide6.QtCore import QEvent
+
+        if watched is self.list.viewport() and event.type() == QEvent.Type.Resize and hasattr(self, "_resize_timer"):
+            self._resize_timer.start(120)
+        return super().eventFilter(watched, event)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        if hasattr(self, "_resize_timer"):
+            self._resize_timer.start(150)
+
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         self.controller.settings.window_geometry = bytes(self.saveGeometry().toBase64()).decode("ascii")
         self.controller.save_settings()

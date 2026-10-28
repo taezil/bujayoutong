@@ -250,8 +250,11 @@ class OrderDetailView(QWidget):
         # 꼬리표
         while self.badges_box.count():
             item = self.badges_box.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget()
+            if widget is not None:
+                widget.hide()
+                widget.setParent(None)
+                widget.deleteLater()
         state_kind = {"new": "new", "entering": "entering", "done": "done"}[state]
         state_text = {"new": "신규", "entering": "입력 중", "done": "입력완료"}[state]
         if desk.get("deleted"):
@@ -304,7 +307,8 @@ class OrderDetailView(QWidget):
         if bundle and order.get("lastCreatedAt"):
             received = f"{kst_time(str(order.get('createdAt')))} ~ {kst_time(str(order.get('lastCreatedAt')))}"
         source = ", ".join(order.get("sources") or []) if bundle else str(order.get("sourceLabel") or "")
-        self.box_received.set(f"{received}\n{period_label(order)}발주 · {source}")
+        self.box_received.set(received)
+        self.box_received.key.setText(f"접수 · {source} · {period_label(order)}발주")
 
         note = str(order.get("note") or "").strip()
         self.note.setText(f"요청사항  {note}")
