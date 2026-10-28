@@ -43,5 +43,13 @@ def main() -> int:
     return run(sys.argv)
 
 
+def safe_main() -> int:
+    try:
+        return main()
+    except Exception:  # noqa: BLE001 - 창 없는 EXE 라서 오류는 기록 파일로
+        logging.getLogger("crash").error("시작 실패\n%s", traceback.format_exc())
+        return 1
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(safe_main())

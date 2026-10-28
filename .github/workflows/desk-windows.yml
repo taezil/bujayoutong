@@ -37,6 +37,19 @@ jobs:
         run: |
           $v = python packaging/make_version_info.py
           "version=$v" >> $env:GITHUB_OUTPUT
+      - name: Self-test from source (python -m buja_desk --self-test)
+        env:
+          BUJA_DESK_HOME: ${{ runner.temp }}\desk-src-test
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:BUJA_DESK_HOME | Out-Null
+          $p = Start-Process -FilePath python -ArgumentList "-m","buja_desk","--self-test" -NoNewWindow -PassThru
+          if (-not $p.WaitForExit(90000)) { $p | Stop-Process -Force; $code = "timeout" } else { $code = $p.ExitCode }
+          $report = (Get-Content "$env:BUJA_DESK_HOME\selftest.txt" -Raw -ErrorAction SilentlyContinue) + "`n--- log ---`n" + (Get-Content "$env:BUJA_DESK_HOME\desk.log" -Raw -ErrorAction SilentlyContinue)
+          if ($report.Length -gt 6000) { $report = $report.Substring($report.Length - 6000) }
+          $flat = $report -replace "%","%25" -replace "`r","" -replace "`n","%0A"
+          if ("$code" -ne "0") { Write-Output "::error title=source self-test ($code)::$flat"; throw "source self-test failed ($code)" }
+          Write-Output "::notice title=source self-test::$flat"
       - name: Build EXE (PyInstaller)
         run: python -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging/BujaOrderAlert.spec
       - name: Self-test built EXE (화면·팝업·트레이·자원 점검)
@@ -45,9 +58,13 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           New-Item -ItemType Directory -Force -Path $env:BUJA_DESK_HOME | Out-Null
-          $p = Start-Process -FilePath "dist\BujaOrderAlert\BujaOrderAlert.exe" -ArgumentList "--self-test" -Wait -PassThru
-          Get-Content "$env:BUJA_DESK_HOME\selftest.txt" -ErrorAction SilentlyContinue
-          if ($p.ExitCode -ne 0) { Get-Content "$env:BUJA_DESK_HOME\desk.log" -ErrorAction SilentlyContinue; throw "self-test failed ($($p.ExitCode))" }
+          $p = Start-Process -FilePath "dist\BujaOrderAlert\BujaOrderAlert.exe" -ArgumentList "--self-test" -PassThru
+          if (-not $p.WaitForExit(90000)) { $p | Stop-Process -Force; $code = "timeout" } else { $code = $p.ExitCode }
+          $report = (Get-Content "$env:BUJA_DESK_HOME\selftest.txt" -Raw -ErrorAction SilentlyContinue) + "`n--- log ---`n" + (Get-Content "$env:BUJA_DESK_HOME\desk.log" -Raw -ErrorAction SilentlyContinue)
+          if ($report.Length -gt 6000) { $report = $report.Substring($report.Length - 6000) }
+          $flat = $report -replace "%","%25" -replace "`r","" -replace "`n","%0A"
+          if ("$code" -ne "0") { Write-Output "::error title=exe self-test ($code)::$flat"; throw "exe self-test failed ($code)" }
+          Write-Output "::notice title=exe self-test::$flat"
       - name: Install Inno Setup
         run: |
           if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
@@ -58,7 +75,8 @@ jobs:
       - name: Silent install test (설치 → 실행파일·자동실행 등록 확인 → 제거)
         run: |
           $setup = Get-ChildItem dist-installer\*.exe | Select-Object -First 1
-          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/TASKS=autostart" -Wait -PassThru
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/TASKS=autostart" -PassThru
+          if (-not $p.WaitForExit(300000)) { throw "installer timeout" }
           if ($p.ExitCode -ne 0) { throw "installer exit $($p.ExitCode)" }
           $exe = "$env:LOCALAPPDATA\Programs\BujaOrderAlert\BujaOrderAlert.exe"
           if (-not (Test-Path $exe)) { throw "설치 경로에 실행파일 없음" }
@@ -69,7 +87,8 @@ jobs:
           $env:BUJA_DESK_HOME = "$env:RUNNER_TEMP\desk-selftest2"
           New-Item -ItemType Directory -Force -Path $env:BUJA_DESK_HOME | Out-Null
           $env:QT_QPA_PLATFORM = "offscreen"
-          $t = Start-Process -FilePath $exe -ArgumentList "--self-test" -Wait -PassThru
+          $t = Start-Process -FilePath $exe -ArgumentList "--self-test" -PassThru
+          if (-not $t.WaitForExit(90000)) { $t | Stop-Process -Force; throw "installed self-test timeout" }
           if ($t.ExitCode -ne 0) { throw "installed self-test failed" }
           $un = Get-ChildItem "$env:LOCALAPPDATA\Programs\BujaOrderAlert\unins*.exe" | Select-Object -First 1
           Start-Process -FilePath $un.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait

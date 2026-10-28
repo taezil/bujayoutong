@@ -1299,7 +1299,7 @@ function OrderApp({ store }: { store: StoreData }) {
             </div>
             {cart.length > 0 && <div className="od-cart-total"><span>총 {cart.length}품목</span><strong>{cartSummary(cart)}</strong></div>}
             {!confirmStep ? <>
-              <button type="button" className="od-send" onClick={openConfirm} disabled={!cart.length}>📦 {customer ? `${withRo(deliveryOrderLabel(customer, selectedDeliveryLocation))} 주문하기` : "주문하기"}</button>
+              <button type="button" className="od-send" onClick={openConfirm} disabled={!cart.length}>📦 {customer ? `${withRo(deliveryOrderLabel(customer, selectedDeliveryLocation))} 주문 보내기` : "주문 보내기"}</button>
               <p className="od-send-help">다음 화면에서 배송일을 확인하고 <b>주문 확정</b>을 누르면 부자유통에 바로 접수됩니다.</p>
             </> : <div className="od-confirm" aria-live="polite">
               <h3>주문 확인</h3>

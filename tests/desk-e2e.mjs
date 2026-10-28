@@ -14,6 +14,10 @@ function check(name, ok, detail = "") {
   console.log(results[results.length - 1]);
 }
 
+function j(value, length = 200) {
+  return String(JSON.stringify(value) ?? "").slice(0, length);
+}
+
 function sql(command) {
   const out = execFileSync("npx", ["wrangler", "d1", "execute", "bujafood-db", "--local", "--json", "--command", command], {
     encoding: "utf8",
@@ -86,6 +90,8 @@ async function main() {
   /* ---------- 2. 직원 로그인 (PIN) ---------- */
   setStaffPin("lee", "246813");
   setStaffPin("jung", "135792");
+  const staffRows = sql("SELECT id, username, active, length(auth_hash) AS hash_len FROM staff_users WHERE username IN ('lee','jung')");
+  check("테스트 직원 PIN 설정 (로컬 D1)", staffRows.length === 2, j(staffRows));
   const pcA = new Client();
   const wrongPin = await pcA.json("/api/desk/login", { method: "POST", origin: false, json: { username: "lee", pin: "000000", deviceName: "CI-A" } });
   check("틀린 PIN → 401", wrongPin.status === 401 && !wrongPin.body?.token, JSON.stringify(wrongPin.body));
@@ -94,7 +100,7 @@ async function main() {
   check("직원 lee 로그인(PC A) → 토큰 발급", loginA.status === 200 && /^[0-9a-f]{64}$/.test(pcA.token), JSON.stringify(loginA.body));
   check("로그인 응답에 쿠키 없음(토큰은 헤더 전용)", pcA.cookies.size === 0);
   const stored = sql("SELECT token_hash FROM desk_sessions WHERE device_name='CI-A'");
-  check("서버에는 토큰 원문이 아닌 해시만 저장", stored.length > 0 && stored.every((r) => r.token_hash !== pcA.token), JSON.stringify(stored).slice(0, 120));
+  check("서버에는 토큰 원문이 아닌 해시만 저장", stored.length > 0 && stored.every((r) => r.token_hash !== pcA.token), j(stored, 120));
   const pcB = new Client();
   const loginB = await pcB.json("/api/desk/login", { method: "POST", origin: false, json: { username: "jung", pin: "135792", deviceName: "CI-B" } });
   pcB.token = loginB.body?.token ?? "";
@@ -115,10 +121,10 @@ async function main() {
   const payload = { items, note: "CI 요청사항: 오전 도착", requestId, deliveryDate: tomorrow, confirmAnomaly: true };
   const first = await customer.json("/api/orders", { method: "POST", json: payload });
   const orderId = first.body?.order?.id;
-  check("주문 확정 → 서버 저장 + 주문번호", first.status === 200 && Boolean(orderId) && first.body.order.duplicate === false, JSON.stringify(first.body).slice(0, 200));
+  check("주문 확정 → 서버 저장 + 주문번호", first.status === 200 && Boolean(orderId) && first.body.order.duplicate === false, j(first.body, 200));
   check("배송일 저장", first.body?.order?.deliveryDate === tomorrow, first.body?.order?.deliveryDate);
   const again = await customer.json("/api/orders", { method: "POST", json: payload });
-  check("같은 키로 재전송 → 같은 주문 반환(중복 생성 없음)", again.status === 200 && again.body?.order?.id === orderId && again.body.order.duplicate === true, JSON.stringify(again.body).slice(0, 200));
+  check("같은 키로 재전송 → 같은 주문 반환(중복 생성 없음)", again.status === 200 && again.body?.order?.id === orderId && again.body.order.duplicate === true, j(again.body, 200));
   const parallel = await Promise.all([1, 2, 3].map(() => customer.json("/api/orders", { method: "POST", json: { ...payload, requestId: `par-${requestId}` } })));
   const parallelIds = new Set(parallel.map((r) => r.body?.order?.id).filter(Boolean));
   check("같은 키 동시 3회 → 주문 1건", parallelIds.size === 1 && parallel.every((r) => r.status === 200), JSON.stringify(parallel.map((r) => [r.status, r.body?.order?.id, r.body?.error])));
@@ -143,7 +149,7 @@ async function main() {
   check("PC A 목록에 신규 주문 표시", openA.status === 200 && Boolean(mine), `count ${openA.body?.orders?.length}`);
   check("상세: 거래처/배송일/구분/품목/요청사항", mine && mine.customerCode === "00124" && mine.deliveryDate === tomorrow
     && ["AM", "PM"].includes(mine.orderPeriod) && mine.items.length === items.length && mine.note.includes("오전 도착")
-    && mine.items.every((i) => i.productName && i.unit && i.quantity > 0) && mine.desk.state === "new", JSON.stringify(mine).slice(0, 400));
+    && mine.items.every((i) => i.productName && i.unit && i.quantity > 0) && mine.desk.state === "new", j(mine, 400));
   const second = (openA.body?.orders ?? []).find((o) => o.id === [...parallelIds][0]);
   check("같은 배송일 두 번째 주문은 추가발주 표시", second?.isAdditional === true && mine?.isAdditional === false, JSON.stringify({ first: mine?.isAdditional, second: second?.isAdditional }));
   const since = sql("SELECT value FROM app_settings WHERE key='desk_tracking_since'")[0]?.value ?? "";
@@ -152,11 +158,11 @@ async function main() {
 
   /* ---------- 5. 입력 시작 / 다른 PC 동기화 / 충돌 ---------- */
   const startA = await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "start", orderId } });
-  check("PC A 입력 시작", startA.status === 200 && startA.body?.order?.desk?.state === "entering" && startA.body.order.desk.enteringBy.length > 0, JSON.stringify(startA.body).slice(0, 200));
+  check("PC A 입력 시작", startA.status === 200 && startA.body?.order?.desk?.state === "entering" && startA.body.order.desk.enteringBy.length > 0, j(startA.body, 200));
   const seenB = (await pcB.json("/api/desk/orders")).body?.orders?.find((o) => o.id === orderId);
   check("PC B 에서도 '입력 중(lee)' 으로 보임", seenB?.desk?.state === "entering" && seenB.desk.enteringById === "S-LEE", JSON.stringify(seenB?.desk));
   const startB = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "start", orderId } });
-  check("PC B 동시 입력 시작 → 409 충돌", startB.status === 409 && startB.body?.conflict === true, JSON.stringify(startB.body).slice(0, 200));
+  check("PC B 동시 입력 시작 → 409 충돌", startB.status === 409 && startB.body?.conflict === true, j(startB.body, 200));
   const doneB = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId } });
   check("PC B 가 남의 입력 중 주문 완료 → 409", doneB.status === 409, `${doneB.status}`);
   const race = await Promise.all([
@@ -169,7 +175,7 @@ async function main() {
   const doneA = await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId } });
   check("PC A 입력완료 + 처리자/시간 기록", doneA.status === 200 && doneA.body?.order?.desk?.state === "done" && doneA.body.order.desk.doneBy && doneA.body.order.desk.doneAt, JSON.stringify(doneA.body?.order?.desk));
   const doneAgain = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId } });
-  check("이미 완료된 주문 다시 완료 → 성공(alreadyDone)", doneAgain.status === 200 && doneAgain.body?.alreadyDone === true, JSON.stringify(doneAgain.body).slice(0, 160));
+  check("이미 완료된 주문 다시 완료 → 성공(alreadyDone)", doneAgain.status === 200 && doneAgain.body?.alreadyDone === true, j(doneAgain.body, 160));
   const openB = await pcB.json("/api/desk/orders");
   check("입력완료 주문은 처리할 목록에서 빠짐 (PC B)", !(openB.body?.orders ?? []).some((o) => o.id === orderId));
   const history = await pcB.json(`/api/desk/orders?scope=history&from=${kstDate(0)}&to=${kstDate(0)}`);
@@ -184,7 +190,7 @@ async function main() {
   const finish = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId } });
   check("PC B 입력완료(신규에서 바로)", finish.status === 200 && finish.body?.order?.desk?.doneById === "S-JUNG");
   const takeover = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId: [...parallelIds][0], force: true } });
-  check("남이 입력 중인 주문 이어받아 완료(force)", takeover.status === 200 && takeover.body?.order?.desk?.state === "done", JSON.stringify(takeover.body).slice(0, 160));
+  check("남이 입력 중인 주문 이어받아 완료(force)", takeover.status === 200 && takeover.body?.order?.desk?.state === "done", j(takeover.body, 160));
   const audit = sql(`SELECT COUNT(*) AS n FROM audit_logs WHERE entity_id='${orderId}' AND action LIKE 'desk_%'`);
   check("처리 기록(audit) 남음", Number(audit[0]?.n) >= 4, JSON.stringify(audit));
 

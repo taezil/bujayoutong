@@ -28,7 +28,7 @@ exe = EXE(
     name="BujaOrderAlert",
     icon=str(ASSETS / "icon.ico"),
     console=False,
-    disable_windowed_traceback=False,
+    disable_windowed_traceback=True,  # 오류 창이 떠서 멈추지 않게 (오류는 desk.log 에 기록)
     version=str(ROOT / "packaging" / "version_info.txt"),
     upx=False,
 )
