@@ -266,6 +266,34 @@ async function ensureOperationsSchema(database: D1Database) {
   }
 }
 
+/**
+ * 사무실 발주 알림센터(Windows 프로그램)용 테이블.
+ * - orders.client_request_id: 거래처 앱 주문 중복 접수 방지 키 (같은 키로 다시 보내면 기존 주문을 돌려줌)
+ * - desk_sessions: PC 프로그램 로그인 토큰(해시만 저장). 쿠키가 아닌 Authorization 헤더로만 사용
+ * - order_desk_status: 얼마에요 입력 처리상태 (행이 없으면 '신규')
+ * - desk_tracking_since: 이 시각 이후 접수된 주문만 알림센터에 표시 (도입 전 주문이 한꺼번에 뜨지 않게)
+ */
+async function ensureDeskSchema(database: D1Database) {
+  await ensureColumn(database, "orders", "client_request_id", "TEXT NOT NULL DEFAULT ''");
+  // 거래처가 고른 배송 시간 (AM=오전 배송, PM=오후 배송). 주문 시각 기준 order_period(오전/오후발주)와 별개
+  await ensureColumn(database, "orders", "delivery_slot", "TEXT NOT NULL DEFAULT ''");
+  // 주문 당시 거래처 가격그룹(A/B)과 품목 정가 스냅샷 → 알림센터 '가격 변동그룹 주문' 표시
+  await ensureColumn(database, "orders", "price_group", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "order_items", "list_price", "INTEGER");
+  await database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_request ON orders(customer_id, client_request_id) WHERE client_request_id<>''");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at)");
+  await database.exec("CREATE TABLE IF NOT EXISTS desk_sessions (token_hash TEXT PRIMARY KEY, staff_id TEXT NOT NULL, device_name TEXT NOT NULL DEFAULT '', expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), last_seen_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(staff_id) REFERENCES staff_users(id) ON DELETE CASCADE)");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_desk_sessions_staff ON desk_sessions(staff_id, expires_at)");
+  await database.exec("CREATE TABLE IF NOT EXISTS order_desk_status (order_id TEXT PRIMARY KEY, state TEXT NOT NULL DEFAULT 'new' CHECK(state IN ('new','entering','done')), entering_by_id TEXT NOT NULL DEFAULT '', entering_by_name TEXT NOT NULL DEFAULT '', entering_device TEXT NOT NULL DEFAULT '', entering_at TEXT NOT NULL DEFAULT '', done_by_id TEXT NOT NULL DEFAULT '', done_by_name TEXT NOT NULL DEFAULT '', done_at TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE)");
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_order_desk_status_state ON order_desk_status(state, done_at)");
+  await database.exec("INSERT OR IGNORE INTO app_settings(key,value) VALUES('desk_tracking_since', datetime('now'))");
+  // 변경 감지(pulse)를 행 몇 개만 읽고 끝내기 위한 인덱스/카운터 (PC 여러 대가 수 초마다 호출하므로 D1 읽기량 최소화)
+  await database.exec("CREATE INDEX IF NOT EXISTS idx_orders_updated ON orders(updated_at)");
+  await database.exec("INSERT OR IGNORE INTO app_settings(key,value) VALUES('desk_rev', '0')");
+  // 도입 이후 주문인데 처리상태 행이 없는 경우(배포 직후 등) 보충
+  await database.exec("INSERT OR IGNORE INTO order_desk_status(order_id,state) SELECT o.id,'new' FROM orders o WHERE o.created_at >= (SELECT value FROM app_settings WHERE key='desk_tracking_since') AND NOT EXISTS (SELECT 1 FROM order_desk_status d WHERE d.order_id=o.id)");
+}
+
 async function settingValue(database: D1Database, key: string) {
   const row = await database.prepare("SELECT value FROM app_settings WHERE key=?").bind(key).first<{ value: string }>();
   return row?.value ?? null;
@@ -355,7 +383,7 @@ let schemaSignature: string | null = null;
 
 async function currentSchemaSignature() {
   if (!schemaSignature) {
-    const source = [ensureDatabaseFull, ensureOperationsSchema, runAuthMaintenance, importExcelCatalog, ensureColumn, ensureCustomerLogin]
+    const source = [ensureDatabaseFull, ensureOperationsSchema, ensureDeskSchema, runAuthMaintenance, importExcelCatalog, ensureColumn, ensureCustomerLogin]
       .map((fn) => fn.toString())
       .join("\n");
     schemaSignature = await sha256(`${source}\n${migrationSql}\n${erpMigrationSql}`);
@@ -410,6 +438,7 @@ async function ensureDatabaseFull(database: D1Database) {
   await ensureColumn(database, "pack_options", "price_b", "INTEGER");
   await ensureColumn(database, "pack_options", "spec", "TEXT NOT NULL DEFAULT ''");
   await ensureOperationsSchema(database);
+  await ensureDeskSchema(database);
 
   await runAuthMaintenance(database);
 
@@ -566,7 +595,13 @@ function boolSetting(settings: Record<string, string>, key: string, fallback: bo
   return settings[key] === "1";
 }
 
-export async function readStore(_priceGroup?: "A" | "B", options: { includeHidden?: boolean } = {}): Promise<StoreData> {
+/**
+ * 상품 목록.
+ * - priceGroup 이 있으면(거래처) 그 그룹 가격만 price 에 넣어 보냄: A=정가, B=B그룹 가격(없으면 정가).
+ *   다른 그룹 가격은 내려보내지 않음.
+ * - priceGroup 이 없으면(관리자·직원) 정가 price + B그룹 가격 priceB 를 함께 보냄.
+ */
+export async function readStore(priceGroup?: "A" | "B", options: { includeHidden?: boolean } = {}): Promise<StoreData> {
   const database = db();
   await ensureDatabase(database);
   const [categoryRows, subRows, productRows, optionRows, settingsRows] = await Promise.all([
@@ -593,13 +628,16 @@ export async function readStore(_priceGroup?: "A" | "B", options: { includeHidde
   for (const row of optionRows.results as Array<Record<string, unknown>>) {
     const id = String(row.product_id);
     const base = row.price == null ? null : Number(row.price);
+    const priceB = row.price_b == null ? null : Number(row.price_b);
     const list = optionsByProduct.get(id) ?? [];
-    list.push({
+    const option: PackOption = {
       label: String(row.label),
       spec: String(row.spec ?? ""),
-      price: base,
+      price: priceGroup === "B" && priceB != null && base != null ? priceB : base,
       step: Number(row.step ?? 1),
-    });
+    };
+    if (!priceGroup) option.priceB = priceB;
+    list.push(option);
     optionsByProduct.set(id, list);
   }
 

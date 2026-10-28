@@ -1,0 +1,112 @@
+name: Desk Windows EXE (발주 알림센터)
+
+# 사무실 PC 프로그램(부자유통 발주 알림센터) Windows 설치파일 빌드
+# - desk/** 가 바뀌면 자동 빌드 → Actions 실행 결과의 Artifacts 에서 설치파일 다운로드
+# - desk-v1.0.0 같은 태그를 올리면 GitHub Releases 에 설치파일이 올라감
+on:
+  push:
+    branches: ["main", "claude/**"]
+    paths:
+      - "desk/**"
+      - ".github/workflows/desk-windows.yml"
+    tags: ["desk-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: desk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -q -r requirements-build.txt
+      - name: Unit tests (Windows, DPAPI 토큰 저장 포함)
+        run: python -m pytest -q tests/test_core.py
+      - name: Version
+        id: version
+        run: |
+          $v = python packaging/make_version_info.py
+          "version=$v" >> $env:GITHUB_OUTPUT
+      - name: Self-test from source (python -m buja_desk --self-test)
+        env:
+          BUJA_DESK_HOME: ${{ runner.temp }}\desk-src-test
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:BUJA_DESK_HOME | Out-Null
+          $p = Start-Process -FilePath python -ArgumentList "-m","buja_desk","--self-test" -NoNewWindow -PassThru
+          if (-not $p.WaitForExit(120000)) { $p | Stop-Process -Force; $code = "timeout" } else { $code = $p.ExitCode }
+          $report = (Get-Content "$env:BUJA_DESK_HOME\selftest.txt" -Raw -ErrorAction SilentlyContinue) + "`n--- log ---`n" + (Get-Content "$env:BUJA_DESK_HOME\desk.log" -Raw -ErrorAction SilentlyContinue) + "`n--- stacks ---`n" + (Get-Content "$env:BUJA_DESK_HOME\selftest-stacks.txt" -Raw -ErrorAction SilentlyContinue)
+          if ($report.Length -gt 6000) { $report = $report.Substring($report.Length - 6000) }
+          $flat = $report -replace "%","%25" -replace "`r","" -replace "`n","%0A"
+          if ("$code" -ne "0") { Write-Output "::error title=source self-test ($code)::$flat"; throw "source self-test failed ($code)" }
+          Write-Output "::notice title=source self-test::$flat"
+      - name: Build EXE (PyInstaller)
+        run: python -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging/BujaOrderAlert.spec
+      - name: Self-test built EXE (화면·팝업·트레이·자원 점검)
+        env:
+          BUJA_DESK_HOME: ${{ runner.temp }}\desk-selftest
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:BUJA_DESK_HOME | Out-Null
+          $p = Start-Process -FilePath "dist\BujaOrderAlert\BujaOrderAlert.exe" -ArgumentList "--self-test" -PassThru
+          if (-not $p.WaitForExit(120000)) { $p | Stop-Process -Force; $code = "timeout" } else { $code = $p.ExitCode }
+          $report = (Get-Content "$env:BUJA_DESK_HOME\selftest.txt" -Raw -ErrorAction SilentlyContinue) + "`n--- log ---`n" + (Get-Content "$env:BUJA_DESK_HOME\desk.log" -Raw -ErrorAction SilentlyContinue) + "`n--- stacks ---`n" + (Get-Content "$env:BUJA_DESK_HOME\selftest-stacks.txt" -Raw -ErrorAction SilentlyContinue)
+          if ($report.Length -gt 6000) { $report = $report.Substring($report.Length - 6000) }
+          $flat = $report -replace "%","%25" -replace "`r","" -replace "`n","%0A"
+          if ("$code" -ne "0") { Write-Output "::error title=exe self-test ($code)::$flat"; throw "exe self-test failed ($code)" }
+          Write-Output "::notice title=exe self-test::$flat"
+      - name: Install Inno Setup
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+      - name: Build installer
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.version.outputs.version }}" packaging\installer.iss
+          Get-ChildItem dist-installer
+      - name: Silent install test (설치 → 실행파일·자동실행 등록 확인 → 제거)
+        run: |
+          $setup = Get-ChildItem dist-installer\*.exe | Select-Object -First 1
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/TASKS=autostart" -PassThru
+          if (-not $p.WaitForExit(300000)) { throw "installer timeout" }
+          if ($p.ExitCode -ne 0) { throw "installer exit $($p.ExitCode)" }
+          $exe = "$env:LOCALAPPDATA\Programs\BujaOrderAlert\BujaOrderAlert.exe"
+          if (-not (Test-Path $exe)) { throw "설치 경로에 실행파일 없음" }
+          $run = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name BujaOrderAlert -ErrorAction SilentlyContinue
+          if (-not $run) { throw "자동 실행 등록 안 됨" }
+          Write-Host "autostart: $($run.BujaOrderAlert)"
+          Get-Process BujaOrderAlert -ErrorAction SilentlyContinue | Stop-Process -Force
+          $env:BUJA_DESK_HOME = "$env:RUNNER_TEMP\desk-selftest2"
+          New-Item -ItemType Directory -Force -Path $env:BUJA_DESK_HOME | Out-Null
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $t = Start-Process -FilePath $exe -ArgumentList "--self-test" -PassThru
+          if (-not $t.WaitForExit(90000)) { $t | Stop-Process -Force; throw "installed self-test timeout" }
+          if ($t.ExitCode -ne 0) { throw "installed self-test failed" }
+          $un = Get-ChildItem "$env:LOCALAPPDATA\Programs\BujaOrderAlert\unins*.exe" | Select-Object -First 1
+          Start-Process -FilePath $un.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
+          Start-Sleep -Seconds 3
+          if (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name BujaOrderAlert -ErrorAction SilentlyContinue) { throw "제거 후 자동 실행 값 남음" }
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: BujaOrderAlert-Setup-${{ steps.version.outputs.version }}
+          path: desk/dist-installer/*.exe
+          if-no-files-found: error
+          retention-days: 90
+      - name: Publish release (태그 빌드만)
+        if: startsWith(github.ref, 'refs/tags/desk-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: desk/dist-installer/*.exe
+          name: 부자유통 발주 알림센터 ${{ steps.version.outputs.version }}
+          body: |
+            사무실 PC용 설치파일입니다. 설치파일을 내려받아 실행하세요 (관리자 권한 불필요).
+            처음 실행하면 직원 아이디와 6자리 PIN으로 로그인합니다.

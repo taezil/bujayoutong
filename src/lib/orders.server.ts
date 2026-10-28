@@ -76,6 +76,9 @@ type OrderRequestItem = { productId: string; optionLabel: string; quantity: numb
 type PreparedItem = {
   productId: string; productName: string; unit: string; optionLabel: string; quantity: number;
   unitPrice: number; taxType: string; warehouseZone: string;
+  /** 주문 당시 정가 (B그룹 가격과 비교 표시용) */
+  listPrice: number;
+  category: string;
 };
 
 export type OrderQuantityWarning = {
@@ -107,7 +110,7 @@ async function prepareItems(customer: CustomerSummary, items: OrderRequestItem[]
   const productIds = Array.from(new Set(normalized.map((item) => item.productId)));
   const optionRows = await db().prepare(`
     SELECT p.id,p.name,p.unit,p.soldout,p.tax_type,p.warehouse_zone,
-           po.label,po.price,po.price_a,po.price_b,po.step
+           p.category,po.label,po.price,po.price_b,po.step
     FROM products p JOIN pack_options po ON po.product_id=p.id
     WHERE p.id IN (${productIds.map(() => "?").join(",")})
     ORDER BY po.sort_order, po.id
@@ -126,11 +129,13 @@ async function prepareItems(customer: CustomerSummary, items: OrderRequestItem[]
     const step = Math.max(0.001, Number(row.step ?? 1));
     const ratio = item.quantity / step;
     if (Math.abs(ratio - Math.round(ratio)) > 0.0001) throw new Error(`${String(row.name)} 수량 단위를 확인해 주세요.`);
+    // A그룹=정가(price), B그룹=B그룹 가격(price_b, 비어 있으면 정가). 거래처 화면·단가표에 보이는 가격과 같음
     const base = row.price == null ? 0 : Number(row.price);
-    const groupPrice = customer.priceGroup === "B" ? row.price_b : row.price_a;
+    const groupPrice = customer.priceGroup === "B" && row.price != null && row.price_b != null ? Number(row.price_b) : null;
     prepared.push({
       productId: String(row.id), productName: String(row.name), unit: String(row.unit ?? ""), optionLabel: String(row.label),
-      quantity: item.quantity, unitPrice: groupPrice == null ? base : Number(groupPrice), taxType: String(row.tax_type ?? "taxable"), warehouseZone: String(row.warehouse_zone ?? ""),
+      quantity: item.quantity, unitPrice: groupPrice == null ? base : groupPrice, listPrice: base, taxType: String(row.tax_type ?? "taxable"), warehouseZone: String(row.warehouse_zone ?? ""),
+      category: String(row.category ?? ""),
     });
   }
   return prepared;
@@ -181,8 +186,8 @@ export async function analyzeOrderQuantities(customerId: string, items: Prepared
 }
 
 function itemInsert(orderId: string, item: PreparedItem) {
-  return db().prepare(`INSERT INTO order_items(order_id,product_id,product_name,unit,option_label,quantity,unit_price,tax_type,warehouse_zone) VALUES(?,?,?,?,?,?,?,?,?)`)
-    .bind(orderId, item.productId, item.productName, item.unit, item.optionLabel, item.quantity, item.unitPrice, item.taxType, item.warehouseZone);
+  return db().prepare(`INSERT INTO order_items(order_id,product_id,product_name,unit,option_label,quantity,unit_price,tax_type,warehouse_zone,list_price) VALUES(?,?,?,?,?,?,?,?,?,?)`)
+    .bind(orderId, item.productId, item.productName, item.unit, item.optionLabel, item.quantity, item.unitPrice, item.taxType, item.warehouseZone, item.listPrice);
 }
 
 export async function createCustomerOrder(
@@ -190,9 +195,21 @@ export async function createCustomerOrder(
   items: OrderRequestItem[],
   note = "",
   source = "app",
-  options: { deliveryDate?: string; staff?: StaffSession | null; confirmAnomaly?: boolean; orderPeriod?: string } = {},
+  options: {
+    deliveryDate?: string; staff?: StaffSession | null; confirmAnomaly?: boolean; orderPeriod?: string;
+    /** 거래처 앱이 주문마다 만드는 중복 방지 키. 같은 키로 다시 보내면 새로 만들지 않고 기존 주문을 돌려줍니다. */
+    clientRequestId?: string;
+    /** 거래처가 고른 배송 시간 AM/PM (없으면 '') */
+    deliverySlot?: string;
+    deliveryLocation?: { id: string; name: string; address: string; phone: string } | null;
+  } = {},
 ) {
   await ensureDatabase();
+  const clientRequestId = String(options.clientRequestId ?? "").trim();
+  if (clientRequestId) {
+    const existing = await findOrderByRequestId(customer.id, clientRequestId);
+    if (existing) return existing;
+  }
   if (source === "app") {
     const availability = await orderAvailability();
     if (!availability.allowed) throw new Error(availability.reason);
@@ -202,6 +219,13 @@ export async function createCustomerOrder(
   if (warnings.length && !options.confirmAnomaly) throw new OrderWarningError(warnings);
 
   const deliveryDate = normalizeDeliveryDate(options.deliveryDate);
+  if (source === "app") {
+    // 행사품목이 하나라도 있으면 오늘·내일 배송만 가능 (거래처 화면 달력과 같은 규칙)
+    const promo = await promoCategoryName();
+    if (promo && prepared.some((item) => item.category === promo) && deliveryDate > kstDate(1)) {
+      throw new Error("행사품목이 있어 오늘·내일 배송만 선택할 수 있습니다. 배송일을 다시 골라 주세요.");
+    }
+  }
   const orderPeriod = normalizeOrderPeriod(options.orderPeriod);
   const priorPrinted = await db().prepare(`
     SELECT id FROM orders WHERE customer_id=? AND delivery_date=? AND printed_at IS NOT NULL AND status!='cancelled' LIMIT 1
@@ -210,12 +234,27 @@ export async function createCustomerOrder(
   const id = randomOrderId();
   const total = Math.round(prepared.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
   const staff = options.staff ?? null;
-  await db().batch([
-    db().prepare(`INSERT INTO orders(id,customer_id,source,status,region_snapshot,total_amount,note,delivery_date,created_by_staff_id,created_by_staff_name,is_additional,order_period)
-                  VALUES(?,?,?,'received',?,?,?,?,?,?,?,?)`)
-      .bind(id, customer.id, source, customer.region || "미지정", total, String(note || "").slice(0, 500), deliveryDate, staff?.id ?? "", staff?.displayName ?? "", isAdditional ? 1 : 0, orderPeriod),
-    ...prepared.map((item) => itemInsert(id, item)),
-  ]);
+  const location = options.deliveryLocation ?? null;
+  const deliverySlot = options.deliverySlot === "PM" ? "PM" : options.deliverySlot === "AM" ? "AM" : "";
+  try {
+    // orders + order_items 를 한 번의 batch(트랜잭션)로 저장: 일부만 저장되는 일이 없음
+    await db().batch([
+      db().prepare(`INSERT INTO orders(id,customer_id,source,status,region_snapshot,total_amount,note,delivery_date,created_by_staff_id,created_by_staff_name,is_additional,order_period,client_request_id,delivery_location_id,delivery_location_name,delivery_location_address,delivery_location_phone,delivery_slot,price_group)
+                    VALUES(?,?,?,'received',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .bind(id, customer.id, source, customer.region || "미지정", total, String(note || "").slice(0, 500), deliveryDate, staff?.id ?? "", staff?.displayName ?? "", isAdditional ? 1 : 0, orderPeriod,
+          clientRequestId, location?.id ?? "", location?.name ?? "", location?.address ?? "", location?.phone ?? "", deliverySlot, customer.priceGroup === "B" ? "B" : "A"),
+      ...prepared.map((item) => itemInsert(id, item)),
+      // 사무실 발주 알림센터 '신규' 상태를 주문과 같은 트랜잭션으로 생성 (입력완료 전에는 목록에서 빠지지 않음)
+      db().prepare("INSERT OR IGNORE INTO order_desk_status(order_id,state) VALUES(?,'new')").bind(id),
+    ]);
+  } catch (error) {
+    // 같은 키로 거의 동시에 두 번 들어온 경우: 먼저 저장된 주문을 돌려줌
+    if (clientRequestId) {
+      const existing = await findOrderByRequestId(customer.id, clientRequestId);
+      if (existing) return existing;
+    }
+    throw error;
+  }
 
   if (staff) {
     const itemText = prepared.slice(0, 4).map((i) => `${i.productName}${i.quantity}${i.optionLabel}`).join(", ");
@@ -225,7 +264,33 @@ export async function createCustomerOrder(
       metadata: { customerId: customer.id, customerCode: customer.code, deliveryDate, orderPeriod, isAdditional },
     });
   }
-  return { id, total, itemCount: prepared.length, deliveryDate, orderPeriod, isAdditional, warnings };
+  return { id, total, itemCount: prepared.length, deliveryDate, orderPeriod, deliverySlot, isAdditional, warnings, duplicate: false };
+}
+
+async function findOrderByRequestId(customerId: string, clientRequestId: string) {
+  const row = await db().prepare(`
+    SELECT o.id,o.total_amount,o.delivery_date,o.order_period,o.delivery_slot,o.is_additional,o.status,
+           (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id=o.id) AS item_count
+    FROM orders o WHERE o.customer_id=? AND o.client_request_id=? LIMIT 1
+  `).bind(customerId, clientRequestId).first<Record<string, unknown>>();
+  if (!row) return null;
+  return {
+    id: String(row.id), total: Number(row.total_amount ?? 0), itemCount: Number(row.item_count ?? 0),
+    deliveryDate: String(row.delivery_date ?? ""), orderPeriod: (String(row.order_period) === "PM" ? "PM" : "AM") as OrderPeriod,
+    deliverySlot: String(row.delivery_slot ?? ""),
+    isAdditional: Number(row.is_additional ?? 0) === 1, warnings: [] as OrderQuantityWarning[], duplicate: true,
+  };
+}
+
+async function promoCategoryName() {
+  const row = await db().prepare(`
+    SELECT COALESCE(
+      (SELECT value FROM app_settings WHERE key='promoCategory' AND value<>''),
+      (SELECT name FROM categories WHERE is_promo=1 ORDER BY sort_order LIMIT 1),
+      ''
+    ) AS name
+  `).first<{ name: string }>();
+  return String(row?.name ?? "");
 }
 
 export async function updateCustomerOrder(customer: CustomerSummary, orderId: string, items: OrderRequestItem[], note = "", confirmAnomaly = false) {
