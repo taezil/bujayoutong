@@ -489,6 +489,7 @@ async function ensureDatabaseFull(database: D1Database) {
   await ensureColumn(database, "pack_options", "spec", "TEXT NOT NULL DEFAULT ''");
   await ensureOperationsSchema(database);
   await ensureDeskSchema(database);
+  await ensureZoneSchema(database);
 
   await runAuthMaintenance(database);
 
