@@ -207,6 +207,81 @@ async function main() {
   const ack = await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId: thirdId } });
   check("취소 확인 → 목록에서 제거", ack.status === 200 && !((await pcA.json("/api/desk/orders")).body?.orders ?? []).some((o) => o.id === thirdId));
 
+  /* ---------- 7-1. 휴대폰 화면: 주문 보내기 → 확인 → 주문 확정 ---------- */
+  try {
+    const { chromium, devices } = await import("playwright");
+    const browser = await chromium.launch();
+    const context = await browser.newContext({ ...devices["Pixel 7"], baseURL: BASE });
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.locator('input[name="username"]').fill("12013");
+    await page.locator('input[name="password"]').fill("12013");
+    await page.locator('button[type="submit"]').click();
+    await page.locator(".od-search input").waitFor({ timeout: 30000 });
+    const product = sellable[0];
+    async function addOne() {
+      await page.locator(".od-search input").fill(product.name);
+      const card = page.locator(".od-card", { hasText: product.name }).first();
+      await card.waitFor({ timeout: 10000 });
+      await card.locator('button[aria-label$="수량 늘리기"]').first().click();
+      await page.locator(".od-search input").fill("");
+    }
+    await addOne();
+    await page.locator(".od-cart-icon").click();
+    await page.locator(".od-send").first().click();
+    await page.locator(".od-confirm").waitFor({ timeout: 10000 });
+    check("[화면] 주문 보내기 → 주문 확인 단계(배송일·요청사항)", await page.locator(".od-confirm-date-buttons button").count() === 2);
+    await page.locator(".od-confirm-date-buttons button", { hasText: "내일" }).click();
+    const uiNote = `화면테스트-${Date.now()}`;
+    await page.locator(".od-confirm-note textarea").fill(uiNote);
+
+    // 저장은 됐지만 응답이 끊긴 상황: 성공 표시 없이 오류 → [다시 시도] 시 같은 주문으로 처리
+    let dropped = 0;
+    await page.route("**/api/orders", async (route) => {
+      if (route.request().method() === "POST" && dropped === 0) {
+        dropped += 1;
+        await route.fetch();
+        await route.abort("connectionreset");
+        return;
+      }
+      await route.continue();
+    });
+    await page.locator(".od-confirm .od-send").click();
+    await page.locator(".od-confirm-error").waitFor({ timeout: 20000 });
+    check("[화면] 응답이 끊기면 성공으로 표시하지 않음(확인 못함 + 다시 시도 안내)", (await page.locator(".od-placed").count()) === 0
+      && (await page.locator(".od-confirm-error").innerText()).includes("확인하지 못했습니다")
+      && (await page.locator(".od-confirm .od-send", { hasText: "다시 시도" }).count()) === 1);
+    check("[화면] 실패 시 장바구니 유지", (await page.locator(".od-cart-line").count()) === 1);
+    await page.locator(".od-confirm .od-send", { hasText: "다시 시도" }).click();
+    await page.locator(".od-placed").waitFor({ timeout: 20000 });
+    const placedText = await page.locator(".od-placed").innerText();
+    check("[화면] 다시 시도 → 접수 완료 표시(주문번호)", placedText.includes("주문이 접수되었습니다") && placedText.includes("접수번호"), placedText.replace(/\n/g, " "));
+    const sameNote = sql(`SELECT COUNT(*) AS n FROM orders WHERE note='${uiNote}'`);
+    check("[화면] 재시도해도 주문은 1건만 저장", Number(sameNote[0]?.n) === 1, j(sameNote));
+    await page.locator(".od-placed .od-send").click();
+    const cartLabel = await page.locator(".od-cart-icon").getAttribute("aria-label");
+    check("[화면] 접수 후 장바구니 비움", /장바구니 0품목/.test(cartLabel || ""), cartLabel || "");
+    const deskView = (await pcA.json("/api/desk/orders")).body?.orders?.find((o) => o.note === uiNote);
+    check("[화면] 휴대폰 주문 → 알림센터 목록에 표시(내일 배송)", deskView?.deliveryDate === tomorrow && deskView.items.length === 1, j(deskView));
+
+    // 서버가 거절하면(예: 주문 중지) 성공 표시 없음
+    sql("UPDATE app_settings SET value='0' WHERE key='orderEnabled'");
+    await page.unroute("**/api/orders");
+    await addOne();
+    await page.locator(".od-cart-icon").click();
+    await page.locator(".od-send").first().click();
+    await page.locator(".od-confirm .od-send").click();
+    await page.locator(".od-confirm-error").waitFor({ timeout: 20000 });
+    check("[화면] 서버 저장 실패(주문 중지) → 오류 표시, 성공 표시 없음", (await page.locator(".od-placed").count()) === 0
+      && (await page.locator(".od-confirm-error").innerText()).includes("일시 중지"), await page.locator(".od-confirm-error").innerText());
+    check("[화면] 실패 시 문자 보내기는 보조 버튼으로만", (await page.locator(".od-sms-fallback").count()) === 1);
+    sql("UPDATE app_settings SET value='1' WHERE key='orderEnabled'");
+    await browser.close();
+  } catch (error) {
+    sql("UPDATE app_settings SET value='1' WHERE key='orderEnabled'");
+    check("[화면] 휴대폰 주문 흐름", false, String(error?.message || error).slice(0, 400));
+  }
+
   /* ---------- 8. 권한 해제 ---------- */
   const logoutB = await pcB.json("/api/desk/logout", { method: "POST", origin: false, json: {} });
   check("PC B 로그아웃", logoutB.status === 200);

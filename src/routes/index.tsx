@@ -472,6 +472,7 @@ function OrderApp({ store }: { store: StoreData }) {
   const [orderNote, setOrderNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [submitUncertain, setSubmitUncertain] = useState(false);
   const [quantityWarnings, setQuantityWarnings] = useState<Array<{ message: string }> | null>(null);
   const [placedOrder, setPlacedOrder] = useState<{ id: string; label: string; deliveryDate: string; itemCount: number; duplicate: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -791,6 +792,7 @@ function OrderApp({ store }: { store: StoreData }) {
     const requestId = orderRequestId(cartKey, JSON.stringify({ c: customer.id, l: deliveryLocationId, d: deliveryDate, n: note, items }));
     setSubmitting(true);
     setSubmitError("");
+    setSubmitUncertain(false);
     try {
       const controller = new AbortController();
       const timer = window.setTimeout(() => controller.abort(), 25000);
@@ -828,6 +830,7 @@ function OrderApp({ store }: { store: StoreData }) {
       setAskSent(false);
     } catch (error) {
       setQuantityWarnings(null);
+      setSubmitUncertain(!(error instanceof SubmitFailure));
       setSubmitError(error instanceof SubmitFailure
         ? error.message
         : "인터넷 연결이 불안정해 접수 결과를 받지 못했습니다. 아래 [다시 시도]를 눌러 주세요. 같은 주문은 두 번 접수되지 않습니다.");
@@ -1332,7 +1335,7 @@ function OrderApp({ store }: { store: StoreData }) {
                 <button type="button" className="od-continue" disabled={submitting} onClick={() => { setQuantityWarnings(null); setConfirmStep(false); }}>수량 고치기</button>
               </div>}
               {submitError && <div className="od-confirm-error" role="alert">
-                <b>❗ 주문이 아직 접수되지 않았습니다.</b>
+                <b>{submitUncertain ? "❗ 접수 결과를 확인하지 못했습니다." : "❗ 주문이 아직 접수되지 않았습니다."}</b>
                 <p>{submitError}</p>
               </div>}
               {!quantityWarnings && <button type="button" className="od-send" disabled={submitting || !cart.length} onClick={() => void submitOrder(false)}>
