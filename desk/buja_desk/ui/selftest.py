@@ -78,7 +78,9 @@ def run_self_test(argv: list[str]) -> int:
         lines.append(f"toasts: {len(controller.toasts._toasts)}")
         assert len(controller.toasts._toasts) == 2, "팝업 표시 실패"
         log.info("selftest: toasts ok, entering event loop")
-        QTimer.singleShot(1500, app.quit)
+        # Qt6 는 종료 시 창 닫기를 시도하는데, 메인 창은 '트레이로 숨기기'라 닫기를 거절하므로 종료 표시 후 끝냄
+        controller.quitting = True
+        QTimer.singleShot(1500, lambda: app.exit(0))
         app.exec()
         log.info("selftest: event loop finished")
         controller.quitting = True
