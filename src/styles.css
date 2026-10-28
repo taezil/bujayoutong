@@ -4369,3 +4369,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .pl-empty { padding: 40px 0; text-align: center; color: #5a616c; }
 @media print { .pl-back, .pl-print, .pl-search { display: none; } .pl-page { padding: 0; } .pl-section { break-inside: avoid-page; } }
 .od-promo-date-note { margin: -4px 0 0; padding: 10px 12px; border-radius: 12px; background: #fff3d6; color: #6b4300; font-size: 15px; font-weight: 700; }
+
+/* ---------- 관리자: 거래처 가격 그룹 ---------- */
+.price-group-tools { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.price-group-tools input { flex: 1 1 220px; min-height: 42px; padding: 0 12px; border: 1px solid #d8dee4; border-radius: 10px; font-size: 15px; }
+.price-group-filter, .price-group-toggle { display: inline-flex; border: 1px solid #d8dee4; border-radius: 10px; overflow: hidden; background: #fff; }
+.price-group-filter button, .price-group-toggle button { min-height: 40px; padding: 0 14px; border: 0; background: transparent; font-size: 14px; font-weight: 800; color: #5a616c; cursor: pointer; }
+.price-group-filter button.selected { background: #0b6a39; color: #fff; }
+.price-group-list { display: grid; gap: 6px; }
+.price-group-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border: 1px solid #e3e7eb; border-radius: 12px; background: #fff; }
+.price-group-row.group-b { border-color: #f0c987; background: #fffaf0; }
+.price-group-row b { display: block; font-size: 15px; }
+.price-group-row small { color: #6b727d; }
+.price-group-toggle button.selected.g-a { background: #0b6a39; color: #fff; }
+.price-group-toggle button.selected.g-b { background: #b8650f; color: #fff; }
+
+/* ---------- 배송기사 발주: 배송 시간 + 전체 거래처 목록 ---------- */
+.delivery-slot-toggle button.selected { background: #0b6a39; color: #fff; border-color: #0b6a39; }
+.driver-customer-list { max-height: 320px; overflow-y: auto; }

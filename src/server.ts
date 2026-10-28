@@ -21,7 +21,7 @@ export default {
       const url = new URL(request.url);
       // 단가표: 거래처 로그인(쿠키)이 없으면 첫 화면(로그인)으로 보냄. 가격은 로그인 후 /api/store 에서 그룹별로만 받음
       if ((url.pathname === "/price-list" || url.pathname.startsWith("/price-list/"))
-        && !/(?:^|;\s*)buja_customer_session_v2=/.test(request.headers.get("cookie") ?? "")) {
+        && !/(?:^|;\s*)(?:buja_customer_session_v2|buja_staff_session)=/.test(request.headers.get("cookie") ?? "")) {
         return applySecurityHeaders(new Response(null, {
           status: 302,
           headers: { Location: new URL("/", url).toString(), "Cache-Control": "no-store" },

@@ -423,6 +423,39 @@ async function main() {
     check("삭제 기록(사유 포함) 남음", sql(`SELECT summary FROM audit_logs WHERE entity_id='${victimId}' AND action='desk_delete'`).some((r) => String(r.summary).includes("CI 테스트")));
   }
 
+  /* ---------- 7-4. 관리자 가격그룹 지정 · 배송기사 발주 ---------- */
+  {
+    const salt = "ci-desk-admin-salt2";
+    sql(`INSERT OR REPLACE INTO admin_credentials (id, salt, hash) VALUES (1, '${salt}', '${pbkdf2Sync("ci-admin-password", salt, 100000, 32, "sha256").toString("hex")}')`);
+    const admin2 = new Client();
+    await admin2.json("/api/admin/login", { method: "POST", json: { username: "admin", password: "ci-admin-password" } });
+    const target = sql("SELECT id, price_group FROM customers WHERE code='00124' LIMIT 1")[0];
+    const setB = await admin2.json("/api/admin/customers", { method: "POST", json: { action: "set-price-group", id: target.id, priceGroup: "B" } });
+    const listed = (await admin2.json("/api/admin/customers")).body?.customers?.find((c) => c.id === target.id);
+    check("관리자: 거래처 가격그룹 B 지정 → 목록에 반영", setB.status === 200 && listed?.priceGroup === "B", j({ setB: setB.body, listed: listed?.priceGroup }));
+    check("가격그룹 변경 즉시 거래처 주문에 B그룹 적용", (await customer.json("/api/customer/status")).status === 200);
+    await admin2.json("/api/admin/customers", { method: "POST", json: { action: "set-price-group", id: target.id, priceGroup: target.price_group || "A" } });
+    const anonGroup = await anon.json("/api/admin/customers", { method: "POST", json: { action: "set-price-group", id: target.id, priceGroup: "B" } });
+    check("비관리자 가격그룹 변경 불가", anonGroup.status === 403);
+
+    const driver = new Client();
+    const dl = await driver.json("/api/staff/login", { method: "POST", json: { username: "cidriver", pin: "975310" } });
+    check("배송기사 웹 로그인", dl.status === 200, j(dl.body));
+    const driverData = await driver.json(`/api/driver/data?date=${kstDate(1)}`);
+    check("배송기사: 전체 거래처 목록 받음", driverData.status === 200 && (driverData.body?.customers ?? []).length >= 1, `${driverData.status}`);
+    const noSlot = await driver.json("/api/driver/order", { method: "POST", json: { customerId: target.id, deliveryDate: kstDate(1), items: [items[0]], confirmAnomaly: true } });
+    check("배송기사 발주: 배송 시간 없으면 거절", noSlot.status === 400, j(noSlot.body));
+    const rid = randomUUID();
+    const dPayload = { customerId: target.id, deliveryDate: kstDate(1), deliverySlot: "PM", requestId: rid, items: [items[0]], note: "기사 테스트", confirmAnomaly: true };
+    const d1 = await driver.json("/api/driver/order", { method: "POST", json: dPayload });
+    const d2 = await driver.json("/api/driver/order", { method: "POST", json: dPayload });
+    check("배송기사 발주 접수 + 재전송 중복 없음", d1.status === 200 && d2.body?.order?.id === d1.body?.order?.id, j({ d1: d1.body?.order?.id, d2: d2.body?.order?.id }));
+    const dDesk = (await pcA.json(`/api/desk/orders?id=${d1.body?.order?.id}`)).body?.order;
+    check("사무실 알림센터에 기사발주(기사 이름·오후 배송)로 표시", dDesk?.source === "driver" && dDesk.createdByStaffName === "배송기사테스트" && dDesk.deliverySlot === "PM" && dDesk.desk.state === "new", j(dDesk));
+    const staffPriceList = await fetch(`${BASE}/price-list`, { headers: { cookie: [...driver.cookies].map(([k, v]) => `${k}=${v}`).join("; ") }, redirect: "manual" });
+    check("배송기사도 단가표 열림", staffPriceList.status === 200, `${staffPriceList.status}`);
+  }
+
   /* ---------- 8. 권한 해제 ---------- */
   const logoutB = await pcB.json("/api/desk/logout", { method: "POST", origin: false, json: {} });
   check("PC B 로그아웃", logoutB.status === 200);

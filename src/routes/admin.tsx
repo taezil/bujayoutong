@@ -195,7 +195,7 @@ function AdminPage() {
         </nav>
         <div className="adm-side-foot">
           <span>{staffName}</span>
-          <a href="/admin/accounts">거래처 계정 관리</a>
+          <a href="/admin/accounts">거래처 계정 · 가격그룹 · 직원 PIN</a>
           <button type="button" onClick={logout}>로그아웃</button>
         </div>
       </aside>

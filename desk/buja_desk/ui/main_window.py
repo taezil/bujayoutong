@@ -68,6 +68,8 @@ class OrderCard(QFrame):
             badges.append(("추가발주 🚨", "additional"))
         if order.get("priceGroup") == "B":
             badges.append(("가격변동 B", "group_b"))
+        if order.get("source") == "driver":
+            badges.append((f"🚚 기사발주 · {order.get('createdByStaffName') or ''}".rstrip(" ·"), "driver"))
         for text, kind in badges:
             badge = QLabel(text)
             badge.setObjectName("Badge")

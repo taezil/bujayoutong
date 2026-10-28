@@ -14,6 +14,7 @@ type DriverOrder={id:string;customerId:string;customerCode:string;customerName:s
 type DriverData={staff:Staff;date:string;customers:Customer[];products:Product[];orders:DriverOrder[]};
 type CartLine={productId:string;productName:string;optionLabel:string;quantity:number;unitPrice:number;step:number};
 
+function newRequestId(){try{if(typeof crypto!=="undefined"&&"randomUUID" in crypto)return crypto.randomUUID();}catch{}return `d${Date.now().toString(36)}${Math.random().toString(36).slice(2,12)}`;}
 function won(v:number){return new Intl.NumberFormat("ko-KR").format(Math.round(v));}
 function localDate(offset:number){const d=new Date(Date.now()+offset*86400000);return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);}
 function groupPrice(option:Product["packOptions"][number],group:"A"|"B"){return group==="B"?(option.priceB??option.price??0):(option.priceA??option.price??0);}
@@ -40,6 +41,10 @@ function DriverPage(){
   const [optionLabel,setOptionLabel]=useState("");
   const [qty,setQty]=useState(1);
   const [orderPeriodValue,setOrderPeriodValue]=useState<"AM"|"PM">(()=>currentOrderPeriod()==="오후발주"?"PM":"AM");
+  const [deliverySlot,setDeliverySlot]=useState<""|"AM"|"PM">("");
+  const [customerOpen,setCustomerOpen]=useState(false);
+  const [requestId,setRequestId]=useState(()=>newRequestId());
+  const [submitting,setSubmitting]=useState(false);
   const [cart,setCart]=useState<CartLine[]>([]);
   const [note,setNote]=useState("");
   const [message,setMessage]=useState("");
@@ -58,7 +63,7 @@ function DriverPage(){
 
   const customers=useMemo(()=>{
     const q=customerQuery.trim().toLowerCase().replace(/\s+/g,""); if(!data)return[];
-    return data.customers.filter(c=>!q||`${c.code}${c.name}${c.region}${c.address}`.toLowerCase().replace(/\s+/g,"").includes(q)).slice(0,30);
+    return data.customers.filter(c=>!q||`${c.code}${c.name}${c.region}${c.address}`.toLowerCase().replace(/\s+/g,"").includes(q)).slice(0,q?40:200);
   },[data,customerQuery]);
   const products=useMemo(()=>{
     const q=productQuery.trim().toLowerCase().replace(/\s+/g,""); if(!data||!q)return[];
@@ -80,12 +85,24 @@ function DriverPage(){
     setProduct(null);setProductQuery("");setQty(1);
   }
   async function submit(confirmAnomaly=false){
-    if(!customer||!cart.length)return;
-    const r=await fetch("/api/driver/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customerId:customer.id,deliveryDate:date,orderPeriod:orderPeriodValue,items:cart.map(x=>({productId:x.productId,optionLabel:x.optionLabel,quantity:x.quantity})),note,confirmAnomaly})});
-    const j=await r.json() as {error?:string;warning?:boolean;warnings?:Array<{message:string}>;order?:{id:string;isAdditional:boolean}};
+    if(!customer||!cart.length||submitting)return;
+    if(!deliverySlot){setMessage("배송 시간(오전 배송/오후 배송)을 선택해 주세요.");return;}
+    setSubmitting(true);
+    let r:Response;
+    try{
+      r=await fetch("/api/driver/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customerId:customer.id,deliveryDate:date,orderPeriod:orderPeriodValue,deliverySlot,requestId,items:cart.map(x=>({productId:x.productId,optionLabel:x.optionLabel,quantity:x.quantity})),note,confirmAnomaly})});
+    }catch{
+      setSubmitting(false);
+      setMessage("❗ 인터넷 연결이 불안정해 접수 결과를 확인하지 못했습니다. [발주 등록]을 다시 눌러 주세요. 같은 발주는 두 번 접수되지 않습니다.");
+      return;
+    }
+    const j=await r.json().catch(()=>({})) as {error?:string;warning?:boolean;warnings?:Array<{message:string}>;order?:{id:string;isAdditional:boolean;duplicate?:boolean}};
+    setSubmitting(false);
     if(r.status===409&&j.warning){const text=(j.warnings??[]).map(x=>`• ${x.message}`).join("\n");if(window.confirm(`⚠ 평소 주문량보다 많습니다.\n\n${text}\n\n그래도 발주할까요?`))return submit(true);return;}
-    if(!r.ok||!j.order){setMessage(j.error||"현장발주 접수에 실패했습니다.");return;}
-    setMessage(`${j.order.isAdditional?"🚨 추가 현장발주":"현장발주"} 접수 완료 · ${customer.code}`);setCart([]);setNote("");await load(date);window.setTimeout(()=>setMessage(""),3500);
+    if(r.status===401){setMessage("로그인이 풀렸습니다. 다시 로그인해 주세요.");setStaff(null);return;}
+    if(!r.ok||!j.order){setMessage(`❗ 접수되지 않았습니다: ${j.error||"현장발주 접수에 실패했습니다."}`);return;}
+    setMessage(`✅ ${j.order.isAdditional?"🚨 추가발주":"발주"} 접수 완료 · ${customer.code} ${customer.name} → 사무실 알림센터로 전송됨`);
+    setCart([]);setNote("");setDeliverySlot("");setRequestId(newRequestId());await load(date);window.setTimeout(()=>setMessage(""),6000);
   }
   async function logout(){await fetch("/api/staff/logout",{method:"POST"});setStaff(null);setData(null);}
 
@@ -98,12 +115,17 @@ function DriverPage(){
 
       <section className="driver-order-form"><div className="driver-section-head"><div><p>식당에서 바로 입력</p><h2>현장발주</h2></div>{customer&&<span>{customer.region} · 가격 {customer.priceGroup}그룹</span>}</div>
         <div className="driver-order-meta">
+          <div className="order-period-toggle delivery-slot-toggle" role="radiogroup" aria-label="배송 시간">
+            <button type="button" className={deliverySlot==="AM"?"selected":""} onClick={()=>setDeliverySlot("AM")}>☀️ 오전 배송</button>
+            <button type="button" className={deliverySlot==="PM"?"selected":""} onClick={()=>setDeliverySlot("PM")}>🌇 오후 배송</button>
+          </div>
           <div className="order-period-toggle" role="group" aria-label="발주 시간대">
             <button type="button" className={orderPeriodValue==="AM"?"selected":""} onClick={()=>setOrderPeriodValue("AM")}>오전발주</button>
             <button type="button" className={orderPeriodValue==="PM"?"selected":""} onClick={()=>setOrderPeriodValue("PM")}>오후발주</button>
           </div>
         </div>
-        <div className="driver-search-block"><label>거래처 검색<input value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)} placeholder="거래처번호·상호·지역 검색"/></label>{customerQuery&&<div className="driver-suggestions">{customers.map(c=><button type="button" key={c.id} onClick={()=>{setCustomer(c);setCustomerQuery(`${c.code} · ${c.name}`);}}><strong>{c.code} · {c.name}</strong><span>{c.region} · {c.address}</span></button>)}</div>}</div>
+        <div className="driver-search-block"><label>거래처 (검색하거나 목록에서 선택)<input value={customerQuery} onFocus={()=>setCustomerOpen(true)} onChange={e=>{setCustomerQuery(e.target.value);setCustomerOpen(true);if(customer)setCustomer(null);}} placeholder="거래처번호·상호·지역 입력, 또는 눌러서 전체 목록"/></label>
+          {customerOpen&&<div className="driver-suggestions driver-customer-list">{customers.map(c=><button type="button" key={c.id} onClick={()=>{setCustomer(c);setCustomerQuery(`${c.code} · ${c.name}`);setCustomerOpen(false);setCart([]);}}><strong>{c.code} · {c.name}</strong><span>{c.region||"지역 미지정"} · {c.address}</span></button>)}{!customers.length&&<p className="driver-empty">검색되는 거래처가 없습니다.</p>}</div>}</div>
         {customer&&<div className="driver-customer-summary"><b>{customer.code} · {customer.name}</b><span>☎ {customer.storePhone||customer.phone||"전화번호 없음"}</span><span>{customer.address}</span><span className={customer.receivable>0?"warn":""}>미수 {won(customer.receivable)}원</span></div>}
         <div className="driver-product-line"><div className="driver-search-block"><input value={productQuery} onChange={e=>{setProductQuery(e.target.value);setProduct(null);}} placeholder="상품명 입력 예: 등심돈"/>{productQuery&&!product&&<div className="driver-suggestions product">{products.map(p=><button type="button" key={p.id} disabled={p.soldout} onClick={()=>selectProduct(p)}><strong>{p.name}{p.soldout?" · 품절":""}</strong><span>{p.category} · {p.unit}</span></button>)}</div>}</div>
           <select value={optionLabel} onChange={e=>setOptionLabel(e.target.value)} disabled={!product}>{(product?.packOptions??[]).map(o=><option key={o.label}>{o.label}</option>)}</select>
@@ -112,7 +134,7 @@ function DriverPage(){
         </div>
         {cart.length>0&&<div className="driver-cart">{cart.map((x,i)=><div key={`${x.productId}-${x.optionLabel}`}><span><b>{x.productName}</b> {x.quantity}{x.optionLabel}</span><strong>{won(x.unitPrice*x.quantity)}원</strong><button onClick={()=>setCart(c=>c.filter((_,j)=>j!==i))}>×</button></div>)}</div>}
         <label className="driver-note">요청사항<input value={note} onChange={e=>setNote(e.target.value)} placeholder="없으면 비워두세요"/></label>
-        <button className="driver-submit" type="button" disabled={!customer||!cart.length} onClick={()=>void submit(false)}>{orderPeriodValue==="PM"?"오후발주":"오전발주"} · {date===localDate(0)?"오늘":"선택한 날짜"} 현장발주 등록</button>
+        <button className="driver-submit" type="button" disabled={!customer||!cart.length||!deliverySlot||submitting} onClick={()=>void submit(false)}>{submitting?"접수 중...":`${date===localDate(0)?"오늘":date.slice(5).replace("-","/")} ${deliverySlot==="PM"?"오후 배송":deliverySlot==="AM"?"오전 배송":"(배송 시간 선택)"} · 발주 등록 → 사무실 알림`}</button>
         {message&&<p className="driver-message">{message}</p>}
       </section>
 
