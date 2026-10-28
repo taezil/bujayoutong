@@ -229,7 +229,13 @@ async function main() {
       await page.locator(".od-search input").fill("");
     }
     await page.locator(".od-search input").fill(product.name);
-    const priceShown = (await page.locator(".od-card", { hasText: product.name }).first().locator(".od-option-price").first().innerText()).trim();
+    const priceLocator = page.locator(".od-card", { hasText: product.name }).first().locator(".od-option-price").first();
+    await priceLocator.waitFor({ timeout: 10000 });
+    let priceShown = "";
+    for (let i = 0; i < 20 && !priceShown; i += 1) {
+      priceShown = (await priceLocator.innerText().catch(() => "")).trim();
+      if (!priceShown) await page.waitForTimeout(250);
+    }
     check("[화면] 상품 카드에 자기 그룹 가격 표시", /원$|가격문의|시세/.test(priceShown), priceShown);
     await page.locator(".od-search input").fill("");
     await addOne();
