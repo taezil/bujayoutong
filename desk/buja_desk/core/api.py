@@ -123,5 +123,8 @@ class DeskApi:
     def order(self, order_id: str) -> dict[str, Any]:
         return dict(self._request("GET", "/api/desk/orders", params={"id": order_id}).get("order") or {})
 
+    def delete_order(self, order_id: str, reason: str = "") -> dict[str, Any]:
+        return self._request("POST", "/api/desk/orders", json={"action": "delete", "orderId": order_id, "reason": reason})
+
     def change_state(self, order_id: str, action: str, force: bool = False) -> dict[str, Any]:
         return self._request("POST", "/api/desk/orders", json={"action": action, "orderId": order_id, "force": force})

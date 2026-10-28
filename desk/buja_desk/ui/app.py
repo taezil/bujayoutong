@@ -196,7 +196,7 @@ class DeskController(QObject):
     def _apply_staff(self) -> None:
         if self.staff:
             device = f" · {self.staff.device_name}" if self.staff.device_name else ""
-            self.window.set_staff(self.staff.id, f"{self.staff.display_name}{device}")
+            self.window.set_staff(self.staff.id, f"{self.staff.display_name}{device}", can_delete=self.staff.role == "ADMIN")
 
     def logout(self) -> None:
         answer = QMessageBox.question(self.window, APP_NAME, "로그아웃하고 다른 직원으로 로그인할까요?\n로그아웃 중에는 발주 알림이 오지 않습니다.")
@@ -294,6 +294,7 @@ class DeskController(QObject):
         self.show_window()
         if notice.order_id:
             self.window.open_order(notice.order_id)
+            self._refresh_one(notice.order_id)
         else:
             self.window.tabs.setCurrentIndex(0)
             if notice.order_ids:
@@ -365,6 +366,9 @@ class DeskController(QObject):
         order = next((o for o in self.open_orders if o.get("id") == order_id), None) or \
             (self.window.history_detail.order if self.window.history_detail.current_id() == order_id else None) or {}
         desk = order.get("desk") or {}
+        if action == "delete":
+            self._delete_order(order_id, order)
+            return
         if force:
             who = desk.get("enteringBy") or "다른 직원"
             verb = {"start": "이어받아 입력", "done": "입력완료로 처리", "release": "입력 중 해제"}.get(action, "처리")
@@ -416,6 +420,53 @@ class DeskController(QObject):
             self.request_refresh()
 
         self.background.run(lambda: api.change_state(order_id, action, force), done)
+
+    def _delete_order(self, order_id: str, order: dict[str, Any]) -> None:
+        from PySide6.QtWidgets import QInputDialog, QLineEdit
+
+        desk = order.get("desk") or {}
+        who = f"{order.get('customerCode', '')} {order.get('customerName', '')}".strip()
+        warn = ""
+        if desk.get("state") == "entering" and desk.get("enteringById") != (self.staff.id if self.staff else ""):
+            warn = f"\n⚠ {desk.get('enteringBy') or '다른 직원'}님이 입력 중인 주문입니다."
+        reason, ok = QInputDialog.getText(
+            self.window, "발주 삭제",
+            f"{who} 발주를 삭제할까요?{warn}\n\n· 모든 PC 목록에서 빠지고 처리내역에 '삭제됨'으로 남습니다.\n· 거래처 주문내역에서도 취소로 바뀝니다.\n· 얼마에요에 이미 입력했다면 그쪽도 정리해 주세요.\n\n삭제 사유 (선택):",
+            QLineEdit.EchoMode.Normal, "")
+        if not ok:
+            return
+        self._busy = True
+        self.window.set_busy(True)
+        api = self.api()
+
+        def done(result, error) -> None:
+            self._busy = False
+            self.window.set_busy(False)
+            if isinstance(error, AuthError):
+                self.require_login(str(error))
+                return
+            if error is not None:
+                QMessageBox.warning(self.window, APP_NAME, f"삭제하지 못했습니다.\n{error}")
+                self.request_refresh()
+                return
+            latest = result.get("order") or {}
+            self.window.after_action(latest, "done")
+            self.window.show_message(f"{order.get('customerName', '')} 발주를 삭제했습니다.")
+            if self.window.tabs.currentIndex() == 1:
+                self.window.search_history()
+            self.request_refresh()
+
+        self.background.run(lambda: api.delete_order(order_id, reason.strip()), done)
+
+    def _refresh_one(self, order_id: str) -> None:
+        """알림을 눌렀을 때 그 주문의 최신 상태(다른 PC에서 '입력 중'인지)를 바로 받아 표시."""
+        api = self.api()
+
+        def done(result, error) -> None:
+            if error is None and result and self.window.detail.current_id() == order_id:
+                self.window.after_action(result, "refresh")
+
+        self.background.run(lambda: api.order(order_id), done)
 
     def _undo_done(self, order_id: str) -> None:
         api = self.api()

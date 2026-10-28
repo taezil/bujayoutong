@@ -27,6 +27,7 @@ class OrderDetailView(QFrame):
         self.history_mode = history_mode
         self.order: dict[str, Any] | None = None
         self.my_staff_id = ""
+        self.can_delete = False
         self._busy = False
 
         root = QVBoxLayout(self)
@@ -137,6 +138,11 @@ class OrderDetailView(QFrame):
         self.reopen_button.setObjectName("Danger")
         self.reopen_button.clicked.connect(lambda: self._emit("reopen"))
         buttons.addWidget(self.reopen_button)
+        self.delete_button = QPushButton("🗑 발주 삭제")
+        self.delete_button.setObjectName("Danger")
+        self.delete_button.setToolTip("잘못 들어온 발주를 삭제합니다 (모든 PC 목록에서 빠지고 처리내역에 '삭제됨'으로 남음)")
+        self.delete_button.clicked.connect(lambda: self.order and self.actionRequested.emit("delete", str(self.order.get("id")), False))
+        buttons.addWidget(self.delete_button)
         buttons.addStretch(1)
         self.start_button = QPushButton("입력 시작")
         self.start_button.setObjectName("Start")
@@ -153,8 +159,9 @@ class OrderDetailView(QFrame):
         self.set_order(None)
 
     # ---- 외부 호출 ----
-    def set_my_staff(self, staff_id: str) -> None:
+    def set_my_staff(self, staff_id: str, can_delete: bool = False) -> None:
         self.my_staff_id = staff_id
+        self.can_delete = can_delete
         self._refresh_buttons()
 
     def set_busy(self, busy: bool) -> None:
@@ -185,6 +192,9 @@ class OrderDetailView(QFrame):
 
         state_kind = "cancelled" if cancelled and state != "done" else {"new": "new", "entering": "entering", "done": "done"}[state]
         state_text = {"new": "신규", "entering": "입력 중", "done": "입력완료"}[state]
+        if desk.get("deleted"):
+            state_text = "삭제됨"
+            state_kind = "cancelled"
         if cancelled and state != "done":
             state_text = "취소 확인 필요"
         self.state_badge.setText(state_text)
@@ -307,6 +317,7 @@ class OrderDetailView(QFrame):
         self.done_button.setVisible(state != "done")
         self.done_button.setText("취소 확인" if cancelled else "입력완료")
         self.release_button.setVisible(state == "entering")
-        self.reopen_button.setVisible(state == "done")
-        for button in (self.start_button, self.done_button, self.release_button, self.reopen_button):
+        self.reopen_button.setVisible(state == "done" and not desk.get("deleted"))
+        self.delete_button.setVisible(self.can_delete and not desk.get("deleted") and order.get("status") != "shipped")
+        for button in (self.start_button, self.done_button, self.release_button, self.reopen_button, self.delete_button):
             button.setEnabled(not self._busy)

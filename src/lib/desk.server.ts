@@ -202,7 +202,7 @@ async function loadOrders(where: string, params: unknown[], orderBy: string, lim
            COALESCE(d.state,'new') AS desk_state,COALESCE(d.revision,0) AS desk_revision,
            COALESCE(d.entering_by_id,'') AS entering_by_id,COALESCE(d.entering_by_name,'') AS entering_by_name,
            COALESCE(d.entering_device,'') AS entering_device,COALESCE(d.entering_at,'') AS entering_at,
-           COALESCE(d.done_by_id,'') AS done_by_id,COALESCE(d.done_by_name,'') AS done_by_name,COALESCE(d.done_at,'') AS done_at,
+           COALESCE(d.deleted,0) AS desk_deleted,COALESCE(d.done_by_id,'') AS done_by_id,COALESCE(d.done_by_name,'') AS done_by_name,COALESCE(d.done_at,'') AS done_at,
            (SELECT p.id FROM orders p
              WHERE p.customer_id=o.customer_id AND p.delivery_date=o.delivery_date AND p.id<>o.id
                AND p.status<>'cancelled' AND COALESCE(p.delivery_location_id,'')=COALESCE(o.delivery_location_id,'')
@@ -297,6 +297,7 @@ function toDeskOrder(r: OrderRow, items: OrderRow[], promoCategory = "") {
     desk: {
       state: deskState,
       revision: Number(r.desk_revision ?? 0),
+      deleted: Number(r.desk_deleted ?? 0) === 1,
       enteringById: String(r.entering_by_id ?? ""),
       enteringBy: String(r.entering_by_name ?? ""),
       enteringDevice: String(r.entering_device ?? ""),
@@ -401,7 +402,7 @@ export async function deskChangeState(staff: DeskStaff, orderId: string, action:
       UPDATE order_desk_status
       SET state='new',entering_by_id='',entering_by_name='',entering_device='',entering_at='',done_by_id='',done_by_name='',done_at='',
           revision=revision+1,updated_at=datetime('now')
-      WHERE order_id=? AND state='done'
+      WHERE order_id=? AND state='done' AND deleted=0
     `).bind(orderId).run();
   } else {
     throw new DeskError("지원하지 않는 작업입니다.");
@@ -412,12 +413,14 @@ export async function deskChangeState(staff: DeskStaff, orderId: string, action:
   const changed = Number(result.meta?.changes ?? 0) > 0;
   if (!changed) {
     const desk = current.desk;
-    if (action === "done" && desk.state === "done") {
+    if (action === "done" && desk.state === "done" && !desk.deleted) {
       return { ok: true, alreadyDone: true, order: current };
     }
     let message = "다른 직원이 먼저 처리상태를 바꿨습니다. 목록을 새로고침했습니다.";
     if (desk.state === "entering") message = `${desk.enteringBy || "다른 직원"}님이 입력 중인 주문입니다.`;
-    if (desk.state === "done") message = `${desk.doneBy || "다른 직원"}님이 이미 입력완료한 주문입니다.`;
+    if (desk.state === "done") message = desk.deleted
+      ? `${desk.doneBy || "다른 직원"}님이 이미 삭제한 주문입니다.`
+      : `${desk.doneBy || "다른 직원"}님이 이미 입력완료한 주문입니다.`;
     if (action === "reopen" && desk.state !== "done") message = "입력완료 상태가 아닌 주문입니다.";
     throw new DeskError(message, 409, { conflict: true, order: current });
   }
@@ -434,6 +437,33 @@ export async function deskChangeState(staff: DeskStaff, orderId: string, action:
     summary: `알림센터 ${labels[action]}${force ? "(이어받기)" : ""} · ${String(order.code)} ${String(order.name)} · ${staff.deviceName}`,
   }).catch((error) => console.error("desk audit failed", error));
   return { ok: true, alreadyDone: false, order: current };
+}
+
+/**
+ * 알림센터에서 발주 삭제 (관리자 권한 직원만).
+ * 기록은 남기고 주문을 '취소' 상태로 바꾼 뒤 처리 완료로 표시 → 모든 PC 목록에서 빠지고 처리내역에 '삭제됨'으로 남음.
+ * 출고완료된 주문은 삭제할 수 없음 (재고·미수금이 반영되어 있음).
+ */
+export async function deskDeleteOrder(staff: DeskStaff, orderId: string, reason: string) {
+  if (staff.role !== "ADMIN") throw new DeskError("발주 삭제는 관리자 권한 직원만 할 수 있습니다.", 403);
+  const order = await db().prepare("SELECT o.id,o.status,c.code,c.name FROM orders o JOIN customers c ON c.id=o.customer_id WHERE o.id=? LIMIT 1")
+    .bind(orderId).first<Record<string, unknown>>();
+  if (!order) throw new DeskError("주문을 찾을 수 없습니다.", 404);
+  if (String(order.status) === "shipped") throw new DeskError("이미 출고된 주문은 삭제할 수 없습니다. 관리자 화면에서 반품/미배송으로 처리해 주세요.", 409);
+  const note = String(reason ?? "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 100);
+  await db().batch([
+    db().prepare("UPDATE orders SET status='cancelled',cancelled_at=COALESCE(cancelled_at,datetime('now')),updated_at=datetime('now') WHERE id=? AND status<>'shipped'").bind(orderId),
+    db().prepare("INSERT OR IGNORE INTO order_desk_status(order_id,state) VALUES(?,'new')").bind(orderId),
+    db().prepare(`UPDATE order_desk_status SET state='done',done_by_id=?,done_by_name=?,done_at=datetime('now'),deleted=1,
+                  revision=revision+1,updated_at=datetime('now') WHERE order_id=?`).bind(staff.id, staff.displayName, orderId),
+    db().prepare("UPDATE app_settings SET value=CAST(CAST(value AS INTEGER)+1 AS TEXT) WHERE key='desk_rev'"),
+  ]);
+  await writeAudit({
+    actor: { type: "staff", id: staff.id, name: staff.displayName },
+    action: "desk_delete", entityType: "order", entityId: orderId,
+    summary: `알림센터 발주 삭제 · ${String(order.code)} ${String(order.name)} · ${staff.deviceName}${note ? ` · 사유: ${note}` : ""}`,
+  }).catch((error) => console.error("desk audit failed", error));
+  return { ok: true, order: await deskOrderById(orderId) };
 }
 
 /** PIN 초기화/계정 중지 시 PC 토큰 무효화 */
