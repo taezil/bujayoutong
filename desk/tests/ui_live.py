@@ -138,7 +138,7 @@ def main() -> int:
     check("같은 조건 2건 → 합친 발주 1장", pump(app, lambda: any(e.get("isBundle") and set(e.get("memberIds") or []) == {first, second}
                                                            for e in window.entries), 30))
     check("배송 시간 다르면 따로", any(e.get("id") == other_slot for e in window.entries))
-    bundle = next(e for e in window.entries if e.get("isBundle"))
+    bundle = next(e for e in window.entries if e.get("isBundle") and set(e.get("memberIds") or []) == {first, second})
     check("합친 발주 품목은 수량 합산", all(float(i.get("quantity") or 0) >= 2 for i in bundle["items"]), str([i.get("quantity") for i in bundle["items"]]))
     controller._toast_clicked(next((t.notice for t in controller.toasts._toasts if second in t.notice.order_ids), None)
                               or __import__("buja_desk.core.sync", fromlist=["Notice"]).Notice("new", "", "", [second]))
