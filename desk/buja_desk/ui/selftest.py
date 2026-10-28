@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+import faulthandler
+import logging
 import os
 import sys
 import tempfile
@@ -34,6 +36,10 @@ def run_self_test(argv: list[str]) -> int:
     out = Path(os.environ["BUJA_DESK_HOME"]) / "selftest.txt"
     lines: list[str] = []
     code = 1
+    log = logging.getLogger("selftest")
+    # 멈추면 60초 뒤 모든 스레드 위치를 기록하고 종료 (원인 파악용)
+    stack_file = open(Path(os.environ["BUJA_DESK_HOME"]) / "selftest-stacks.txt", "w", encoding="utf-8")
+    faulthandler.dump_traceback_later(60, exit=True, file=stack_file)
     try:
         from PySide6.QtCore import QTimer
         from PySide6.QtWidgets import QApplication
@@ -51,25 +57,30 @@ def run_self_test(argv: list[str]) -> int:
                 raise RuntimeError(f"자원 파일 없음: {path}")
             lines.append(f"asset ok: {name}")
         controller = DeskController(app, start_minimized=True)
+        log.info("selftest: controller ready")
         controller.settings.sound_enabled = False
         controller.window.show()
         controller.window.set_staff("S-ME", "점검용 · 테스트PC")
         orders = _sample_orders()
         controller.open_orders = orders
         controller.window.set_orders(orders)
+        log.info("selftest: orders set")
         controller.window.open_order("OTEST1")
         assert controller.window.detail.current_id() == "OTEST1", "상세화면 열기 실패"
         assert controller.window.detail.start_button.isVisible() or not controller.window.isVisible()
         controller.window.open_order("OTEST2")
         controller.window.group_check.setChecked(True)
         controller.window.set_history(orders)
+        log.info("selftest: history set")
         controller.notify(Notice("new", "🚨 신규 발주", "셀프 테스트", ["OTEST1"]))
         controller.notify(Notice("additional", "🚨 추가발주", "셀프 테스트", ["OTEST2"]))
         lines.append(f"list rows: {controller.window.list.count()}")
         lines.append(f"toasts: {len(controller.toasts._toasts)}")
         assert len(controller.toasts._toasts) == 2, "팝업 표시 실패"
+        log.info("selftest: toasts ok, entering event loop")
         QTimer.singleShot(1500, app.quit)
         app.exec()
+        log.info("selftest: event loop finished")
         controller.quitting = True
         controller.toasts.clear()
         controller.background.shutdown()
@@ -79,6 +90,8 @@ def run_self_test(argv: list[str]) -> int:
     except Exception:  # noqa: BLE001
         lines.append("SELFTEST FAILED")
         lines.append(traceback.format_exc())
+    faulthandler.cancel_dump_traceback_later()
+    log.info("selftest: done code=%s", code)
     out.write_text("\n".join(lines), encoding="utf-8")
     if sys.stdout is not None:
         print("\n".join(lines))

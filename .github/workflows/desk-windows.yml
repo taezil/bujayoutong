@@ -44,8 +44,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path $env:BUJA_DESK_HOME | Out-Null
           $p = Start-Process -FilePath python -ArgumentList "-m","buja_desk","--self-test" -NoNewWindow -PassThru
-          if (-not $p.WaitForExit(90000)) { $p | Stop-Process -Force; $code = "timeout" } else { $code = $p.ExitCode }
-          $report = (Get-Content "$env:BUJA_DESK_HOME\selftest.txt" -Raw -ErrorAction SilentlyContinue) + "`n--- log ---`n" + (Get-Content "$env:BUJA_DESK_HOME\desk.log" -Raw -ErrorAction SilentlyContinue)
+          if (-not $p.WaitForExit(120000)) { $p | Stop-Process -Force; $code = "timeout" } else { $code = $p.ExitCode }
+          $report = (Get-Content "$env:BUJA_DESK_HOME\selftest.txt" -Raw -ErrorAction SilentlyContinue) + "`n--- log ---`n" + (Get-Content "$env:BUJA_DESK_HOME\desk.log" -Raw -ErrorAction SilentlyContinue) + "`n--- stacks ---`n" + (Get-Content "$env:BUJA_DESK_HOME\selftest-stacks.txt" -Raw -ErrorAction SilentlyContinue)
           if ($report.Length -gt 6000) { $report = $report.Substring($report.Length - 6000) }
           $flat = $report -replace "%","%25" -replace "`r","" -replace "`n","%0A"
           if ("$code" -ne "0") { Write-Output "::error title=source self-test ($code)::$flat"; throw "source self-test failed ($code)" }
@@ -59,8 +59,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path $env:BUJA_DESK_HOME | Out-Null
           $p = Start-Process -FilePath "dist\BujaOrderAlert\BujaOrderAlert.exe" -ArgumentList "--self-test" -PassThru
-          if (-not $p.WaitForExit(90000)) { $p | Stop-Process -Force; $code = "timeout" } else { $code = $p.ExitCode }
-          $report = (Get-Content "$env:BUJA_DESK_HOME\selftest.txt" -Raw -ErrorAction SilentlyContinue) + "`n--- log ---`n" + (Get-Content "$env:BUJA_DESK_HOME\desk.log" -Raw -ErrorAction SilentlyContinue)
+          if (-not $p.WaitForExit(120000)) { $p | Stop-Process -Force; $code = "timeout" } else { $code = $p.ExitCode }
+          $report = (Get-Content "$env:BUJA_DESK_HOME\selftest.txt" -Raw -ErrorAction SilentlyContinue) + "`n--- log ---`n" + (Get-Content "$env:BUJA_DESK_HOME\desk.log" -Raw -ErrorAction SilentlyContinue) + "`n--- stacks ---`n" + (Get-Content "$env:BUJA_DESK_HOME\selftest-stacks.txt" -Raw -ErrorAction SilentlyContinue)
           if ($report.Length -gt 6000) { $report = $report.Substring($report.Length - 6000) }
           $flat = $report -replace "%","%25" -replace "`r","" -replace "`n","%0A"
           if ("$code" -ne "0") { Write-Output "::error title=exe self-test ($code)::$flat"; throw "exe self-test failed ($code)" }
