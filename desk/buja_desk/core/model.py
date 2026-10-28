@@ -65,6 +65,19 @@ def period_label(order: dict[str, Any]) -> str:
     return "오후" if order.get("orderPeriod") == "PM" else "오전"
 
 
+def slot_label(order: dict[str, Any]) -> str:
+    """거래처가 고른 배송 시간. 예전 주문/관리자 입력처럼 없으면 빈 문자열."""
+    slot = order.get("deliverySlot")
+    return "오후 배송" if slot == "PM" else "오전 배송" if slot == "AM" else ""
+
+
+def delivery_text(order: dict[str, Any], *, with_year: bool = False) -> str:
+    """'10/29(목) 내일 오전 배송' 처럼 배송일 + 배송 시간."""
+    text = delivery_label(str(order.get("deliveryDate", "")), with_year=with_year)
+    slot = slot_label(order)
+    return f"{text} {slot}" if slot else text
+
+
 def customer_label(order: dict[str, Any]) -> str:
     name = str(order.get("customerName") or "")
     location = order.get("deliveryLocation") or None
@@ -106,7 +119,7 @@ def order_as_text(order: dict[str, Any]) -> str:
     """얼마에요 입력 시 보면서 칠 수 있게 복사하는 텍스트."""
     lines = [
         f"[{headline(order)}] {order.get('customerCode', '')} {customer_label(order)}",
-        f"배송일 {delivery_label(str(order.get('deliveryDate', '')), with_year=True)} · {period_label(order)}발주 · 접수 {kst_datetime(str(order.get('createdAt', '')))}",
+        f"배송일 {delivery_text(order, with_year=True)} · {period_label(order)}발주 · 접수 {kst_datetime(str(order.get('createdAt', '')))}",
     ]
     location = order.get("deliveryLocation") or None
     if location and location.get("address"):

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from .api import ApiError, AuthError, DeskApi, NetworkError, StaffInfo
-from .model import customer_label, delivery_label, items_summary, parse_utc, period_label, state_of
+from .model import customer_label, delivery_text, items_summary, parse_utc, period_label, state_of
 from .storage import NotificationLog
 
 FULL_REFRESH_SECONDS = 120
@@ -47,7 +47,7 @@ class SyncResult:
 
 def _order_notice(order: dict[str, Any], kind: str) -> Notice:
     who = f"{order.get('customerCode', '')} {customer_label(order)}".strip()
-    when = f"배송 {delivery_label(str(order.get('deliveryDate', '')))} · {period_label(order)}발주"
+    when = f"배송 {delivery_text(order)} · {period_label(order)}발주"
     count = len(order.get("items") or [])
     if kind == "cancelled":
         return Notice(kind, "주문 취소됨", f"{who}\n{when}\n거래처가 주문을 취소했습니다.", [str(order["id"])])

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 
 from .. import APP_NAME, __version__
 from ..core.model import (
-    customer_label, delivery_label, items_summary, kst_datetime, kst_time, period_label, state_of, today_kst,
+    customer_label, delivery_label, delivery_text, items_summary, kst_datetime, kst_time, period_label, state_of, today_kst,
 )
 from .detail import OrderDetailView
 from .theme import COLORS, badge_style
@@ -81,7 +81,7 @@ class OrderCard(QFrame):
         name.setStyleSheet("font-size: 13pt; font-weight: 800;" + (f"color: {COLORS['cancelled']}; text-decoration: line-through;" if order.get("cancelled") else ""))
         name.setWordWrap(True)
         layout.addWidget(name)
-        info = QLabel(f"배송 {delivery_label(str(order.get('deliveryDate', '')))} · {period_label(order)}발주 · {len(order.get('items') or [])}품목")
+        info = QLabel(f"배송 {delivery_text(order)} · {period_label(order)}발주 · {len(order.get('items') or [])}품목")
         info.setStyleSheet(f"color: {COLORS['muted']};")
         layout.addWidget(info)
         summary = QLabel(items_summary(order))
@@ -580,7 +580,7 @@ class MainWindow(QMainWindow):
             when = desk.get("doneAt") if state == "done" else desk.get("enteringAt", "")
             values = [
                 kst_datetime(str(order.get("createdAt", ""))),
-                f"{delivery_label(str(order.get('deliveryDate', '')))} {period_label(order)}",
+                delivery_text(order),
                 kind,
                 f"{order.get('customerCode', '')} {customer_label(order)}",
                 f"{len(order.get('items') or [])}품목",

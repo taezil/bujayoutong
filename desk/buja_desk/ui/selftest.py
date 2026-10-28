@@ -15,7 +15,7 @@ from pathlib import Path
 
 def _sample_orders() -> list[dict]:
     base = {
-        "customerCode": "00124", "customerName": "태승급식소 118-13", "deliveryDate": "2026-10-29", "orderPeriod": "AM",
+        "customerCode": "00124", "customerName": "태승급식소 118-13", "deliveryDate": "2026-10-29", "orderPeriod": "AM", "deliverySlot": "AM",
         "createdAt": "2026-10-28T00:12:00Z", "updatedAt": "2026-10-28T00:12:00Z", "cancelled": False, "note": "",
         "source": "app", "sourceLabel": "거래처 주문", "deliveryLocation": None, "total": 0,
         "items": [

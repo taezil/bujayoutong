@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..core.model import (
-    customer_label, delivery_label, headline, kst_datetime, kst_time, period_label, quantity_text, state_of,
+    customer_label, delivery_label, headline, kst_datetime, kst_time, period_label, quantity_text, slot_label, state_of,
 )
 from .theme import COLORS, badge_style
 
@@ -66,8 +66,8 @@ class OrderDetailView(QFrame):
         grid.setHorizontalSpacing(18)
         grid.setVerticalSpacing(6)
         self.values: dict[str, QLabel] = {}
-        fields = [("customer", "거래처"), ("delivery", "배송일"), ("period", "발주 구분"), ("received", "접수시간"),
-                  ("location", "배송처"), ("source", "주문 경로")]
+        fields = [("customer", "거래처"), ("delivery", "배송일"), ("slot", "배송 시간"), ("period", "발주 구분"),
+                  ("received", "접수시간"), ("location", "배송처"), ("source", "주문 경로")]
         for index, (key, label) in enumerate(fields):
             k = QLabel(label)
             k.setObjectName("InfoKey")
@@ -202,6 +202,9 @@ class OrderDetailView(QFrame):
 
         self.values["customer"].setText(f"{order.get('customerName', '')}  ({order.get('customerCode', '')})")
         self.values["delivery"].setText(delivery_label(str(order.get("deliveryDate", "")), with_year=True))
+        slot = slot_label(order)
+        self.values["slot"].setText(slot or "지정 안 함")
+        self.values["slot"].setStyleSheet(f"color: {COLORS['entering']};" if slot else f"color: {COLORS['muted']};")
         self.values["period"].setText(f"{period_label(order)}발주")
         self.values["received"].setText(kst_datetime(str(order.get("createdAt", ""))))
         location = order.get("deliveryLocation") or None

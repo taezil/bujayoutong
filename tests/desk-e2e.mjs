@@ -120,11 +120,13 @@ async function main() {
   const items = sellable.map((p) => ({ productId: p.id, optionLabel: p.packOptions[0].label, quantity: p.packOptions[0].step || 1 }));
   const tomorrow = kstDate(1);
   const requestId = randomUUID();
-  const payload = { items, note: "CI 요청사항: 오전 도착", requestId, deliveryDate: tomorrow, confirmAnomaly: true };
+  const payload = { items, note: "CI 요청사항: 오전 도착", requestId, deliveryDate: tomorrow, deliverySlot: "AM", confirmAnomaly: true };
   const first = await customer.json("/api/orders", { method: "POST", json: payload });
   const orderId = first.body?.order?.id;
   check("주문 확정 → 서버 저장 + 주문번호", first.status === 200 && Boolean(orderId) && first.body.order.duplicate === false, j(first.body, 200));
-  check("배송일 저장", first.body?.order?.deliveryDate === tomorrow, first.body?.order?.deliveryDate);
+  check("배송일 + 오전 배송 저장", first.body?.order?.deliveryDate === tomorrow && first.body?.order?.deliverySlot === "AM", j(first.body?.order));
+  const badSlot = await customer.json("/api/orders", { method: "POST", json: { ...payload, requestId: randomUUID(), deliverySlot: "NIGHT" } });
+  check("잘못된 배송 시간 거절", badSlot.status === 400, `${badSlot.status}`);
   const again = await customer.json("/api/orders", { method: "POST", json: payload });
   check("같은 키로 재전송 → 같은 주문 반환(중복 생성 없음)", again.status === 200 && again.body?.order?.id === orderId && again.body.order.duplicate === true, j(again.body, 200));
   const parallel = await Promise.all([1, 2, 3].map(() => customer.json("/api/orders", { method: "POST", json: { ...payload, requestId: `par-${requestId}` } })));
@@ -151,7 +153,7 @@ async function main() {
   check("PC A 목록에 신규 주문 표시", openA.status === 200 && Boolean(mine), `count ${openA.body?.orders?.length}`);
   check("상세: 거래처/배송일/구분/품목/요청사항", mine && mine.customerCode === "00124" && mine.deliveryDate === tomorrow
     && ["AM", "PM"].includes(mine.orderPeriod) && mine.items.length === items.length && mine.note.includes("오전 도착")
-    && mine.items.every((i) => i.productName && i.unit && i.quantity > 0) && mine.desk.state === "new", j(mine, 400));
+    && mine.items.every((i) => i.productName && i.unit && i.quantity > 0) && mine.desk.state === "new" && mine.deliverySlot === "AM", j(mine, 400));
   const second = (openA.body?.orders ?? []).find((o) => o.id === [...parallelIds][0]);
   check("같은 배송일 두 번째 주문은 추가발주 표시", second?.isAdditional === true && mine?.isAdditional === false, JSON.stringify({ first: mine?.isAdditional, second: second?.isAdditional }));
   const since = sql("SELECT value FROM app_settings WHERE key='desk_tracking_since'")[0]?.value ?? "";
@@ -229,9 +231,36 @@ async function main() {
     await addOne();
     await page.locator(".od-cart-icon").click();
     await page.locator(".od-send").first().click();
-    await page.locator(".od-confirm").waitFor({ timeout: 10000 });
-    check("[화면] 주문 보내기 → 주문 확인 단계(배송일·요청사항)", await page.locator(".od-confirm-date-buttons button").count() === 2);
-    await page.locator(".od-confirm-date-buttons button", { hasText: "내일" }).click();
+    await page.locator(".od-step-date").waitFor({ timeout: 10000 });
+    const todayKst = kstDate(0);
+    const todayCell = page.locator(`.od-cal-grid button[data-date="${todayKst}"]`);
+    check("[화면] 주문 보내기 → 1단계 배송일 달력 먼저 표시", await page.locator(".od-cal-grid").count() === 1);
+    check("[화면] 달력: 오늘에 빨간 동그라미 + '오늘' 표시, 미리 선택 안 됨",
+      (await todayCell.getAttribute("class") || "").includes("today") && (await todayCell.innerText()).includes("오늘")
+      && !(await todayCell.getAttribute("class") || "").includes("selected")
+      && await todayCell.locator(".n").evaluate((el) => getComputedStyle(el).boxShadow.includes("224, 49, 49")));
+    check("[화면] 달력: 지난 날짜 선택 불가", await page.locator(`.od-cal-grid button[data-date="${kstDate(-1)}"]`).count() === 0
+      || await page.locator(`.od-cal-grid button[data-date="${kstDate(-1)}"]`).isDisabled());
+    const nextButton = page.locator(".od-step-date .od-next");
+    check("[화면] 날짜·시간 고르기 전 [다음] 꺼짐", await nextButton.isDisabled() && await page.locator(".od-slot-buttons button").first().isDisabled());
+    async function pickDate(date) {
+      if (await page.locator(`.od-cal-grid button[data-date="${date}"]`).count() === 0) await page.locator('.od-cal-head button[aria-label="다음 달"]').click();
+      await page.locator(`.od-cal-grid button[data-date="${date}"]`).click();
+    }
+    await pickDate(tomorrow);
+    check("[화면] 날짜만 고르면 아직 [다음] 꺼짐", await nextButton.isDisabled());
+    await page.locator(".od-slot-buttons button", { hasText: "오후 배송" }).click();
+    check("[화면] 날짜 + 오후 배송 고르면 [다음] 켜짐", await nextButton.isEnabled());
+    await nextButton.click();
+    await page.locator(".od-confirm-main").waitFor({ timeout: 10000 });
+    const confirmText = await page.locator(".od-confirm").innerText();
+    check("[화면] 2단계 주문 확인: 배송일·오후 배송 표시", confirmText.includes("2 / 2") && confirmText.includes("오후 배송"), confirmText.slice(0, 200));
+    const phone = page.locator(".od-confirm a.od-phone-order");
+    check("[화면] 주문 확정 아래 전화 주문(032-822-8874), 문자 주문 없음", await phone.getAttribute("href") === "tel:0328228874"
+      && !confirmText.includes("문자") && await page.locator('a[href^="sms:"]').count() === 0);
+    const mainBox = await page.locator(".od-confirm-main").boundingBox();
+    const phoneBox = await phone.boundingBox();
+    check("[화면] 주문 확정이 메인(더 크고 위), 전화 주문은 보조", Boolean(mainBox && phoneBox && mainBox.height > phoneBox.height && mainBox.y < phoneBox.y));
     const uiNote = `화면테스트-${Date.now()}`;
     await page.locator(".od-confirm-note textarea").fill(uiNote);
 
@@ -246,7 +275,7 @@ async function main() {
       }
       await route.continue();
     });
-    await page.locator(".od-confirm .od-send").click();
+    await page.locator(".od-confirm-main").click();
     await page.locator(".od-confirm-error").waitFor({ timeout: 20000 });
     check("[화면] 응답이 끊기면 성공으로 표시하지 않음(확인 못함 + 다시 시도 안내)", (await page.locator(".od-placed").count()) === 0
       && (await page.locator(".od-confirm-error").innerText()).includes("확인하지 못했습니다")
@@ -262,7 +291,8 @@ async function main() {
     const cartLabel = await page.locator(".od-cart-icon").getAttribute("aria-label");
     check("[화면] 접수 후 장바구니 비움", /장바구니 0품목/.test(cartLabel || ""), cartLabel || "");
     const deskView = (await pcA.json("/api/desk/orders")).body?.orders?.find((o) => o.note === uiNote);
-    check("[화면] 휴대폰 주문 → 알림센터 목록에 표시(내일 배송)", deskView?.deliveryDate === tomorrow && deskView.items.length === 1, j(deskView));
+    check("[화면] 휴대폰 주문 → 알림센터 목록에 표시(내일 오후 배송)", deskView?.deliveryDate === tomorrow && deskView.deliverySlot === "PM" && deskView.items.length === 1, j(deskView));
+    check("[화면] 접수 완료 화면에 오후 배송 표시", placedText.includes("오후 배송"), placedText.replace(/\n/g, " "));
 
     // 서버가 거절하면(예: 주문 중지) 성공 표시 없음
     sql("UPDATE app_settings SET value='0' WHERE key='orderEnabled'");
@@ -270,11 +300,15 @@ async function main() {
     await addOne();
     await page.locator(".od-cart-icon").click();
     await page.locator(".od-send").first().click();
-    await page.locator(".od-confirm .od-send").click();
+    await pickDate(tomorrow);
+    await page.locator(".od-slot-buttons button", { hasText: "오전 배송" }).click();
+    await nextButton.click();
+    await page.locator(".od-confirm-main").click();
     await page.locator(".od-confirm-error").waitFor({ timeout: 20000 });
     check("[화면] 서버 저장 실패(주문 중지) → 오류 표시, 성공 표시 없음", (await page.locator(".od-placed").count()) === 0
       && (await page.locator(".od-confirm-error").innerText()).includes("일시 중지"), await page.locator(".od-confirm-error").innerText());
-    check("[화면] 실패 시 문자 보내기는 보조 버튼으로만", (await page.locator(".od-sms-fallback").count()) === 1);
+    check("[화면] 실패 시 전화 주문 안내(문자 버튼 없음)", (await page.locator(".od-confirm-error").innerText()).includes("전화 주문")
+      && await page.locator(".od-sms-fallback").count() === 0);
     sql("UPDATE app_settings SET value='1' WHERE key='orderEnabled'");
     await browser.close();
   } catch (error) {

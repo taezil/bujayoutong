@@ -172,7 +172,7 @@ type OrderRow = Record<string, unknown>;
 async function loadOrders(where: string, params: unknown[], orderBy: string, limit: number) {
   const orders = await db().prepare(`
     SELECT o.id,o.customer_id,o.source,o.status,o.region_snapshot,o.total_amount,o.note,o.created_at,o.updated_at,
-           o.delivery_date,o.order_period,o.is_additional,o.created_by_staff_name,o.cancelled_at,
+           o.delivery_date,o.order_period,o.delivery_slot,o.is_additional,o.created_by_staff_name,o.cancelled_at,
            o.delivery_location_name,o.delivery_location_address,o.delivery_location_phone,
            c.code AS customer_code,c.name AS customer_name,c.phone AS customer_phone,c.address AS customer_address,
            COALESCE(d.state,'new') AS desk_state,COALESCE(d.revision,0) AS desk_revision,
@@ -241,6 +241,8 @@ function toDeskOrder(r: OrderRow, items: OrderRow[]) {
     updatedAt,
     deliveryDate: String(r.delivery_date ?? ""),
     orderPeriod: String(r.order_period) === "PM" ? "PM" : "AM",
+    // 거래처가 고른 배송 시간 (AM/PM, 예전 주문·관리자 입력은 '')
+    deliverySlot: String(r.delivery_slot ?? "") === "PM" ? "PM" : String(r.delivery_slot ?? "") === "AM" ? "AM" : "",
     isAdditional: additionalBySystem || Boolean(previousOrderId),
     previousOrderId,
     note: String(r.note ?? ""),

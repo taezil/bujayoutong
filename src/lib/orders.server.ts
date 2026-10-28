@@ -194,6 +194,8 @@ export async function createCustomerOrder(
     deliveryDate?: string; staff?: StaffSession | null; confirmAnomaly?: boolean; orderPeriod?: string;
     /** 거래처 앱이 주문마다 만드는 중복 방지 키. 같은 키로 다시 보내면 새로 만들지 않고 기존 주문을 돌려줍니다. */
     clientRequestId?: string;
+    /** 거래처가 고른 배송 시간 AM/PM (없으면 '') */
+    deliverySlot?: string;
     deliveryLocation?: { id: string; name: string; address: string; phone: string } | null;
   } = {},
 ) {
@@ -221,13 +223,14 @@ export async function createCustomerOrder(
   const total = Math.round(prepared.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
   const staff = options.staff ?? null;
   const location = options.deliveryLocation ?? null;
+  const deliverySlot = options.deliverySlot === "PM" ? "PM" : options.deliverySlot === "AM" ? "AM" : "";
   try {
     // orders + order_items 를 한 번의 batch(트랜잭션)로 저장: 일부만 저장되는 일이 없음
     await db().batch([
-      db().prepare(`INSERT INTO orders(id,customer_id,source,status,region_snapshot,total_amount,note,delivery_date,created_by_staff_id,created_by_staff_name,is_additional,order_period,client_request_id,delivery_location_id,delivery_location_name,delivery_location_address,delivery_location_phone)
-                    VALUES(?,?,?,'received',?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      db().prepare(`INSERT INTO orders(id,customer_id,source,status,region_snapshot,total_amount,note,delivery_date,created_by_staff_id,created_by_staff_name,is_additional,order_period,client_request_id,delivery_location_id,delivery_location_name,delivery_location_address,delivery_location_phone,delivery_slot)
+                    VALUES(?,?,?,'received',?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
         .bind(id, customer.id, source, customer.region || "미지정", total, String(note || "").slice(0, 500), deliveryDate, staff?.id ?? "", staff?.displayName ?? "", isAdditional ? 1 : 0, orderPeriod,
-          clientRequestId, location?.id ?? "", location?.name ?? "", location?.address ?? "", location?.phone ?? ""),
+          clientRequestId, location?.id ?? "", location?.name ?? "", location?.address ?? "", location?.phone ?? "", deliverySlot),
       ...prepared.map((item) => itemInsert(id, item)),
       // 사무실 발주 알림센터 '신규' 상태를 주문과 같은 트랜잭션으로 생성 (입력완료 전에는 목록에서 빠지지 않음)
       db().prepare("INSERT OR IGNORE INTO order_desk_status(order_id,state) VALUES(?,'new')").bind(id),
@@ -249,12 +252,12 @@ export async function createCustomerOrder(
       metadata: { customerId: customer.id, customerCode: customer.code, deliveryDate, orderPeriod, isAdditional },
     });
   }
-  return { id, total, itemCount: prepared.length, deliveryDate, orderPeriod, isAdditional, warnings, duplicate: false };
+  return { id, total, itemCount: prepared.length, deliveryDate, orderPeriod, deliverySlot, isAdditional, warnings, duplicate: false };
 }
 
 async function findOrderByRequestId(customerId: string, clientRequestId: string) {
   const row = await db().prepare(`
-    SELECT o.id,o.total_amount,o.delivery_date,o.order_period,o.is_additional,o.status,
+    SELECT o.id,o.total_amount,o.delivery_date,o.order_period,o.delivery_slot,o.is_additional,o.status,
            (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id=o.id) AS item_count
     FROM orders o WHERE o.customer_id=? AND o.client_request_id=? LIMIT 1
   `).bind(customerId, clientRequestId).first<Record<string, unknown>>();
@@ -262,6 +265,7 @@ async function findOrderByRequestId(customerId: string, clientRequestId: string)
   return {
     id: String(row.id), total: Number(row.total_amount ?? 0), itemCount: Number(row.item_count ?? 0),
     deliveryDate: String(row.delivery_date ?? ""), orderPeriod: (String(row.order_period) === "PM" ? "PM" : "AM") as OrderPeriod,
+    deliverySlot: String(row.delivery_slot ?? ""),
     isAdditional: Number(row.is_additional ?? 0) === 1, warnings: [] as OrderQuantityWarning[], duplicate: true,
   };
 }

@@ -275,6 +275,8 @@ async function ensureOperationsSchema(database: D1Database) {
  */
 async function ensureDeskSchema(database: D1Database) {
   await ensureColumn(database, "orders", "client_request_id", "TEXT NOT NULL DEFAULT ''");
+  // 거래처가 고른 배송 시간 (AM=오전 배송, PM=오후 배송). 주문 시각 기준 order_period(오전/오후발주)와 별개
+  await ensureColumn(database, "orders", "delivery_slot", "TEXT NOT NULL DEFAULT ''");
   await database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_request ON orders(customer_id, client_request_id) WHERE client_request_id<>''");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at)");
   await database.exec("CREATE TABLE IF NOT EXISTS desk_sessions (token_hash TEXT PRIMARY KEY, staff_id TEXT NOT NULL, device_name TEXT NOT NULL DEFAULT '', expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), last_seen_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(staff_id) REFERENCES staff_users(id) ON DELETE CASCADE)");
