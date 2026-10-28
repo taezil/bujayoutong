@@ -496,5 +496,7 @@ def run(argv: list[str]) -> int:
             connection.readyRead.connect(lambda: (connection.readAll(), controller.show_window()))
 
     server.newConnection.connect(on_connection)
+    # Windows 종료/로그오프 시에는 창 닫기(트레이로 숨김)를 막지 않고 바로 종료되도록
+    app.commitDataRequest.connect(lambda _manager: setattr(controller, "quitting", True))
     controller.start()
     return app.exec()
