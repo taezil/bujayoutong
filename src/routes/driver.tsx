@@ -62,7 +62,8 @@ function DriverPage(){
   },[data,customerQuery]);
   const products=useMemo(()=>{
     const q=productQuery.trim().toLowerCase().replace(/\s+/g,""); if(!data||!q)return[];
-    return data.products.filter(p=>`${p.name}${p.category}${p.sub}`.toLowerCase().replace(/\s+/g,"").includes(q)).slice(0,12);
+    const key=(p:{name:string})=>p.name.toLowerCase().replace(/\s+/g,"");
+    return data.products.filter(p=>key(p).includes(q)).sort((a,b)=>Number(!key(a).startsWith(q))-Number(!key(b).startsWith(q))).slice(0,12);
   },[data,productQuery]);
   const regionGroups=useMemo(()=>{
     if(!data)return[] as Array<[string,DriverOrder[]]>;

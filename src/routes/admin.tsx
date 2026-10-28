@@ -270,7 +270,7 @@ function ProductsView({
     if (statusFilter === "selling" && productStatus(p) !== "selling") return false;
     if (statusFilter === "soldout" && productStatus(p) !== "soldout") return false;
     if (statusFilter === "hidden" && productStatus(p) !== "hidden") return false;
-    return !needle || normalizeAdminQuery(`${p.id} ${p.name} ${p.category} ${p.sub} ${p.unit}`).includes(needle);
+    return !needle || (normalizeAdminQuery(p.name).includes(needle) || normalizeAdminQuery(p.id).includes(needle));
   });
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, pages);
@@ -1143,7 +1143,10 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
   const regions = Array.from(new Set(active.map((o) => o.region || "미지정"))).sort();
   const productNeedle = productSearch.trim().toLowerCase().replace(/\s+/g, "");
   const productSuggestions = productNeedle
-    ? store.products.filter((p) => `${p.name} ${p.category} ${p.sub}`.toLowerCase().replace(/\s+/g, "").includes(productNeedle)).slice(0, 10)
+    ? store.products
+        .filter((p) => p.name.toLowerCase().replace(/\s+/g, "").includes(productNeedle))
+        .sort((a, b) => Number(!a.name.toLowerCase().replace(/\s+/g, "").startsWith(productNeedle)) - Number(!b.name.toLowerCase().replace(/\s+/g, "").startsWith(productNeedle)))
+        .slice(0, 10)
     : [];
 
   function selectManualProduct(nextProduct: Product) {
