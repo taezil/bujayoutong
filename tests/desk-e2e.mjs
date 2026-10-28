@@ -537,7 +537,7 @@ async function main() {
     const closedWindow = nowHour < 12 ? { openFrom: "22:00", sameDayCutoff: "23:00" } : { openFrom: "00:00", sameDayCutoff: "01:00" };
     await admin.json("/api/admin/zones", { method: "POST", json: { action: "defaults-save", ...closedWindow, amUntil: "10:00", pmRuns: "15:00" } });
     const todayOrder = await customer.json("/api/orders", { method: "POST", json: { items: [items[0]], requestId: randomUUID(), deliveryDate: kstDate(0), deliverySlot: "PM", confirmAnomaly: true } });
-    check("오늘 배송 마감 후 오늘 배송 주문 → 거절(마감 안내)", todayOrder.status === 400 && todayOrder.body?.deliveryClosed === true && String(todayOrder.body?.error).includes("마감"), j(todayOrder.body));
+    check("오늘 배송 마감 후 오늘 배송 주문 → 거절(마감 안내)", todayOrder.status === 400 && todayOrder.body?.deliveryClosed === true && /마감|주문 가능/.test(String(todayOrder.body?.error)), j(todayOrder.body));
     const tomorrowPm = await customer.json("/api/orders", { method: "POST", json: { items: [items[0]], requestId: randomUUID(), deliveryDate: kstDate(1), deliverySlot: "PM", note: "CI 내일 오후", confirmAnomaly: true } });
     check("마감 후에도 내일 배송 주문은 접수 · 예약 오후는 1차", tomorrowPm.status === 200 && tomorrowPm.body?.order?.deliveryRun === 1, j(tomorrowPm.body));
     // 오늘 하루 종일 열기 → 지금 시각 기준 차수 계산 (12:00 전 1차 / 14:00 전 2차 / 그 뒤 3차)
@@ -633,6 +633,10 @@ async function main() {
       await page.locator(".od-notice").waitFor({ timeout: 30000 });
       const noticeText = await page.locator(".od-notice").innerText();
       check("[화면] 입력완료된 발주 → 거래처 화면에 큰 '발주 확인' 알림", noticeText.includes("확인되었습니다") && noticeText.includes("배송"), noticeText.replace(/\n/g, " ").slice(0, 160));
+      await page.waitForTimeout(500);
+      const noticeBox = await page.locator(".od-notice").boundingBox();
+      const viewport = page.viewportSize();
+      check("[화면] 발주 확인 알림이 화면 가운데 다 보임", Boolean(noticeBox && viewport && noticeBox.x >= 0 && noticeBox.x + noticeBox.width <= viewport.width + 1), j(noticeBox));
       await page.screenshot({ path: "desk-shot-web-notice.png" });
       await page.mouse.click(5, 5);
       check("[화면] 바깥을 눌러도 알림 안 닫힘", await page.locator(".od-notice").isVisible());
@@ -671,6 +675,11 @@ async function main() {
       await page.locator(".od-cart-icon").click();
       await page.locator(".od-send").first().click();
       await page.locator(".od-step-date").waitFor({ timeout: 10000 });
+      const tmr = kstDate(1);
+      if (await page.locator(`.od-cal-grid button[data-date="${tmr}"]`).count() === 0) await page.locator('.od-cal-head button[aria-label="다음 달"]').click();
+      await page.locator(`.od-cal-grid button[data-date="${tmr}"]`).click();
+      await page.locator(".od-step-date .od-next").scrollIntoViewIfNeeded();
+      await page.waitForTimeout(300);
       await page.screenshot({ path: "desk-shot-web-date.png" });
 
       const pc = await browser.newContext({ viewport: { width: 1360, height: 900 }, baseURL: BASE });

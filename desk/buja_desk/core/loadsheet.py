@@ -294,7 +294,7 @@ h2.frozen { background: #1b2a44; } h2.chilled { background: #185FA5; } h2.dry { 
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 tr { break-inside: avoid; }
 td { padding: 6px 5px; border-bottom: .6px solid #c9ced4; vertical-align: top; }
-col.c-chk { width: 24px; } col.c-unit { width: 52px; } col.c-qty { width: 52px; } col.c-who { width: 46%; } col.c-cust { width: 30%; } col.c-note { width: 80px; }
+col.c-chk { width: 24px; } col.c-unit { width: 52px; } col.c-qty { width: 52px; } col.c-who { width: 46%; } col.c-cust { width: 26%; } col.c-note { width: 24%; }
 .box { display: inline-block; width: 14px; height: 14px; border: 1.6px solid #111; border-radius: 2px; margin-top: 2px; }
 .name { font-size: 14px; font-weight: 700; }
 .name small { color: #666; font-weight: 400; font-size: 11.5px; }
@@ -306,7 +306,7 @@ col.c-chk { width: 24px; } col.c-unit { width: 52px; } col.c-qty { width: 52px; 
 .cust em { display: inline-block; margin: 2px 4px 0 0; padding: 0 5px; border: 1px solid #999; border-radius: 3px; font-style: normal; font-size: 10.5px; }
 .cust em.add { border-color: #C2255C; color: #C2255C; } .cust em.drv { border-color: #534AB7; color: #534AB7; }
 .items { font-size: 12px; color: #222; }
-.note { font-size: 11.5px; color: #8a3b00; }
+.note { font-size: 11.5px; color: #8a3b00; overflow-wrap: anywhere; }
 .empty { text-align: center; padding-top: 40mm; }
 @media screen { body { background: #e9ecef; } .page { width: 210mm; min-height: 297mm; margin: 12px auto; padding: 10mm; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.15); } }
 """

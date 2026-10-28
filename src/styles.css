@@ -4447,7 +4447,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* 사무실 '발주 확인' 알림 (거래처가 닫을 때까지) */
 .od-notice-backdrop { z-index: 120; }
-.od-notice { width: min(440px, 100%); max-height: 88dvh; overflow: auto; display: grid; gap: 12px; padding: 28px 20px 20px; border-radius: 24px; background: #fff; text-align: center; box-shadow: 0 24px 60px rgba(0,0,0,.3); border-top: 8px solid #0b8a4c; animation: simple-toast-in .25s ease-out; }
+.od-notice { width: min(440px, 100%); max-height: 88dvh; overflow: auto; display: grid; gap: 12px; padding: 28px 20px 20px; border-radius: 24px; background: #fff; text-align: center; box-shadow: 0 24px 60px rgba(0,0,0,.3); border-top: 8px solid #0b8a4c; animation: od-notice-in .22s ease-out; }
+@keyframes od-notice-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 .od-notice-icon { font-size: 56px; line-height: 1; }
 .od-notice h2 { margin: 0; font-size: 25px; letter-spacing: -.03em; color: #0b5a34; }
 .od-notice-lead { margin: 0; color: #3f4651; font-size: 16px; line-height: 1.5; }
