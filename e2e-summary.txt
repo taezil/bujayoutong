@@ -1,0 +1,80 @@
+74/74 passed
+PASS  비로그인 GET / → 200  — status 200
+PASS  비로그인 / 화면은 로그인 화면
+PASS  비로그인 /api/store → 401  — status 401
+PASS  비로그인 /api/store?all=1 → 401  — status 401
+PASS  비로그인 /api/store?catalogPhotoReviewAll=1 → 401  — status 401
+PASS  비로그인 /api/store?photoMap=1&token=buja-photo-20261025-f6e3d9a4 → 401  — status 401
+PASS  비로그인 /api/customer/dashboard → 401  — status 401
+PASS  비로그인 /api/orders → 401  — status 401
+PASS  비로그인 /api/photo → 401  — status 401
+PASS  /price-list → / 리다이렉트  — status 307 location /
+PASS  틀린 비밀번호 → 401  — {"error":"아이디 또는 비밀번호를 확인해 주세요."}
+PASS  12013 / 12013 로그인 성공  — 200 {"ok":true}
+PASS  120-13 / 120-13 (하이픈 입력)도 로그인  — 200 {"ok":true}
+PASS  로그인 상태 = 거래처 00124  — {"id":"C-ERP-00124","code":"00124","name":"태승급식소 120-13/2단지","phone":"010-9426-9139","businessNumber":"131-17-92909","address":"인천광역시 남동구 남동서로 64(고잔동, (주)태승정공)","storePhone":"","region":"2단지","priceGroup":"A","active":true,"receivable":0,"loginName":"태승급식소"}
+PASS  내정보 데이터(업체명/사업자번호/주소/핸드폰)  — {"id":"C-ERP-00124","code":"00124","name":"태승급식소 120-13/2단지","phone":"010-9426-9139","businessNumber":"131-17-92909","address":"인천광역시 남동구 남동서로 64(고잔동, (주)태승정공)","storePhone":"","region":"2단지","priceGroup":"A","active":true,"receivable":0,"loginName":"태승급식소"}
+PASS  로그인 후 /api/store → 200 + 상품  — status 200, products 20
+PASS  거래처는 사진점검용 API 불가(403)  — status 403
+PASS  로그인 후 /api/photo 접근 가능(없는 키는 404)  — status 404
+PASS  비로그인 HTML에 상품명 없음
+PASS  사용 중지된 /api/price-list 는 데이터 없음  — status 404
+PASS  앱 주문 접수(3품목)  — 200 {"ok":true,"order":{"id":"O202610282351339C3779","total":0,"itemCount":3,"deliveryDate":"2026-10-29","orderPeriod":"AM","deliverySlot":"","deliveryRun":0,"isAdditional":false,"warnings":[],"duplicate"
+PASS  평소보다 많은 수량 경고(주문 이력 기반)  — 409 {"warning":true,"error":"평소 주문량보다 많은 품목이 있습니다.","warnings":[{"productId":"P0001","productName":"통등심 돈까스","optionLabel":"박스","quantity":40,"typicalQuantity":1,"historyCount":4,"message":"통등심 돈까스 40박스 —
+PASS  없는 옵션 주문 거절  — 400
+PASS  반복 요청에도 로그인 유지
+PASS  연결된 배송처 3곳 조회  — ["태승급식소 120-13/2단지","테스트식당 85-15","테스트급식소 73-2"]
+PASS  연결 안 된 거래처로 전환 거부(403)  — 403 {"error":"선택할 수 없는 배송처입니다."}
+PASS  거부 후에도 현재 배송처 그대로
+PASS  연결된 배송처로 전환 허용  — 200 {"id":"C-CI-8515","code":"99001","name":"테스트식당 85-15","phone":"010-0000-0001","businessNumber":"111-11-11111","address":"테스트 주소 1","storePhone":"","region":"1단지","priceGroup":"A","active":true,"receivable":0,"loginName":"태승급식소"}
+PASS  비로그인 전환 요청 → 401  — 401
+PASS  관리자 로그인  — 200 {"ok":true}
+PASS  관리자 /api/store?all=1 → 200  — 200
+PASS  관리자는 점검용 API 허용  — 200
+PASS  관리자 거래처계정 목록  — 200
+PASS  관리자 API로 추가 배송처 118-13 저장  — 200 {"ok":true,"id":"DL-799fcbee-9a50-4741-9fec-c95f08af7808","updated":false}
+PASS  저장한 118-13이 거래처 status에 즉시 노출  — [{"id":"DL-799fcbee-9a50-4741-9fec-c95f08af7808","customer_id":"C-ERP-00124","name":"118-13","address":"테스트 추가배송처","phone":"","note":"같이 운영","active":1,"sort_order":0}]
+PASS  일괄생성 미리보기  — 200 pending 1
+PASS  이미 연결된 배송처(85-15)는 일괄생성 대상 아님
+PASS  미연결 거래처 9-9 → 아이디 99  — {"customerId":"C-CI-OTHER","code":"99003","name":"남의식당 9-9","loginId":"99","rule":"block-lot"}
+PASS  관리자 사진 업로드  — 200 {"ok":true,"url":"/api/photo?id=5bc16a05-184d-46d0-bcba-adfa7e037464.png"}
+PASS  썸네일 없으면 원본을 짧은 캐시로  — 200 private, max-age=600
+PASS  썸네일 업로드  — 200 {"ok":true,"key":"thumb_5bc16a05-184d-46d0-bcba-adfa7e037464.png"}
+PASS  썸네일 수신(webp, 장기 캐시)  — 200 image/webp
+PASS  같은 사진 재요청 → 304  — 304
+PASS  썸네일 목록(관리자)  — 200
+PASS  썸네일 목록은 거래처 불가  — 403
+PASS  원본 없는 썸네일 거절  — 400
+PASS  관리자 /admin 페이지 200  — 200
+PASS  관리자 /admin/accounts 페이지 200  — 200
+PASS  [화면] 비로그인 / → 로그인 화면만  — cards 0, store responses [401]
+PASS  [화면] 아이디/비밀번호 숫자 키패드  — numeric/numeric
+PASS  [속도] 비로그인 로그인화면 표시 3초 이내  — 84ms
+PASS  [화면] 로그인 후 / 상품 주문화면  — http://localhost:4173/
+PASS  [화면] 새로고침해도 로그인 유지
+PASS  [속도] 로그인 상태 새로고침 → 상품화면 3초 이내  — 197ms
+PASS  [화면] 현재 발주처 120-13 표시  — 📍
+현재 발주처
+120-13
+태승급식소 120-13/2단지
+다른 식당
+선택 ›
+PASS  [검색] '스파' → 스파게티 상품이 맨 앞, 소면·당면 없음  — 스파게티면 (면사랑), 스파게티면 (인창), 스파게티소스(오뚜기)캔, 데리야끼소스 스파우트(오뚜기), 돈까스소스(스파우트)오뚜기, 마요네즈(스파우트)오뚜기
+PASS  [검색] '스파게티' → 이름에 스파게티 있는 상품만  — 스파게티면 (면사랑), 스파게티면 (인창), 스파게티소스(오뚜기)캔, 엔젤미아스파게티소스(헌트)
+PASS  [검색] 분류명으로는 검색되지 않음  — 0개
+PASS  [화면] 120-13 장바구니 1품목  — 1
+PASS  [화면] 문자 제목 [120-13 발주]  — [120-13 발주]
+PASS  [화면] 추가 배송처 118-13 전환 시 장바구니 비어 있음  — 0
+PASS  [화면] 추가 배송처 문자 제목 [118-13 발주]  — [118-13 발주]
+PASS  [화면] 추가 배송처에서 기본 120-13으로 돌아오면 장바구니 유지  — 1품목
+PASS  [화면] 85-15로 전환 시 장바구니 비어 있음  — 0
+PASS  [화면] 85-15 문자 제목 [85-15 발주] + 85-15 상품만  — [85-15 발주]
+PASS  [화면] 120-13으로 돌아오면 기존 장바구니 유지  — 1품목
+PASS  [화면] 내정보 업체명/사업자번호/주소/핸드폰  — 태승급식소 120-13/2단지 | 00124 | 업체명 | 태승급식소 120-13/2단지 | 사업자번호 | 131-17-92909 | 주소 | 인천광역시 남동구 남동서로 64(고잔동, (주)태승정공) | 핸드폰 | 010-9426-9139 | 내 배송처 | 4곳 선택 가능 | 120-13 | 태승급식소 120-13/2단지 | 현재 발주처 | 85-15 | 테스트식당 85-15 | 선택 | 73-2 | 테스트급식소 73-2 | 
+PASS  [화면] 로그아웃 → 로그인 화면 (새로고침 후에도)
+PASS  [화면] /price-list → / 로그인 화면  — http://localhost:4173/
+PASS  [관리자] 썸네일 일괄 생성 버튼 동작  — 완료: 171개 생성, 실패 111개 · 원본 13.5MB → 썸네일 3.2MB
+PASS  [관리자] 다시 누르면 없는 것만(이미 만든 건 건너뜀)  — 완료: 0개 생성, 실패 111개 · 원본 0KB → 썸네일 0KB
+PASS  로그아웃 API
+PASS  로그아웃 후 /api/store → 401  — 401
+PASS  같은 아이디 반복 실패 시 일시 차단  — {"error":"로그인 시도가 너무 많습니다. 15분 후 다시 시도해 주세요."}
