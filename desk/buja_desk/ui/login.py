@@ -4,8 +4,7 @@ from __future__ import annotations
 import socket
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QIcon, QRegularExpressionValidator
-from PySide6.QtCore import QRegularExpression
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout,
 )
@@ -34,7 +33,7 @@ class LoginDialog(QDialog):
         title = QLabel("부자유통 발주 알림센터")
         title.setStyleSheet("font-size: 17pt; font-weight: 900;")
         layout.addWidget(title)
-        guide = QLabel("부자유통 직원 아이디와 6자리 PIN으로 로그인해 주세요.\n(배송기사 앱/관리자 화면에서 쓰는 직원 계정과 같습니다)")
+        guide = QLabel("직원 아이디 + 6자리 PIN, 또는 관리자 계정(admin + 관리자 비밀번호)으로 로그인해 주세요.")
         guide.setWordWrap(True)
         guide.setStyleSheet("color: #5F6B7A;")
         layout.addWidget(guide)
@@ -45,14 +44,13 @@ class LoginDialog(QDialog):
         self.username.setPlaceholderText("예: lee")
         self.pin = QLineEdit()
         self.pin.setEchoMode(QLineEdit.EchoMode.Password)
-        self.pin.setMaxLength(6)
-        self.pin.setValidator(QRegularExpressionValidator(QRegularExpression(r"\d{0,6}"), self))
-        self.pin.setPlaceholderText("숫자 6자리")
+        self.pin.setMaxLength(64)
+        self.pin.setPlaceholderText("직원 PIN 6자리 또는 관리자 비밀번호")
         self.device = QLineEdit(device_name or socket.gethostname()[:40])
         self.device.setMaxLength(40)
         self.device.setToolTip("처리자 기록에 함께 남는 PC 이름입니다. 예: 사무실1")
         form.addRow("아이디", self.username)
-        form.addRow("PIN", self.pin)
+        form.addRow("PIN/비밀번호", self.pin)
         form.addRow("PC 이름", self.device)
         layout.addLayout(form)
 
@@ -83,8 +81,8 @@ class LoginDialog(QDialog):
         username = self.username.text().strip()
         pin = self.pin.text().strip()
         device = self.device.text().strip() or socket.gethostname()[:40]
-        if not username or len(pin) != 6:
-            self._show_error("아이디와 PIN 6자리를 입력해 주세요.")
+        if not username or not pin:
+            self._show_error("아이디와 PIN(또는 비밀번호)을 입력해 주세요.")
             return
         self.login_button.setEnabled(False)
         self.login_button.setText("확인 중...")

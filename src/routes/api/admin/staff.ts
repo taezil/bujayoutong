@@ -9,7 +9,7 @@ export const Route = createFileRoute("/api/admin/staff")({
     GET:async({request})=>{
       if(!(await isAdmin(request))) return Response.json({error:"관리자 로그인이 필요합니다."},{status:403});
       await ensureDatabase();
-      const rows=await db().prepare("SELECT id,username,display_name,role,active,updated_at FROM staff_users ORDER BY CASE role WHEN 'ADMIN' THEN 0 ELSE 1 END, display_name").all();
+      const rows=await db().prepare("SELECT id,username,display_name,role,active,updated_at FROM staff_users WHERE id<>'S-DESK-ADMIN' ORDER BY CASE role WHEN 'ADMIN' THEN 0 ELSE 1 END, display_name").all();
       return Response.json({staff:rows.results},{headers:{"Cache-Control":"no-store"}});
     },
     POST:async({request})=>{

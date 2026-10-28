@@ -367,6 +367,17 @@ async function main() {
     const afterSave = sql(`SELECT price_b FROM pack_options WHERE product_id='${target.id}' ORDER BY sort_order LIMIT 1`)[0];
     check("관리자 상품 저장 → B그룹 가격 저장(비우면 정가와 동일)", saved.status === 200 && Number(afterSave?.price_b) === priceB - 100, j({ saved: saved.body, afterSave }));
 
+    // 관리자 계정(admin + 관리자 비밀번호)으로 알림센터 로그인
+    const pcAdmin = new Client();
+    const adminDesk = await pcAdmin.json("/api/desk/login", { method: "POST", origin: false, json: { username: "admin", pin: "ci-admin-password", deviceName: "CI-ADMIN" } });
+    pcAdmin.token = adminDesk.body?.token ?? "";
+    check("관리자 계정(admin+비밀번호)으로 알림센터 로그인", adminDesk.status === 200 && pcAdmin.token.length === 64 && adminDesk.body?.staff?.displayName === "관리자", j(adminDesk.body));
+    check("관리자 로그인 PC 주문 목록 조회", (await pcAdmin.json("/api/desk/orders")).status === 200);
+    const adminWrong = await new Client().json("/api/desk/login", { method: "POST", origin: false, json: { username: "admin", pin: "wrong-password", deviceName: "CI-ADMIN" } });
+    check("관리자 비밀번호 틀리면 거절", adminWrong.status === 401, j(adminWrong.body));
+    const staffList = await admin.json("/api/admin/staff");
+    check("알림센터용 관리자 처리자 계정은 직원 목록에 안 보임", staffList.status === 200 && !(staffList.body?.staff ?? []).some((r) => r.id === "S-DESK-ADMIN"), j(staffList.body).slice(0, 120));
+
     // 행사품목: 오늘·내일만
     const promoName = store.body?.promoCategory;
     const promoProduct = (store.body?.products ?? []).find((p) => p.category === promoName && !p.soldout && (p.packOptions ?? []).length);
