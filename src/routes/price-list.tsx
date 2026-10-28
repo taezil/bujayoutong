@@ -1,10 +1,19 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
 
 // 거래처 단가표: 로그인한 거래처의 가격그룹 가격만 표시 (A=정가, B=B그룹 가격).
-// 비로그인 요청은 서버 진입점(src/server.ts)에서 첫 화면으로 보냅니다.
+// 비로그인이면 첫 화면(로그인)으로 보냅니다.
+const isCustomerLoggedIn = createServerFn({ method: "GET" }).handler(async () => {
+  const [{ getRequest }, { getCustomer }] = await Promise.all([import("@tanstack/react-start/server"), import("../lib/auth.server")]);
+  return Boolean(await getCustomer(getRequest()));
+});
+
 export const Route = createFileRoute("/price-list")({
+  beforeLoad: async () => {
+    if (!(await isCustomerLoggedIn())) throw redirect({ to: "/", replace: true });
+  },
   head: () => ({ meta: [{ title: "단가표 · 부자유통" }, { name: "robots", content: "noindex,nofollow" }] }),
   component: PriceListPage,
 });
