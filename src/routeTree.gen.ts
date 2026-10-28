@@ -48,6 +48,13 @@ import { Route as ApiDeskLoginRouteImport } from './routes/api/desk/login'
 import { Route as ApiDeskLogoutRouteImport } from './routes/api/desk/logout'
 import { Route as ApiDeskOrdersRouteImport } from './routes/api/desk/orders'
 import { Route as ApiDeskPulseRouteImport } from './routes/api/desk/pulse'
+import { Route as AlertsRouteImport } from './routes/alerts'
+import { Route as ApiAdminZonesRouteImport } from './routes/api/admin/zones'
+import { Route as ApiAdminAlertsRouteImport } from './routes/api/admin/alerts'
+import { Route as ApiPushSummaryRouteImport } from './routes/api/push/summary'
+import { Route as ApiPushSubscribeRouteImport } from './routes/api/push/subscribe'
+import { Route as ApiCustomerNoticesRouteImport } from './routes/api/customer/notices'
+import { Route as ApiDeskLoadSheetRouteImport } from './routes/api/desk/load-sheet'
 import { Route as ApiDriverDataRouteImport } from './routes/api/driver/data'
 import { Route as ApiDriverOrderRouteImport } from './routes/api/driver/order'
 import { Route as ApiStaffLoginRouteImport } from './routes/api/staff/login'
@@ -249,6 +256,41 @@ const ApiDeskPulseRoute = ApiDeskPulseRouteImport.update({
   path: '/api/desk/pulse',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AlertsRoute = AlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminZonesRoute = ApiAdminZonesRouteImport.update({
+  id: '/api/admin/zones',
+  path: '/api/admin/zones',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminAlertsRoute = ApiAdminAlertsRouteImport.update({
+  id: '/api/admin/alerts',
+  path: '/api/admin/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPushSummaryRoute = ApiPushSummaryRouteImport.update({
+  id: '/api/push/summary',
+  path: '/api/push/summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPushSubscribeRoute = ApiPushSubscribeRouteImport.update({
+  id: '/api/push/subscribe',
+  path: '/api/push/subscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCustomerNoticesRoute = ApiCustomerNoticesRouteImport.update({
+  id: '/api/customer/notices',
+  path: '/api/customer/notices',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDeskLoadSheetRoute = ApiDeskLoadSheetRouteImport.update({
+  id: '/api/desk/load-sheet',
+  path: '/api/desk/load-sheet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDriverDataRoute = ApiDriverDataRouteImport.update({
   id: '/api/driver/data',
   path: '/api/driver/data',
@@ -315,6 +357,13 @@ export interface FileRoutesByFullPath {
   '/api/desk/logout': typeof ApiDeskLogoutRoute
   '/api/desk/orders': typeof ApiDeskOrdersRoute
   '/api/desk/pulse': typeof ApiDeskPulseRoute
+  '/alerts': typeof AlertsRoute
+  '/api/admin/zones': typeof ApiAdminZonesRoute
+  '/api/admin/alerts': typeof ApiAdminAlertsRoute
+  '/api/push/summary': typeof ApiPushSummaryRoute
+  '/api/push/subscribe': typeof ApiPushSubscribeRoute
+  '/api/customer/notices': typeof ApiCustomerNoticesRoute
+  '/api/desk/load-sheet': typeof ApiDeskLoadSheetRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
@@ -361,6 +410,13 @@ export interface FileRoutesByTo {
   '/api/desk/logout': typeof ApiDeskLogoutRoute
   '/api/desk/orders': typeof ApiDeskOrdersRoute
   '/api/desk/pulse': typeof ApiDeskPulseRoute
+  '/alerts': typeof AlertsRoute
+  '/api/admin/zones': typeof ApiAdminZonesRoute
+  '/api/admin/alerts': typeof ApiAdminAlertsRoute
+  '/api/push/summary': typeof ApiPushSummaryRoute
+  '/api/push/subscribe': typeof ApiPushSubscribeRoute
+  '/api/customer/notices': typeof ApiCustomerNoticesRoute
+  '/api/desk/load-sheet': typeof ApiDeskLoadSheetRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
@@ -408,6 +464,13 @@ export interface FileRoutesById {
   '/api/desk/logout': typeof ApiDeskLogoutRoute
   '/api/desk/orders': typeof ApiDeskOrdersRoute
   '/api/desk/pulse': typeof ApiDeskPulseRoute
+  '/alerts': typeof AlertsRoute
+  '/api/admin/zones': typeof ApiAdminZonesRoute
+  '/api/admin/alerts': typeof ApiAdminAlertsRoute
+  '/api/push/summary': typeof ApiPushSummaryRoute
+  '/api/push/subscribe': typeof ApiPushSubscribeRoute
+  '/api/customer/notices': typeof ApiCustomerNoticesRoute
+  '/api/desk/load-sheet': typeof ApiDeskLoadSheetRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
@@ -456,6 +519,13 @@ export interface FileRouteTypes {
     | '/api/desk/logout'
     | '/api/desk/orders'
     | '/api/desk/pulse'
+    | '/alerts'
+    | '/api/admin/zones'
+    | '/api/admin/alerts'
+    | '/api/push/summary'
+    | '/api/push/subscribe'
+    | '/api/customer/notices'
+    | '/api/desk/load-sheet'
     | '/api/driver/data'
     | '/api/driver/order'
     | '/api/staff/login'
@@ -502,6 +572,13 @@ export interface FileRouteTypes {
     | '/api/desk/logout'
     | '/api/desk/orders'
     | '/api/desk/pulse'
+    | '/alerts'
+    | '/api/admin/zones'
+    | '/api/admin/alerts'
+    | '/api/push/summary'
+    | '/api/push/subscribe'
+    | '/api/customer/notices'
+    | '/api/desk/load-sheet'
     | '/api/driver/data'
     | '/api/driver/order'
     | '/api/staff/login'
@@ -548,6 +625,13 @@ export interface FileRouteTypes {
     | '/api/desk/logout'
     | '/api/desk/orders'
     | '/api/desk/pulse'
+    | '/alerts'
+    | '/api/admin/zones'
+    | '/api/admin/alerts'
+    | '/api/push/summary'
+    | '/api/push/subscribe'
+    | '/api/customer/notices'
+    | '/api/desk/load-sheet'
     | '/api/driver/data'
     | '/api/driver/order'
     | '/api/staff/login'
@@ -595,6 +679,13 @@ export interface RootRouteChildren {
   ApiDeskLogoutRoute: typeof ApiDeskLogoutRoute
   ApiDeskOrdersRoute: typeof ApiDeskOrdersRoute
   ApiDeskPulseRoute: typeof ApiDeskPulseRoute
+  AlertsRoute: typeof AlertsRoute
+  ApiAdminZonesRoute: typeof ApiAdminZonesRoute
+  ApiAdminAlertsRoute: typeof ApiAdminAlertsRoute
+  ApiPushSummaryRoute: typeof ApiPushSummaryRoute
+  ApiPushSubscribeRoute: typeof ApiPushSubscribeRoute
+  ApiCustomerNoticesRoute: typeof ApiCustomerNoticesRoute
+  ApiDeskLoadSheetRoute: typeof ApiDeskLoadSheetRoute
   ApiDriverDataRoute: typeof ApiDriverDataRoute
   ApiDriverOrderRoute: typeof ApiDriverOrderRoute
   ApiStaffLoginRoute: typeof ApiStaffLoginRoute
@@ -877,6 +968,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDeskPulseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/alerts': {
+      id: '/alerts'
+      path: '/alerts'
+      fullPath: '/alerts'
+      preLoaderRoute: typeof AlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/zones': {
+      id: '/api/admin/zones'
+      path: '/api/admin/zones'
+      fullPath: '/api/admin/zones'
+      preLoaderRoute: typeof ApiAdminZonesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/alerts': {
+      id: '/api/admin/alerts'
+      path: '/api/admin/alerts'
+      fullPath: '/api/admin/alerts'
+      preLoaderRoute: typeof ApiAdminAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/push/summary': {
+      id: '/api/push/summary'
+      path: '/api/push/summary'
+      fullPath: '/api/push/summary'
+      preLoaderRoute: typeof ApiPushSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/push/subscribe': {
+      id: '/api/push/subscribe'
+      path: '/api/push/subscribe'
+      fullPath: '/api/push/subscribe'
+      preLoaderRoute: typeof ApiPushSubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/customer/notices': {
+      id: '/api/customer/notices'
+      path: '/api/customer/notices'
+      fullPath: '/api/customer/notices'
+      preLoaderRoute: typeof ApiCustomerNoticesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/desk/load-sheet': {
+      id: '/api/desk/load-sheet'
+      path: '/api/desk/load-sheet'
+      fullPath: '/api/desk/load-sheet'
+      preLoaderRoute: typeof ApiDeskLoadSheetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/driver/data': {
       id: '/api/driver/data'
       path: '/api/driver/data'
@@ -955,6 +1095,13 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDeskLogoutRoute: ApiDeskLogoutRoute,
   ApiDeskOrdersRoute: ApiDeskOrdersRoute,
   ApiDeskPulseRoute: ApiDeskPulseRoute,
+  AlertsRoute: AlertsRoute,
+  ApiAdminZonesRoute: ApiAdminZonesRoute,
+  ApiAdminAlertsRoute: ApiAdminAlertsRoute,
+  ApiPushSummaryRoute: ApiPushSummaryRoute,
+  ApiPushSubscribeRoute: ApiPushSubscribeRoute,
+  ApiCustomerNoticesRoute: ApiCustomerNoticesRoute,
+  ApiDeskLoadSheetRoute: ApiDeskLoadSheetRoute,
   ApiDriverDataRoute: ApiDriverDataRoute,
   ApiDriverOrderRoute: ApiDriverOrderRoute,
   ApiStaffLoginRoute: ApiStaffLoginRoute,
