@@ -668,6 +668,16 @@ class DeskController(QObject):
         self.quit()
 
     # ---------- 기타 ----------
+    def open_load_sheet(self) -> None:
+        if not self.token:
+            return
+        from .load_sheet import LoadSheetDialog
+
+        dialog = LoadSheetDialog(self, self.window)
+        self.load_sheet_dialog = dialog
+        dialog.exec()
+        self.load_sheet_dialog = None
+
     def open_data_folder(self) -> None:
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.directory)))
 

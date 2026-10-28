@@ -303,6 +303,8 @@ class OrderDetailView(QWidget):
         self.box_slot.set(slot or "지정 안 함", accent=bool(slot), color=COLORS["entering_text"] if slot else COLORS["muted"])
         location = order.get("deliveryLocation") or None
         self.box_location.set((location or {}).get("name") or "기본 배송처")
+        zone = str(order.get("zone") or "").strip()
+        self.box_location.key.setText(f"배송처 · {zone}" if zone else "배송처")
         received = kst_datetime(str(order.get("createdAt", "")))
         if bundle and order.get("lastCreatedAt"):
             received = f"{kst_time(str(order.get('createdAt')))} ~ {kst_time(str(order.get('lastCreatedAt')))}"

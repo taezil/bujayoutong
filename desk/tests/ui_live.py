@@ -151,6 +151,34 @@ def main() -> int:
     check("다른 배송 시간 발주는 그대로 남음", pump(app, lambda: any(o.get("id") == other_slot for o in window.orders), 10))
     api.change_state(other_slot, "done")
 
+    # ---- 상차준비표 창: 내일 배송분을 구역별로 → HTML(브라우저 인쇄용) ----
+    from PySide6.QtCore import QDate
+
+    from buja_desk.core.loadsheet import SheetOptions, build_sheets, render_html
+    from buja_desk.ui.load_sheet import LoadSheetDialog
+
+    tomorrow = (datetime.now(timezone(timedelta(hours=9))) + timedelta(days=1)).date()
+    dialog = LoadSheetDialog(controller, window)
+    dialog.date_edit.setDate(QDate(tomorrow.year, tomorrow.month, tomorrow.day))
+    dialog.show()
+    check("상차준비표: 내일 배송분 불러오기", pump(app, lambda: dialog.data is not None and dialog.data.get("date") == tomorrow.isoformat(), 20),
+          dialog.summary.text())
+    zones = [dialog.zone_combo.itemText(i) for i in range(dialog.zone_combo.count())]
+    check("상차준비표: 구역 선택(전체·1단지·2단지·미지정)", zones[0].startswith("전체") and "2단지" in zones and zones[-1].startswith("구역 미지정"), str(zones))
+    check("상차준비표: 구역별 거래처·발주 수 요약 + [인쇄하기] 켜짐", "발주" in dialog.summary.text() and dialog.print_button.isEnabled(), dialog.summary.text())
+    try:
+        dialog.resize(620, 520)
+        pump(app, lambda: False, 0.4)
+        dialog.grab().save("desk-shot-loadsheet-dialog.png")
+    except Exception as error:  # noqa: BLE001
+        print("screenshot failed", error)
+    options = SheetOptions(tomorrow.isoformat())
+    sheets = build_sheets(dialog.data or {}, options)
+    page = render_html(sheets, options, staff_name="사무실직원B", auto_print=False)
+    Path("desk-loadsheet.html").write_text(page, encoding="utf-8")
+    check("상차준비표 HTML: 구역마다 한 쪽, 위치 순서 표", page.count('class="page"') == len(sheets) >= 1 and 'class="loc"' in page)
+    dialog.close()
+
     controller.quitting = True
     controller.toasts.clear()
     controller._stop_sync()

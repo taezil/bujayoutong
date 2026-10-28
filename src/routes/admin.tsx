@@ -5,6 +5,7 @@ import type { PackOption, Product, StoreData } from "../lib/db.server";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
 import { thumbUrl } from "../lib/photo-url";
 import { createThumbnailForUpload, generateMissingThumbnails, type ThumbnailProgress } from "../lib/photo-thumbs";
+import { LocationsView, ZonesView } from "../admin-zones";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -39,7 +40,7 @@ function orderPeriod(value: string) {
   return hour < 12 ? "오전발주" : "오후발주";
 }
 
-type AdminView = "products" | "categories" | "settings";
+type AdminView = "products" | "categories" | "zones" | "locations" | "settings";
 type StatusFilter = "all" | "selling" | "soldout" | "hidden" | "promo";
 const PAGE_SIZE = 20;
 
@@ -179,6 +180,8 @@ function AdminPage() {
   const menu: Array<{ id: AdminView; label: string; icon: string }> = [
     { id: "products", label: "상품 관리", icon: "📦" },
     { id: "categories", label: "카테고리 관리", icon: "🗂" },
+    { id: "zones", label: "구역 · 배송 마감", icon: "🚚" },
+    { id: "locations", label: "창고 위치", icon: "📍" },
     { id: "settings", label: "설정", icon: "⚙" },
   ];
 
@@ -214,6 +217,8 @@ function AdminPage() {
           />
         )}
         {view === "categories" && <CategoryView store={store} onSaved={loadStore} onError={setError} onNotice={setNotice} />}
+        {view === "zones" && <ZonesView onError={setError} onNotice={setNotice} />}
+        {view === "locations" && <LocationsView store={store} onReload={loadStore} onError={setError} onNotice={setNotice} />}
         {view === "settings" && <SimpleSettingsView store={store} onSaved={loadStore} onError={setError} onNotice={setNotice} />}
       </main>
       {editing && (
@@ -704,6 +709,8 @@ function normalizeStoredUnit(unit: string) {
   return unit.trim();
 }
 
+type EditorPhoto = { key: string; url?: string; file?: File; preview: string };
+
 function ProductEditor({
   product,
   creating,
@@ -720,8 +727,10 @@ function ProductEditor({
   onError: (value: string) => void;
 }) {
   const [draft, setDraft] = useState<Product>(() => structuredClone(product));
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState("");
+  // 사진 여러 장: 첫 장이 대표 사진(목록·장바구니에 보이는 사진). 새로 고른 파일은 저장할 때 올림
+  const [photoList, setPhotoList] = useState<EditorPhoto[]>(() =>
+    (product.photos?.length ? product.photos : product.photo ? [product.photo] : []).map((url) => ({ key: url, url, preview: url })));
+  const [locations, setLocations] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState("");
   const categoryNames = Object.keys(categories);
@@ -745,11 +754,46 @@ function ProductEditor({
   }, [draft.category, draft.sub, categories]);
 
   useEffect(() => {
-    if (!photoFile) { setPhotoPreview(""); return; }
-    const url = URL.createObjectURL(photoFile);
-    setPhotoPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [photoFile]);
+    let alive = true;
+    void fetch("/api/admin/zones", { cache: "no-store" }).then(async (response) => {
+      if (!response.ok) return;
+      const data = await response.json() as { locations?: Array<{ name: string }> };
+      if (alive) setLocations((data.locations ?? []).map((row) => row.name));
+    }).catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => () => {
+    for (const item of photoList) if (item.file) URL.revokeObjectURL(item.preview);
+    // 창을 닫을 때만 정리
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function addPhotos(files: FileList | null) {
+    if (!files?.length) return;
+    const room = Math.max(0, 10 - photoList.length);
+    const picked = Array.from(files).slice(0, room).map((file, index) => ({ key: `new-${Date.now()}-${index}`, file, preview: URL.createObjectURL(file) }));
+    if (files.length > room) setLocalError("사진은 상품마다 최대 10장까지 올릴 수 있습니다.");
+    setPhotoList((current) => [...current, ...picked]);
+  }
+
+  function movePhoto(index: number, delta: number) {
+    setPhotoList((current) => {
+      const next = [...current];
+      const target = index + delta;
+      if (target < 0 || target >= next.length) return current;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
+  function removePhoto(index: number) {
+    setPhotoList((current) => {
+      const item = current[index];
+      if (item?.file) URL.revokeObjectURL(item.preview);
+      return current.filter((_, i) => i !== index);
+    });
+  }
 
   function updateOption(index: number, patch: Partial<PackOption>) {
     setDraft((current) => ({
@@ -769,11 +813,11 @@ function ProductEditor({
     setBusy(true);
     onError("");
     try {
-      let photo = draft.photo;
-      if (photoFile) photo = await uploadPhoto(photoFile);
+      const urls: string[] = [];
+      for (const item of photoList) urls.push(item.url ?? await uploadPhoto(item.file as File));
       await jsonPost("/api/admin/products", {
         action: creating ? "create" : "update",
-        product: { ...draft, name: draft.name.trim(), unit: normalizeStoredUnit(draft.unit), photo },
+        product: { ...draft, name: draft.name.trim(), unit: normalizeStoredUnit(draft.unit), photo: urls[0] ?? "", photos: urls },
       });
       await onSaved(`‘${draft.name.trim()}’ ${creating ? "상품을 추가했습니다" : "저장했습니다"}.`);
     } catch (reason) {
@@ -796,8 +840,6 @@ function ProductEditor({
     }
   }
 
-  const shownPhoto = photoPreview || draft.photo;
-
   return (
     <div className="adm-modal-backdrop" onMouseDown={(e) => { if (e.currentTarget === e.target && !busy) onClose(); }}>
       <section className="adm-editor" role="dialog" aria-modal="true" aria-label={creating ? "상품 등록" : "상품 수정"}>
@@ -809,20 +851,27 @@ function ProductEditor({
         <div className="adm-editor-body">
           <div className="adm-editor-col">
             <h3>기본 정보</h3>
-            <div className="adm-photo-field">
-              <div className="adm-photo-preview">
-                {shownPhoto ? <img src={shownPhoto} alt="" /> : <span>사진 없음</span>}
-              </div>
-              <div className="adm-photo-actions">
-                <label className="adm-upload">
-                  ＋ 사진 {shownPhoto ? "변경" : "등록"}
-                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
-                </label>
-                {(photoFile || draft.photo) && (
-                  <button type="button" onClick={() => { setPhotoFile(null); setDraft({ ...draft, photo: "" }); }}>사진 빼기</button>
+            <div className="adm-photos">
+              <div className="adm-photos-grid">
+                {photoList.map((item, index) => (
+                  <figure key={item.key} className={index === 0 ? "main" : ""}>
+                    <img src={item.preview} alt="" />
+                    {index === 0 && <figcaption>대표</figcaption>}
+                    <div className="adm-photos-tools">
+                      <button type="button" disabled={index === 0} onClick={() => movePhoto(index, -1)} aria-label="앞으로">◀</button>
+                      <button type="button" disabled={index === photoList.length - 1} onClick={() => movePhoto(index, 1)} aria-label="뒤로">▶</button>
+                      <button type="button" className="del" onClick={() => removePhoto(index)} aria-label="사진 빼기">×</button>
+                    </div>
+                  </figure>
+                ))}
+                {photoList.length < 10 && (
+                  <label className="adm-photos-add">
+                    <b>＋</b><span>사진 추가</span>
+                    <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(e) => { addPhotos(e.target.files); e.target.value = ""; }} />
+                  </label>
                 )}
-                <small>JPG·PNG·WebP, 최대 5MB<br />정사각형 사진이 가장 보기 좋습니다.</small>
               </div>
+              <small>여러 장을 한 번에 고를 수 있어요 (최대 10장). 첫 장이 대표 사진이고, 거래처가 사진을 누르면 전부 넘겨 볼 수 있습니다. ◀ ▶ 로 순서를 바꾸세요.</small>
             </div>
 
             <label className="adm-field">상품명 <em>*</em>
@@ -901,6 +950,13 @@ function ProductEditor({
 
             <label className="adm-field">상품 설명
               <textarea value={draft.description ?? ""} onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={4} placeholder="예: 국내산 등심으로 만든 바삭한 돈까스입니다. 170도 기름에 4~5분 튀겨주세요." />
+            </label>
+
+            <label className="adm-field">창고 위치 <small className="adm-field-hint">상차준비표가 이 순서로 나옵니다</small>
+              <select value={draft.warehouseZone ?? ""} onChange={(e) => setDraft({ ...draft, warehouseZone: e.target.value })}>
+                <option value="">미지정</option>
+                {Array.from(new Set([...locations, ...(draft.warehouseZone ? [draft.warehouseZone] : [])])).map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
             </label>
 
             <label className="adm-field">과세 구분

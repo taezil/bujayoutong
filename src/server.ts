@@ -16,6 +16,14 @@ async function getEntry(): Promise<ServerEntry> {
 }
 
 export default {
+  /** 1분마다: 오래 방치된 발주를 사장님 휴대폰으로 다시 알림 (wrangler.jsonc triggers.crons) */
+  async scheduled(_event: unknown, _env: unknown, ctx: { waitUntil?: (promise: Promise<unknown>) => void }) {
+    const task = import("./lib/alerts.server")
+      .then((m) => m.runEscalation())
+      .catch((error) => console.error("escalation failed", error));
+    if (ctx?.waitUntil) ctx.waitUntil(task);
+    else await task;
+  },
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);

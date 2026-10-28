@@ -1,0 +1,19 @@
+{
+  "id": "/alerts",
+  "name": "부자유통 발주 알림",
+  "short_name": "발주알림",
+  "description": "부자유통 사장님용 발주 알림",
+  "start_url": "/alerts",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FCFCF9",
+  "theme_color": "#0B6A39",
+  "icons": [
+    {
+      "src": "/buja-mark.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

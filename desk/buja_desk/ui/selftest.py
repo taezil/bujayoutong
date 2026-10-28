@@ -79,6 +79,14 @@ def run_self_test(argv: list[str]) -> int:
         controller.window.group_check.setChecked(True)
         controller.window.set_history(orders)
         log.info("selftest: history set")
+        # 상차준비표 (서버 없이 예시 데이터로 HTML 생성까지)
+        from ..core.loadsheet import SheetOptions, build_sheets, render_html
+        from .load_sheet import LoadSheetDialog  # noqa: F401 - EXE 에 포함됐는지 확인
+        sample = {"zones": ["2단지"], "locations": [{"name": "냉동창고 좌측", "storage": "frozen", "sortOrder": 1}], "categoryStorage": {},
+                  "orders": [{**orders[0], "zone": "2단지", "items": [{**orders[0]["items"][0], "location": "냉동창고 좌측"}]}]}
+        sheet_html = render_html(build_sheets(sample, SheetOptions("2026-10-30")), SheetOptions("2026-10-30"), auto_print=False)
+        assert "상차준비표 · 2단지" in sheet_html, "상차준비표 생성 실패"
+        lines.append("load sheet ok")
         controller.notify(Notice("new", "🚨 신규 발주", "셀프 테스트", ["OTEST1"]))
         controller.notify(Notice("additional", "🚨 추가발주", "셀프 테스트", ["OTEST2"]))
         lines.append(f"list rows: {controller.window.list.count()}")

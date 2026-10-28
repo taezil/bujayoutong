@@ -65,10 +65,21 @@ def period_label(order: dict[str, Any]) -> str:
     return "오후" if order.get("orderPeriod") == "PM" else "오전"
 
 
+def run_of(order: dict[str, Any]) -> int:
+    """오후 배송 차수 (1차·2차). 차수가 없는 구역/오전 배송은 0."""
+    try:
+        return int(order.get("deliveryRun") or 0) if order.get("deliverySlot") == "PM" else 0
+    except (TypeError, ValueError):
+        return 0
+
+
 def slot_label(order: dict[str, Any]) -> str:
-    """거래처가 고른 배송 시간. 예전 주문/관리자 입력처럼 없으면 빈 문자열."""
+    """거래처가 고른 배송 시간 ('오전 배송', '오후 배송', '오후 2차 배송'). 예전 주문/관리자 입력처럼 없으면 빈 문자열."""
     slot = order.get("deliverySlot")
-    return "오후 배송" if slot == "PM" else "오전 배송" if slot == "AM" else ""
+    if slot == "PM":
+        run = run_of(order)
+        return f"오후 {run}차 배송" if run else "오후 배송"
+    return "오전 배송" if slot == "AM" else ""
 
 
 def delivery_text(order: dict[str, Any], *, with_year: bool = False) -> str:
