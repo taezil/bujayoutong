@@ -183,10 +183,13 @@ export async function deskPulse() {
       (SELECT MAX(rowid) FROM orders) AS last_rowid,
       (SELECT MAX(updated_at) FROM orders) AS last_updated,
       (SELECT value FROM app_settings WHERE key='desk_rev') AS desk_rev,
-      (SELECT COUNT(*) FROM order_desk_status WHERE state IN ('new','entering')) AS open_count
+      (SELECT COUNT(*) FROM order_desk_status WHERE state IN ('new','entering')) AS open_count,
+      (SELECT COUNT(*) FROM orders WHERE created_at >= datetime(date(datetime('now','+9 hours')),'-9 hours')) AS today_received,
+      (SELECT COUNT(*) FROM order_desk_status WHERE state='done' AND deleted=0 AND done_at >= datetime(date(datetime('now','+9 hours')),'-9 hours')) AS today_done
   `).first<Record<string, unknown>>();
   const marker = [row?.last_rowid, row?.last_updated, row?.desk_rev].map((v) => String(v ?? "")).join("|");
-  return { marker: await sha256(marker), openCount: Number(row?.open_count ?? 0), serverTime: new Date().toISOString(), trackingSince: await trackingSince() };
+  return { marker: await sha256(marker), openCount: Number(row?.open_count ?? 0),
+    todayReceived: Number(row?.today_received ?? 0), todayDone: Number(row?.today_done ?? 0), serverTime: new Date().toISOString(), trackingSince: await trackingSince() };
 }
 
 const SOURCE_LABELS: Record<string, string> = { app: "거래처 주문", driver: "현장발주", admin: "관리자 입력" };
@@ -197,7 +200,7 @@ async function loadOrders(where: string, params: unknown[], orderBy: string, lim
   const orders = await db().prepare(`
     SELECT o.id,o.customer_id,o.source,o.status,o.region_snapshot,o.total_amount,o.note,o.created_at,o.updated_at,
            o.delivery_date,o.order_period,o.delivery_slot,o.price_group,o.is_additional,o.created_by_staff_name,o.cancelled_at,
-           o.delivery_location_name,o.delivery_location_address,o.delivery_location_phone,
+           o.delivery_location_id,o.delivery_location_name,o.delivery_location_address,o.delivery_location_phone,
            c.code AS customer_code,c.name AS customer_name,c.phone AS customer_phone,c.address AS customer_address,
            COALESCE(d.state,'new') AS desk_state,COALESCE(d.revision,0) AS desk_revision,
            COALESCE(d.entering_by_id,'') AS entering_by_id,COALESCE(d.entering_by_name,'') AS entering_by_name,
@@ -228,9 +231,18 @@ async function loadOrders(where: string, params: unknown[], orderBy: string, lim
     if (!ids.length) continue;
     const items = await db().prepare(`
       SELECT oi.id,oi.order_id,oi.product_id,oi.product_name,oi.unit,oi.option_label,oi.quantity,oi.unit_price,oi.list_price,
-             (SELECT p.category FROM products p WHERE p.id=oi.product_id) AS category,
-             COALESCE((SELECT po.spec FROM pack_options po WHERE po.product_id=oi.product_id AND po.label=oi.option_label ORDER BY po.sort_order,po.id LIMIT 1),'') AS option_spec
-      FROM order_items oi WHERE oi.order_id IN (${ids.map(() => "?").join(",")}) ORDER BY oi.id
+             p.category AS category,
+             COALESCE((SELECT po.spec FROM pack_options po WHERE po.product_id=oi.product_id AND po.label=oi.option_label ORDER BY po.sort_order,po.id LIMIT 1),'') AS option_spec,
+             COALESCE(cat.sort_order, 9999) AS cat_order, COALESCE(sc.sort_order, 9999) AS sub_order,
+             COALESCE(p.sort_order, 999999) AS product_order,
+             COALESCE((SELECT po2.sort_order FROM pack_options po2 WHERE po2.product_id=oi.product_id AND po2.label=oi.option_label LIMIT 1), 99) AS option_order
+      FROM order_items oi
+      LEFT JOIN products p ON p.id=oi.product_id
+      LEFT JOIN categories cat ON cat.name=p.category
+      LEFT JOIN subcategories sc ON sc.category_name=p.category AND sc.name=p.sub
+      WHERE oi.order_id IN (${ids.map(() => "?").join(",")})
+      -- 관리자 '카테고리 관리' 순서(카테고리 → 소분류 → 상품 → 단위)대로 정렬, 삭제된 상품은 맨 뒤
+      ORDER BY oi.order_id, cat_order, sub_order, product_order, option_order, oi.id
     `).bind(...ids).all<OrderRow>();
     for (const item of items.results) {
       const key = String(item.order_id);
@@ -276,6 +288,7 @@ function toDeskOrder(r: OrderRow, items: OrderRow[], promoCategory = "") {
     isAdditional: additionalBySystem || Boolean(previousOrderId),
     previousOrderId,
     note: String(r.note ?? ""),
+    deliveryLocationId: String(r.delivery_location_id ?? ""),
     deliveryLocation: r.delivery_location_name
       ? { name: String(r.delivery_location_name), address: String(r.delivery_location_address ?? ""), phone: String(r.delivery_location_phone ?? "") }
       : null,
@@ -292,6 +305,9 @@ function toDeskOrder(r: OrderRow, items: OrderRow[], promoCategory = "") {
       quantity: Number(i.quantity),
       unitPrice: Number(i.unit_price ?? 0),
       listPrice: i.list_price == null ? null : Number(i.list_price),
+      category: String(i.category ?? ""),
+      // 정렬 키 (합친 발주에서 품목을 같은 순서로 다시 정렬할 때 사용)
+      sortKey: [Number(i.cat_order ?? 9999), Number(i.sub_order ?? 9999), Number(i.product_order ?? 999999), Number(i.option_order ?? 99)],
       isPromo: Boolean(promoCategory) && String(i.category ?? "") === promoCategory,
     })),
     desk: {

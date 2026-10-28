@@ -89,6 +89,16 @@ jobs:
           sudo apt-get install -y -q libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 fonts-noto-cjk > /dev/null
           set -o pipefail
           QT_DEBUG_PLUGINS=0 python -X faulthandler desk/tests/ui_live.py http://localhost:4173 2>&1 | tee ui.log || { echo "::error title=ui_live::$(tail -n 60 ui.log | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')"; exit 1; }
+      - name: Save desk screenshots to claude/screens branch (work branches only)
+        if: always() && startsWith(github.ref, 'refs/heads/claude/') && hashFiles('desk-shot-*.png') != ''
+        run: |
+          mkdir -p /tmp/screens && cp desk-shot-*.png /tmp/screens/
+          cd /tmp/screens
+          git init -q -b screens
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add . && git commit -q -m "desk screenshots ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" screens:refs/heads/claude/screens
       - name: Report results as annotations
         if: always() && hashFiles('tests/auth-e2e.mjs') != ''
         run: |

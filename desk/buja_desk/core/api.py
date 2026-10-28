@@ -123,6 +123,12 @@ class DeskApi:
     def order(self, order_id: str) -> dict[str, Any]:
         return dict(self._request("GET", "/api/desk/orders", params={"id": order_id}).get("order") or {})
 
+    def change_many(self, order_ids: list[str], action: str, force: bool = False, reason: str = "") -> list[dict[str, Any]]:
+        """합친 발주: 여러 주문을 한 번에 처리. 주문별 결과 목록 [{id, ok, error, order}]"""
+        payload = self._request("POST", "/api/desk/orders",
+                                json={"action": action, "orderIds": order_ids, "force": force, "reason": reason})
+        return list(payload.get("results") or [])
+
     def delete_order(self, order_id: str, reason: str = "") -> dict[str, Any]:
         return self._request("POST", "/api/desk/orders", json={"action": "delete", "orderId": order_id, "reason": reason})
 

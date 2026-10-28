@@ -326,3 +326,60 @@ def test_updater_rejects_bad_hash_and_foreign_url(tmp_path):
     assert not list(tmp_path.glob("*.exe"))
     foreign = _FakeSession(_release("9.9.9", url="https://evil.example.com/x.exe"))
     assert updater.check_latest(foreign, current="1.0.0") is None
+
+
+# ---------- 발주 자동 합치기 ----------
+
+from buja_desk.core.bundle import find_entry, merge_orders  # noqa: E402
+
+
+def _bundle_order(order_id, created, items, *, state="new", slot="AM", date="2026-10-30", customer="C1", entering_by="", cancelled=False):
+    return {
+        "id": order_id, "customerId": customer, "customerCode": "00124", "customerName": "태승급식소", "deliveryDate": date,
+        "deliverySlot": slot, "deliveryLocationId": "", "createdAt": created, "contentVersion": "v1", "cancelled": cancelled,
+        "note": "", "items": items,
+        "desk": {"state": state, "revision": 0, "enteringById": entering_by},
+    }
+
+
+def _item(pid, name, qty, sort, unit="박스", price=1000):
+    return {"productId": pid, "productName": name, "unit": unit, "unitPrice": price, "quantity": qty, "sortKey": sort}
+
+
+def test_merge_same_customer_date_slot_sums_and_sorts():
+    a = _bundle_order("O1", "2026-10-29T12:00:00Z", [_item("P-kimchi", "김치", 2, [2, 0, 5, 0]), _item("P-don", "돈까스", 1, [0, 0, 1, 0])])
+    b = _bundle_order("O2", "2026-10-29T12:30:00Z", [_item("P-don", "돈까스", 1, [0, 0, 1, 0]), _item("P-ganjang", "간장", 1, [5, 1, 9, 0])])
+    entries = merge_orders([a, b])
+    assert len(entries) == 1
+    bundle = entries[0]
+    assert bundle["isBundle"] and bundle["memberIds"] == ["O1", "O2"] and bundle["mergedCount"] == 2
+    names = [(i["productName"], i["quantity"]) for i in bundle["items"]]
+    assert names == [("돈까스", 2.0), ("김치", 2.0), ("간장", 1.0)]
+    assert [p[0] for p in bundle["items"][0]["parts"]] == ["1차", "추가"]
+    assert find_entry(entries, "O2") is bundle
+
+
+def test_merge_never_crosses_slot_date_state_or_cancel():
+    base = [_item("P1", "돈까스", 1, [0, 0, 1, 0])]
+    orders = [
+        _bundle_order("A", "2026-10-29T10:00:00Z", base, slot="AM"),
+        _bundle_order("B", "2026-10-29T10:01:00Z", base, slot="PM"),           # 배송 시간 다름
+        _bundle_order("C", "2026-10-29T10:02:00Z", base, date="2026-10-31"),   # 배송일 다름
+        _bundle_order("D", "2026-10-29T10:03:00Z", base, state="entering", entering_by="S1"),  # 이미 입력 중
+        _bundle_order("E", "2026-10-29T10:04:00Z", base, cancelled=True),       # 취소
+        _bundle_order("F", "2026-10-29T10:05:00Z", base, customer="C2"),       # 다른 거래처
+    ]
+    entries = merge_orders(orders)
+    assert len(entries) == 6 and not any(e.get("isBundle") for e in entries)
+
+
+def test_entering_bundle_stays_together_new_additional_separate():
+    base = [_item("P1", "돈까스", 1, [0, 0, 1, 0])]
+    orders = [
+        _bundle_order("A", "2026-10-29T10:00:00Z", base, state="entering", entering_by="S1"),
+        _bundle_order("B", "2026-10-29T10:01:00Z", base, state="entering", entering_by="S1"),
+        _bundle_order("C", "2026-10-29T10:30:00Z", base),  # 입력 시작 후 들어온 추가발주 → 따로
+    ]
+    entries = merge_orders(orders)
+    bundles = [e for e in entries if e.get("isBundle")]
+    assert len(entries) == 2 and len(bundles) == 1 and bundles[0]["memberIds"] == ["A", "B"]
