@@ -22,6 +22,8 @@ COLORS = {
     "cancelled_bg": "#F1F2F4",
     "danger": "#C92A2A",
     "note_bg": "#FFF8DB",
+    "group_b": "#633806",
+    "group_b_bg": "#FAEEDA",
 }
 
 STYLESHEET = f"""

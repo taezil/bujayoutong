@@ -155,6 +155,13 @@ function servingsLines(product: Product) {
   return lines;
 }
 
+/** 거래처 가격그룹 가격 (서버가 이 거래처 그룹 가격만 내려줌) */
+function optionPriceText(product: Product, option: PackOption) {
+  if (product.priceDisplayMode === "market") return "시세";
+  if (product.priceDisplayMode === "inquiry" || option.price == null) return "가격문의";
+  return `${new Intl.NumberFormat("ko-KR").format(option.price)}원`;
+}
+
 function optionSpec(product: Product, option: PackOption) {
   const explicit = (option.spec ?? "").trim();
   if (explicit) {
@@ -328,10 +335,10 @@ function shiftMonth(month: string, delta: number) {
 }
 
 /** 배송일 달력: 오늘은 빨간 굵은 동그라미 + '오늘', 선택한 날은 초록 동그라미. 지난 날·60일 이후는 선택 불가 */
-function DeliveryCalendar({ value, onChange, disabled }: { value: string; onChange: (date: string) => void; disabled?: boolean }) {
+function DeliveryCalendar({ value, onChange, disabled, maxDate }: { value: string; onChange: (date: string) => void; disabled?: boolean; maxDate?: string }) {
   const today = kstDateClient(0);
   const tomorrow = kstDateClient(1);
-  const last = kstDateClient(60);
+  const last = maxDate || kstDateClient(60);
   const [month, setMonth] = useState(() => (value || today).slice(0, 7));
   const [year, mon] = month.split("-").map(Number);
   const firstWeekday = new Date(Date.UTC(year, mon - 1, 1)).getUTCDay();
@@ -544,6 +551,16 @@ function OrderApp({ store }: { store: StoreData }) {
   const promo = store.promoCategory && store.promoCategory in store.categories ? store.promoCategory : "";
   const recipient = (store.sms || "").replace(/[^0-9+]/g, "");
   const productById = useMemo(() => new Map(store.products.map((product) => [product.id, product])), [store.products]);
+  // 행사품목이 하나라도 담겨 있으면 오늘·내일 배송만 가능 (서버도 같은 규칙으로 확인)
+  const promoInCart = Boolean(promo) && cart.some((line) => productById.get(line.productId)?.category === promo);
+  const maxDeliveryDate = promoInCart ? kstDateClient(1) : kstDateClient(60);
+  useEffect(() => {
+    if (deliveryDate && deliveryDate > maxDeliveryDate) {
+      setDeliveryDate("");
+      setDeliverySlot("");
+      if (orderStep === "confirm") setOrderStep("date");
+    }
+  }, [deliveryDate, maxDeliveryDate, orderStep]);
 
   // 정식 거래처 + 추가 배송처마다 장바구니와 문자 전송 상태를 따로 보관합니다.
   useEffect(() => {
@@ -1069,6 +1086,7 @@ function OrderApp({ store }: { store: StoreData }) {
               </button>)}
             </div>}
             <div className="od-account-actions">
+              <a className="full od-price-list-link" href="/price-list">📋 단가표 보기</a>
               <button type="button" className="full" onClick={() => void logoutCustomerAccount()}>로그아웃</button>
             </div>
           </div>
@@ -1362,7 +1380,8 @@ function OrderApp({ store }: { store: StoreData }) {
             {orderStep === "date" && <div className="od-confirm od-step-date" aria-live="polite">
               <span className="od-step">1 / 2 단계</span>
               <h3>배송일을 선택하세요</h3>
-              <DeliveryCalendar value={deliveryDate} onChange={(date) => setDeliveryDate(date)} />
+              {promoInCart && <p className="od-promo-date-note">🏷️ 행사품목이 있어 오늘·내일 배송만 선택할 수 있어요</p>}
+              <DeliveryCalendar value={deliveryDate} maxDate={maxDeliveryDate} onChange={(date) => setDeliveryDate(date)} />
               <div className="od-slot">
                 <span>{deliveryDate ? `${dateLabel(deliveryDate)} 배송 시간` : "배송 시간"}</span>
                 <div className="od-slot-buttons" role="radiogroup" aria-label="배송 시간">
@@ -1532,6 +1551,7 @@ function OptionSteppers({
           <div className={`od-option ${quantity > 0 ? "active" : ""}`} key={label}>
             <span className={`od-option-label ${label.includes("박스") ? "unit-box" : label.includes("봉") ? "unit-bag" : "unit-other"}`}>
               <strong>{label}</strong>{optionSpec(product, option) && <small>({optionSpec(product, option)})</small>}
+              <em className="od-option-price">{optionPriceText(product, option)}</em>
             </span>
             <div className={`od-stepper ${quantity > 0 ? "active" : ""}`}>
               <button type="button" aria-label={`${label} 수량 줄이기`} onClick={() => onQuantity(product, option, quantity - step)} disabled={quantity <= 0}>−</button>

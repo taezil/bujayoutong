@@ -27,6 +27,7 @@ def _sample_orders() -> list[dict]:
     return [
         {**base, "id": "OTEST1", "isAdditional": False, "contentVersion": "1", "desk": {"state": "new", "revision": 0}},
         {**base, "id": "OTEST2", "isAdditional": True, "contentVersion": "1", "note": "오전 10시 전 도착",
+         "priceGroup": "B", "hasPromo": True,
          "desk": {"state": "entering", "revision": 1, "enteringById": "S-X", "enteringBy": "정승영 주임님", "enteringAt": "2026-10-28T00:20:00Z"}},
     ]
 

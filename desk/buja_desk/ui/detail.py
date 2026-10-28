@@ -11,7 +11,8 @@ from PySide6.QtWidgets import (
 )
 
 from ..core.model import (
-    customer_label, delivery_label, headline, kst_datetime, kst_time, period_label, quantity_text, slot_label, state_of,
+    customer_label, delivery_label, headline, is_price_group_b, kst_datetime, kst_time, period_label, quantity_text,
+    slot_label, state_of, won,
 )
 from .theme import COLORS, badge_style
 
@@ -50,6 +51,14 @@ class OrderDetailView(QFrame):
         self.state_badge = QLabel()
         self.state_badge.setObjectName("Badge")
         head.addWidget(self.state_badge, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.group_badge = QLabel("₩ 가격 변동그룹 주문 (B그룹)")
+        self.group_badge.setObjectName("Badge")
+        self.group_badge.setStyleSheet("color: #633806; background: #FAEEDA;")
+        head.addWidget(self.group_badge, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.promo_badge = QLabel("행사품목 포함")
+        self.promo_badge.setObjectName("Badge")
+        self.promo_badge.setStyleSheet("color: #72243E; background: #FBEAF0;")
+        head.addWidget(self.promo_badge, 0, Qt.AlignmentFlag.AlignVCenter)
         head.addStretch(1)
         self.order_no = QLabel()
         self.order_no.setStyleSheet(f"color: {COLORS['muted']}; font-size: 9pt;")
@@ -90,8 +99,8 @@ class OrderDetailView(QFrame):
         self.note.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         body.addWidget(self.note)
 
-        self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["상품명", "규격", "단위", "수량"])
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(["상품명", "규격", "단위", "수량", "단가"])
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -99,7 +108,7 @@ class OrderDetailView(QFrame):
         self.table.setWordWrap(True)
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for column in (1, 2, 3):
+        for column in (1, 2, 3, 4):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         body.addWidget(self.table, 1)
@@ -180,6 +189,10 @@ class OrderDetailView(QFrame):
             state_text = "취소 확인 필요"
         self.state_badge.setText(state_text)
         self.state_badge.setStyleSheet(badge_style(state_kind))
+        group_b = is_price_group_b(order)
+        self.group_badge.setVisible(group_b)
+        self.promo_badge.setVisible(bool(order.get("hasPromo")))
+        self.table.horizontalHeaderItem(4).setText("B그룹 단가" if group_b else "단가")
         self.order_no.setText(f"주문번호 {order.get('id', '')}")
 
         banner = ""
@@ -229,11 +242,17 @@ class OrderDetailView(QFrame):
         bold.setBold(True)
         bold.setPointSize(15)
         for row, item in enumerate(items):
+            price = won(item.get("unitPrice"))
+            list_price = item.get("listPrice")
+            discounted = group_b and list_price is not None and float(list_price) != float(item.get("unitPrice") or 0)
+            if discounted:
+                price = f"{price}  (정가 {won(list_price)})"
             cells = [
-                str(item.get("productName", "")),
+                str(item.get("productName", "")) + ("  [행사]" if item.get("isPromo") else ""),
                 str(item.get("spec", "")),
                 str(item.get("unit", "")),
                 quantity_text(item.get("quantity")),
+                price,
             ]
             for column, text in enumerate(cells):
                 cell = QTableWidgetItem(text)
@@ -243,6 +262,10 @@ class OrderDetailView(QFrame):
                     cell.setForeground(QColor(COLORS["ink"]))
                 elif column == 2:
                     cell.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                elif column == 4:
+                    cell.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                    if discounted:
+                        cell.setForeground(QColor(COLORS["brand"]))
                 if cancelled:
                     cell.setForeground(QColor(COLORS["cancelled"]))
                 self.table.setItem(row, column, cell)

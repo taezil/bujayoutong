@@ -66,6 +66,8 @@ class OrderCard(QFrame):
             badges.append((f"입력 중 · {'나' if mine else desk.get('enteringBy') or '?'}", "entering"))
         if order.get("isAdditional"):
             badges.append(("추가발주 🚨", "additional"))
+        if order.get("priceGroup") == "B":
+            badges.append(("가격변동 B", "group_b"))
         for text, kind in badges:
             badge = QLabel(text)
             badge.setObjectName("Badge")
@@ -576,6 +578,8 @@ class MainWindow(QMainWindow):
             if order.get("cancelled"):
                 state_text += " (취소된 주문)"
             kind = "추가 🚨" if order.get("isAdditional") else "신규"
+            if order.get("priceGroup") == "B":
+                kind += " · B그룹"
             who = desk.get("doneBy") if state == "done" else desk.get("enteringBy", "")
             when = desk.get("doneAt") if state == "done" else desk.get("enteringAt", "")
             values = [

@@ -78,6 +78,18 @@ def delivery_text(order: dict[str, Any], *, with_year: bool = False) -> str:
     return f"{text} {slot}" if slot else text
 
 
+def is_price_group_b(order: dict[str, Any]) -> bool:
+    """B그룹(가격 변동그룹) 거래처 주문인지."""
+    return order.get("priceGroup") == "B"
+
+
+def won(value: Any) -> str:
+    try:
+        return f"{int(round(float(value))):,}"
+    except (TypeError, ValueError):
+        return ""
+
+
 def customer_label(order: dict[str, Any]) -> str:
     name = str(order.get("customerName") or "")
     location = order.get("deliveryLocation") or None
@@ -125,9 +137,11 @@ def order_as_text(order: dict[str, Any]) -> str:
     if location and location.get("address"):
         lines.append(f"배송처 주소: {location['address']}")
     lines.append("")
+    if is_price_group_b(order):
+        lines.insert(1, "※ 가격 변동그룹 주문 (B그룹 단가)")
     for item in order.get("items") or []:
         spec = f" ({item.get('spec')})" if item.get("spec") else ""
-        lines.append(f"{item.get('productName', '')}{spec}\t{quantity_text(item.get('quantity'))}\t{item.get('unit', '')}")
+        lines.append(f"{item.get('productName', '')}{spec}\t{quantity_text(item.get('quantity'))}\t{item.get('unit', '')}\t{won(item.get('unitPrice'))}")
     if order.get("note"):
         lines += ["", f"요청사항: {order['note']}"]
     return "\n".join(lines)

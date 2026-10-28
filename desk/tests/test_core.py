@@ -184,6 +184,13 @@ def test_order_text_for_erp():
     text = order_as_text(make_order("O1"))
     assert "돈까스 (1.5kg)\t2\t박스" in text and "00124" in text
     assert "오후 배송" in order_as_text({**make_order("O2"), "deliverySlot": "PM"})
+    assert "가격 변동그룹" in order_as_text({**make_order("O3"), "priceGroup": "B"})
+
+
+def test_group_b_notice_title(home):
+    log = NotificationLog(home)
+    notices = diff_notifications([{**make_order("O1"), "priceGroup": "B"}], log)
+    assert "가격 변동그룹" in notices[0].title
 
 
 # ---------- 실제 HTTP 로 DeskApi 오류 처리 확인 ----------

@@ -172,7 +172,7 @@ type OrderRow = Record<string, unknown>;
 async function loadOrders(where: string, params: unknown[], orderBy: string, limit: number) {
   const orders = await db().prepare(`
     SELECT o.id,o.customer_id,o.source,o.status,o.region_snapshot,o.total_amount,o.note,o.created_at,o.updated_at,
-           o.delivery_date,o.order_period,o.delivery_slot,o.is_additional,o.created_by_staff_name,o.cancelled_at,
+           o.delivery_date,o.order_period,o.delivery_slot,o.price_group,o.is_additional,o.created_by_staff_name,o.cancelled_at,
            o.delivery_location_name,o.delivery_location_address,o.delivery_location_phone,
            c.code AS customer_code,c.name AS customer_name,c.phone AS customer_phone,c.address AS customer_address,
            COALESCE(d.state,'new') AS desk_state,COALESCE(d.revision,0) AS desk_revision,
@@ -192,13 +192,19 @@ async function loadOrders(where: string, params: unknown[], orderBy: string, lim
     LIMIT ${limit}
   `).bind(...params).all<OrderRow>();
   const rows = orders.results;
+  const promoRow = await db().prepare(`
+    SELECT COALESCE((SELECT value FROM app_settings WHERE key='promoCategory' AND value<>''),
+                    (SELECT name FROM categories WHERE is_promo=1 ORDER BY sort_order LIMIT 1), '') AS name
+  `).first<{ name: string }>();
+  const promoCategory = String(promoRow?.name ?? "");
   const itemMap = new Map<string, OrderRow[]>();
   // D1 바인딩 개수 제한(100)을 넘지 않도록 나눠서 조회
   for (let index = 0; index < rows.length; index += 90) {
     const ids = rows.slice(index, index + 90).map((r) => String(r.id));
     if (!ids.length) continue;
     const items = await db().prepare(`
-      SELECT oi.id,oi.order_id,oi.product_id,oi.product_name,oi.unit,oi.option_label,oi.quantity,oi.unit_price,
+      SELECT oi.id,oi.order_id,oi.product_id,oi.product_name,oi.unit,oi.option_label,oi.quantity,oi.unit_price,oi.list_price,
+             (SELECT p.category FROM products p WHERE p.id=oi.product_id) AS category,
              COALESCE((SELECT po.spec FROM pack_options po WHERE po.product_id=oi.product_id AND po.label=oi.option_label ORDER BY po.sort_order,po.id LIMIT 1),'') AS option_spec
       FROM order_items oi WHERE oi.order_id IN (${ids.map(() => "?").join(",")}) ORDER BY oi.id
     `).bind(...ids).all<OrderRow>();
@@ -209,7 +215,7 @@ async function loadOrders(where: string, params: unknown[], orderBy: string, lim
       itemMap.set(key, list);
     }
   }
-  return rows.map((r) => toDeskOrder(r, itemMap.get(String(r.id)) ?? []));
+  return rows.map((r) => toDeskOrder(r, itemMap.get(String(r.id)) ?? [], promoCategory));
 }
 
 function utcIso(value: unknown) {
@@ -218,7 +224,7 @@ function utcIso(value: unknown) {
   return /Z$|[+-]\d{2}:?\d{2}$/.test(text) ? text : `${text.replace(" ", "T")}Z`;
 }
 
-function toDeskOrder(r: OrderRow, items: OrderRow[]) {
+function toDeskOrder(r: OrderRow, items: OrderRow[], promoCategory = "") {
   const status = String(r.status ?? "received");
   const additionalBySystem = Number(r.is_additional ?? 0) === 1;
   const previousOrderId = r.previous_order_id ? String(r.previous_order_id) : "";
@@ -250,6 +256,9 @@ function toDeskOrder(r: OrderRow, items: OrderRow[]) {
       ? { name: String(r.delivery_location_name), address: String(r.delivery_location_address ?? ""), phone: String(r.delivery_location_phone ?? "") }
       : null,
     total: Number(r.total_amount ?? 0),
+    // 주문 당시 가격그룹. B 면 알림센터에 '가격 변동그룹 주문' 표시 (예전 주문은 '')
+    priceGroup: String(r.price_group ?? "") === "B" ? "B" : String(r.price_group ?? "") === "A" ? "A" : "",
+    hasPromo: Boolean(promoCategory) && items.some((i) => String(i.category ?? "") === promoCategory),
     items: items.map((i) => ({
       id: Number(i.id),
       productId: String(i.product_id),
@@ -258,6 +267,8 @@ function toDeskOrder(r: OrderRow, items: OrderRow[]) {
       unit: String(i.option_label ?? ""),
       quantity: Number(i.quantity),
       unitPrice: Number(i.unit_price ?? 0),
+      listPrice: i.list_price == null ? null : Number(i.list_price),
+      isPromo: Boolean(promoCategory) && String(i.category ?? "") === promoCategory,
     })),
     desk: {
       state: deskState,

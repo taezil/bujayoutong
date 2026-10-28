@@ -277,6 +277,9 @@ async function ensureDeskSchema(database: D1Database) {
   await ensureColumn(database, "orders", "client_request_id", "TEXT NOT NULL DEFAULT ''");
   // 거래처가 고른 배송 시간 (AM=오전 배송, PM=오후 배송). 주문 시각 기준 order_period(오전/오후발주)와 별개
   await ensureColumn(database, "orders", "delivery_slot", "TEXT NOT NULL DEFAULT ''");
+  // 주문 당시 거래처 가격그룹(A/B)과 품목 정가 스냅샷 → 알림센터 '가격 변동그룹 주문' 표시
+  await ensureColumn(database, "orders", "price_group", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(database, "order_items", "list_price", "INTEGER");
   await database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_request ON orders(customer_id, client_request_id) WHERE client_request_id<>''");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at)");
   await database.exec("CREATE TABLE IF NOT EXISTS desk_sessions (token_hash TEXT PRIMARY KEY, staff_id TEXT NOT NULL, device_name TEXT NOT NULL DEFAULT '', expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), last_seen_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(staff_id) REFERENCES staff_users(id) ON DELETE CASCADE)");
@@ -592,7 +595,13 @@ function boolSetting(settings: Record<string, string>, key: string, fallback: bo
   return settings[key] === "1";
 }
 
-export async function readStore(_priceGroup?: "A" | "B", options: { includeHidden?: boolean } = {}): Promise<StoreData> {
+/**
+ * 상품 목록.
+ * - priceGroup 이 있으면(거래처) 그 그룹 가격만 price 에 넣어 보냄: A=정가, B=B그룹 가격(없으면 정가).
+ *   다른 그룹 가격은 내려보내지 않음.
+ * - priceGroup 이 없으면(관리자·직원) 정가 price + B그룹 가격 priceB 를 함께 보냄.
+ */
+export async function readStore(priceGroup?: "A" | "B", options: { includeHidden?: boolean } = {}): Promise<StoreData> {
   const database = db();
   await ensureDatabase(database);
   const [categoryRows, subRows, productRows, optionRows, settingsRows] = await Promise.all([
@@ -619,13 +628,16 @@ export async function readStore(_priceGroup?: "A" | "B", options: { includeHidde
   for (const row of optionRows.results as Array<Record<string, unknown>>) {
     const id = String(row.product_id);
     const base = row.price == null ? null : Number(row.price);
+    const priceB = row.price_b == null ? null : Number(row.price_b);
     const list = optionsByProduct.get(id) ?? [];
-    list.push({
+    const option: PackOption = {
       label: String(row.label),
       spec: String(row.spec ?? ""),
-      price: base,
+      price: priceGroup === "B" && priceB != null && base != null ? priceB : base,
       step: Number(row.step ?? 1),
-    });
+    };
+    if (!priceGroup) option.priceB = priceB;
+    list.push(option);
     optionsByProduct.set(id, list);
   }
 

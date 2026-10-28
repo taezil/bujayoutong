@@ -228,6 +228,10 @@ async function main() {
       await card.locator('button[aria-label$="수량 늘리기"]').first().click();
       await page.locator(".od-search input").fill("");
     }
+    await page.locator(".od-search input").fill(product.name);
+    const priceShown = (await page.locator(".od-card", { hasText: product.name }).first().locator(".od-option-price").first().innerText()).trim();
+    check("[화면] 상품 카드에 자기 그룹 가격 표시", /원$|가격문의|시세/.test(priceShown), priceShown);
+    await page.locator(".od-search input").fill("");
     await addOne();
     await page.locator(".od-cart-icon").click();
     await page.locator(".od-send").first().click();
@@ -310,10 +314,74 @@ async function main() {
     check("[화면] 실패 시 전화 주문 안내(문자 버튼 없음)", (await page.locator(".od-confirm-error").innerText()).includes("전화 주문")
       && await page.locator(".od-sms-fallback").count() === 0);
     sql("UPDATE app_settings SET value='1' WHERE key='orderEnabled'");
+
+    // 단가표: 로그인한 거래처는 볼 수 있음 (비로그인은 첫 화면으로 — auth-e2e 에서 확인)
+    await page.goto("/price-list");
+    await page.locator(".pl-table").first().waitFor({ timeout: 20000 });
+    const listText = await page.locator(".pl-page").innerText();
+    check("[화면] 로그인 거래처 단가표 표시(가격 포함)", listText.includes("단가표") && /[0-9,]+원/.test(listText), listText.slice(0, 120).replace(/\n/g, " "));
     await browser.close();
   } catch (error) {
     sql("UPDATE app_settings SET value='1' WHERE key='orderEnabled'");
     check("[화면] 휴대폰 주문 흐름", false, String(error?.message || error).slice(0, 400));
+  }
+
+  /* ---------- 7-2. A/B 가격그룹 · 행사품목 배송일 ---------- */
+  {
+    const target = sellable[1];
+    const option = target.packOptions[0];
+    const listPrice = Number(option.price ?? 0);
+    const priceB = Math.max(0, listPrice - 1000);
+    sql(`UPDATE pack_options SET price_b=${priceB} WHERE product_id='${target.id}' AND label='${option.label}'`);
+    const customerRow = sql("SELECT id, price_group FROM customers WHERE code='00124' LIMIT 1")[0];
+    const asA = (await customer.json("/api/store")).body?.products?.find((p) => p.id === target.id);
+    const aOption = asA?.packOptions?.find((o) => o.label === option.label);
+    check("A그룹 거래처: 정가로 보임, B가격 정보 없음", aOption?.price === listPrice && !("priceB" in (aOption ?? {})), j(aOption));
+    sql(`UPDATE customers SET price_group='B' WHERE id='${customerRow.id}'`);
+    const asB = (await customer.json("/api/store")).body?.products?.find((p) => p.id === target.id);
+    const bOption = asB?.packOptions?.find((o) => o.label === option.label);
+    check("B그룹 거래처: B그룹 가격으로 보임(정가 정보 없음)", bOption?.price === priceB && !("priceB" in (bOption ?? {})), j(bOption));
+    const otherB = (await customer.json("/api/store")).body?.products?.find((p) => p.id === sellable[2].id)?.packOptions?.[0];
+    check("B가격 없는 상품은 B그룹도 정가", otherB?.price === (sellable[2].packOptions[0].price ?? null), j(otherB));
+    const bOrder = await customer.json("/api/orders", { method: "POST", json: {
+      items: [{ productId: target.id, optionLabel: option.label, quantity: option.step || 1 }], requestId: randomUUID(),
+      deliveryDate: kstDate(1), deliverySlot: "PM", note: "B그룹 테스트", confirmAnomaly: true } });
+    const bId = bOrder.body?.order?.id;
+    const bItem = sql(`SELECT unit_price, list_price FROM order_items WHERE order_id='${bId}'`)[0];
+    check("B그룹 주문 금액 = B그룹 가격, 정가도 함께 저장", Number(bItem?.unit_price) === priceB && Number(bItem?.list_price) === listPrice, j(bItem));
+    const bDesk = (await pcA.json(`/api/desk/orders?id=${bId}`)).body?.order;
+    check("알림센터: 가격 변동그룹(B) 주문 + 정가/단가", bDesk?.priceGroup === "B" && bDesk.items[0].unitPrice === priceB && bDesk.items[0].listPrice === listPrice, j(bDesk));
+    sql(`UPDATE customers SET price_group='${customerRow.price_group || "A"}' WHERE id='${customerRow.id}'`);
+    const aDesk = (await pcA.json(`/api/desk/orders?id=${orderId}`)).body?.order;
+    check("A그룹 주문은 가격 변동그룹 아님", aDesk?.priceGroup === "A", j(aDesk?.priceGroup));
+
+    // 관리자 상품 저장 시 B그룹 가격 유지/수정
+    const adminSalt = "ci-desk-admin-salt";
+    sql(`INSERT OR REPLACE INTO admin_credentials (id, salt, hash) VALUES (1, '${adminSalt}', '${pbkdf2Sync("ci-admin-password", adminSalt, 100000, 32, "sha256").toString("hex")}')`);
+    const admin = new Client();
+    await admin.json("/api/admin/login", { method: "POST", json: { username: "admin", password: "ci-admin-password" } });
+    const adminProduct = (await admin.json("/api/store?all=1")).body?.products?.find((p) => p.id === target.id);
+    check("관리자 화면 데이터에 B그룹 가격 포함", adminProduct?.packOptions?.find((o) => o.label === option.label)?.priceB === priceB, j(adminProduct?.packOptions));
+    const saved = await admin.json("/api/admin/products", { method: "POST", json: { action: "update", product: {
+      ...adminProduct, packOptions: adminProduct.packOptions.map((o, i) => ({ ...o, priceB: i === 0 ? priceB - 100 : null })) } } });
+    const afterSave = sql(`SELECT price_b FROM pack_options WHERE product_id='${target.id}' ORDER BY sort_order LIMIT 1`)[0];
+    check("관리자 상품 저장 → B그룹 가격 저장(비우면 정가와 동일)", saved.status === 200 && Number(afterSave?.price_b) === priceB - 100, j({ saved: saved.body, afterSave }));
+
+    // 행사품목: 오늘·내일만
+    const promoName = store.body?.promoCategory;
+    const promoProduct = (store.body?.products ?? []).find((p) => p.category === promoName && !p.soldout && (p.packOptions ?? []).length);
+    if (promoProduct) {
+      const promoItems = [{ productId: promoProduct.id, optionLabel: promoProduct.packOptions[0].label, quantity: promoProduct.packOptions[0].step || 1 }];
+      const far = await customer.json("/api/orders", { method: "POST", json: { items: [...promoItems, items[0]], requestId: randomUUID(), deliveryDate: kstDate(3), deliverySlot: "AM", confirmAnomaly: true } });
+      check("행사품목 포함 주문은 모레 이후 배송 거절", far.status === 400 && String(far.body?.error).includes("행사품목"), j(far.body));
+      const near = await customer.json("/api/orders", { method: "POST", json: { items: promoItems, requestId: randomUUID(), deliveryDate: kstDate(1), deliverySlot: "AM", confirmAnomaly: true } });
+      check("행사품목 내일 배송 접수 + 알림센터 '행사품목 포함'", near.status === 200
+        && (await pcA.json(`/api/desk/orders?id=${near.body?.order?.id}`)).body?.order?.hasPromo === true, j(near.body));
+    } else {
+      check("행사품목 테스트 상품 있음", false, `promo=${promoName}`);
+    }
+    const farNormal = await customer.json("/api/orders", { method: "POST", json: { items: [items[0]], requestId: randomUUID(), deliveryDate: kstDate(5), deliverySlot: "AM", confirmAnomaly: true } });
+    check("일반 상품만이면 먼 날짜도 접수", farNormal.status === 200, j(farNormal.body));
   }
 
   /* ---------- 8. 권한 해제 ---------- */
