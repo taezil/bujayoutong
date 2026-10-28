@@ -18,6 +18,7 @@ from ..core.paths import data_dir, resource_path
 from ..core.storage import NotificationLog, SettingsStore, TokenStore
 from ..core.sync import Notice, SyncResult
 from . import autostart, sound
+from ..core import updater
 from .login import LoginDialog
 from .main_window import MainWindow
 from .theme import COLORS, STYLESHEET
@@ -26,6 +27,12 @@ from .workers import Background, SyncWorker
 
 log = logging.getLogger(__name__)
 SINGLE_INSTANCE_KEY = f"{APP_ID}-{os.environ.get('USERNAME') or os.environ.get('USER') or 'user'}"
+
+
+def updater_supported() -> bool:
+    import sys as _sys
+
+    return _sys.platform == "win32" and bool(getattr(_sys, "frozen", False))
 
 
 def base_icon() -> QIcon:
@@ -91,6 +98,18 @@ class DeskController(QObject):
         self._status_timer.timeout.connect(self._refresh_connection_label)
         self._status_timer.start(1000)
         autostart.refresh_path_if_enabled()
+        # 자동 업데이트: 시작 30초 후, 이후 3시간마다 확인. 내려받은 뒤 업무에 방해되지 않을 때 설치
+        self._update_file: str = ""
+        self._update_version = ""
+        self._update_checking = False
+        self._update_timer = QTimer(self)
+        self._update_timer.timeout.connect(lambda: self.check_update(manual=False))
+        self._install_timer = QTimer(self)
+        self._install_timer.timeout.connect(self._try_install_update)
+        if updater_supported():
+            QTimer.singleShot(30_000, lambda: self.check_update(manual=False))
+            self._update_timer.start(3 * 60 * 60 * 1000)
+            self._install_timer.start(60_000)
 
     # ---------- 설정 ----------
     @property
@@ -129,8 +148,14 @@ class DeskController(QObject):
 
     # ---------- 시작 / 로그인 ----------
     def start(self) -> None:
-        if not self._start_minimized:
+        if not self._start_minimized or self.settings.reopen_after_update:
             self.show_window()
+        if self.settings.reopen_after_update:
+            self.settings.reopen_after_update = False
+            self.save_settings()
+        if "--updated" in self.app.arguments():
+            self.toasts.show(Notice("summary", f"v{__version__} 으로 업데이트되었습니다",
+                                    "발주 알림은 계속 정상적으로 받습니다.", [], sound=False))
         if self.token:
             self._start_sync()
         else:
@@ -432,6 +457,86 @@ class DeskController(QObject):
                 self.window.show_single(result)
 
         self.background.run(lambda: api.order(order_id), done)
+
+    # ---------- 자동 업데이트 ----------
+    def check_update(self, manual: bool = False) -> None:
+        if self._update_checking or self.quitting:
+            return
+        if not updater_supported():
+            if manual:
+                QMessageBox.information(self.window, APP_NAME, "설치된 프로그램(Windows)에서만 자동 업데이트를 사용할 수 있습니다.")
+            return
+        if self._update_file:
+            if manual:
+                self._install_update(confirm=True)
+            return
+        self._update_checking = True
+        target_dir = self.directory / "updates"
+
+        def task():
+            info = updater.check_latest()
+            if info is None:
+                return None
+            return info.version, str(updater.download(info, target_dir))
+
+        def done(result, error) -> None:
+            self._update_checking = False
+            if error is not None:
+                log.warning("업데이트 확인 실패: %s", error)
+                if manual:
+                    QMessageBox.warning(self.window, APP_NAME, f"업데이트를 확인하지 못했습니다.\n인터넷 연결을 확인해 주세요.\n\n({error})")
+                return
+            if result is None:
+                if manual:
+                    QMessageBox.information(self.window, APP_NAME, f"최신 버전(v{__version__})을 사용 중입니다.")
+                return
+            self._update_version, self._update_file = result
+            log.info("업데이트 준비됨: v%s", self._update_version)
+            self.window.show_update_ready(self._update_version)
+            if manual:
+                self._install_update(confirm=True)
+            else:
+                self._try_install_update()
+
+        self.background.run(task, done)
+
+    def _safe_to_install(self) -> bool:
+        """업무 방해가 없을 때만 자동 설치: 창이 숨겨졌거나(트레이) 다른 프로그램 사용 중이고, 내가 입력 중인 주문이 없을 때."""
+        if self._busy or self._login_open or QApplication.activeModalWidget() is not None:
+            return False
+        my_id = self.staff.id if self.staff else ""
+        entering_mine = any((o.get("desk") or {}).get("state") == "entering" and (o.get("desk") or {}).get("enteringById") == my_id
+                            for o in self.open_orders)
+        if entering_mine:
+            return False
+        window_idle = (not self.window.isVisible()) or self.window.isMinimized() or QApplication.activeWindow() is None
+        return window_idle
+
+    def _try_install_update(self) -> None:
+        if self._update_file and self._safe_to_install():
+            self._install_update(confirm=False)
+
+    def _install_update(self, confirm: bool) -> None:
+        if not self._update_file:
+            return
+        if confirm:
+            answer = QMessageBox.question(self.window, APP_NAME,
+                                          f"새 버전 v{self._update_version} 을 설치할까요?\n약 10초 뒤 프로그램이 자동으로 다시 켜집니다.\n(그 사이 들어온 발주도 다시 켜지면 모두 표시됩니다)")
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        try:
+            import subprocess
+
+            self.settings.reopen_after_update = self.window.isVisible() and not self.window.isMinimized()
+            self.save_settings()
+            subprocess.Popen([self._update_file, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS"],
+                             close_fds=True, creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
+            log.info("업데이트 설치 시작: v%s", self._update_version)
+        except OSError:
+            log.exception("업데이트 설치 실행 실패")
+            self._update_file = ""
+            return
+        self.quit()
 
     # ---------- 기타 ----------
     def open_data_folder(self) -> None:

@@ -128,6 +128,10 @@ class MainWindow(QMainWindow):
 
         self.status = QStatusBar()
         self.setStatusBar(self.status)
+        self.update_button = QPushButton("")
+        self.update_button.setVisible(False)
+        self.update_button.setStyleSheet(f"color: {COLORS['brand_dark']};")
+        self.update_button.clicked.connect(lambda: self.controller.check_update(manual=True))
         self.undo_button = QPushButton("되돌리기")
         self.undo_button.setVisible(False)
         self.status.addPermanentWidget(self.undo_button)
@@ -201,6 +205,9 @@ class MainWindow(QMainWindow):
         test = QAction("알림 테스트 (소리·팝업)", self)
         test.triggered.connect(self.controller.test_notification)
         menu.addAction(test)
+        update = QAction("업데이트 확인", self)
+        update.triggered.connect(lambda: self.controller.check_update(manual=True))
+        menu.addAction(update)
         logs = QAction("기록(로그) 폴더 열기", self)
         logs.triggered.connect(self.controller.open_data_folder)
         menu.addAction(logs)
@@ -529,6 +536,13 @@ class MainWindow(QMainWindow):
         if state_of(order) != "done":
             merged.append(order)
         self.set_orders(merged)
+
+    def show_update_ready(self, version: str) -> None:
+        self.update_button.setText(f"⬆ 새 버전 v{version} 설치")
+        self.update_button.setToolTip("창을 닫아 두거나 다른 프로그램을 쓰는 동안 자동으로 설치됩니다. 지금 설치하려면 누르세요.")
+        if self.update_button.parent() is None or not self.update_button.isVisible():
+            self.status.addPermanentWidget(self.update_button)
+            self.update_button.setVisible(True)
 
     def set_busy(self, busy: bool) -> None:
         self.detail.set_busy(busy)
