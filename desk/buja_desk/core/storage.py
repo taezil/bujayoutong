@@ -51,7 +51,7 @@ class Settings:
     sound_enabled: bool = True
     popup_enabled: bool = True
     popup_seconds: int = 15
-    poll_seconds: int = 7
+    poll_seconds: int = 10
     reminder_enabled: bool = True
     reminder_minutes: int = 10
     device_name: str = ""
@@ -64,7 +64,7 @@ class Settings:
     def from_dict(cls, raw: dict[str, Any]) -> "Settings":
         known = {k: v for k, v in raw.items() if k in cls.__dataclass_fields__}
         settings = cls(**known)
-        settings.poll_seconds = max(5, min(30, int(settings.poll_seconds or 7)))
+        settings.poll_seconds = max(5, min(30, int(settings.poll_seconds or 10)))
         settings.popup_seconds = max(5, min(120, int(settings.popup_seconds or 15)))
         settings.reminder_minutes = max(3, min(120, int(settings.reminder_minutes or 10)))
         env_server = os.environ.get("BUJA_DESK_SERVER")

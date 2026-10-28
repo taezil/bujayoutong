@@ -229,6 +229,8 @@ export async function createCustomerOrder(
         .bind(id, customer.id, source, customer.region || "미지정", total, String(note || "").slice(0, 500), deliveryDate, staff?.id ?? "", staff?.displayName ?? "", isAdditional ? 1 : 0, orderPeriod,
           clientRequestId, location?.id ?? "", location?.name ?? "", location?.address ?? "", location?.phone ?? ""),
       ...prepared.map((item) => itemInsert(id, item)),
+      // 사무실 발주 알림센터 '신규' 상태를 주문과 같은 트랜잭션으로 생성 (입력완료 전에는 목록에서 빠지지 않음)
+      db().prepare("INSERT OR IGNORE INTO order_desk_status(order_id,state) VALUES(?,'new')").bind(id),
     ]);
   } catch (error) {
     // 같은 키로 거의 동시에 두 번 들어온 경우: 먼저 저장된 주문을 돌려줌

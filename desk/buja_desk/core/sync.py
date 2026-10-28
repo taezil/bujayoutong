@@ -2,7 +2,7 @@
 
 동작
 1. 몇 초마다 /api/desk/pulse 로 변경 여부만 가볍게 확인
-2. 바뀌었거나 60초가 지났으면 입력완료 전 주문 전체(/api/desk/orders)를 받음
+2. 바뀌었거나 2분이 지났으면 입력완료 전 주문 전체(/api/desk/orders)를 받음
 3. 이미 알림을 띄운 주문(notified.json)과 비교해서 새 주문/변경/취소 알림을 만듦
 4. 인터넷이 끊기면 재시도 간격을 늘리고, 다시 연결되면 전체를 다시 받아 빠진 주문이 없게 함
 """
@@ -16,7 +16,7 @@ from .api import ApiError, AuthError, DeskApi, NetworkError, StaffInfo
 from .model import customer_label, delivery_label, items_summary, parse_utc, period_label, state_of
 from .storage import NotificationLog
 
-FULL_REFRESH_SECONDS = 60
+FULL_REFRESH_SECONDS = 120
 SUMMARY_THRESHOLD = 3  # 한 번에 이보다 많이 들어오면 알림 하나로 묶음
 
 

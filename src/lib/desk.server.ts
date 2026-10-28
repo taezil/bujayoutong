@@ -149,20 +149,20 @@ async function trackingSince() {
   return row?.value || "1970-01-01 00:00:00";
 }
 
-/** 변경 감지용 값. 주문/처리상태가 바뀌면 달라집니다. (PC 는 이 값이 바뀔 때만 전체 목록을 다시 받음) */
+/**
+ * 변경 감지용 값. 주문/처리상태가 바뀌면 달라집니다. (PC 는 이 값이 바뀔 때만 전체 목록을 다시 받음)
+ * PC 여러 대가 수 초마다 부르므로 인덱스로 행 몇 개만 읽도록 구성 (주문이 쌓여도 읽기량이 늘지 않음)
+ */
 export async function deskPulse() {
-  const since = await trackingSince();
   const row = await db().prepare(`
     SELECT
-      (SELECT COUNT(*) FROM orders WHERE created_at>=?) AS order_count,
-      (SELECT COALESCE(MAX(updated_at),'') FROM orders WHERE created_at>=?) AS order_updated,
-      (SELECT COUNT(*) FROM order_desk_status) AS desk_count,
-      (SELECT COALESCE(SUM(revision),0) FROM order_desk_status) AS desk_revisions,
-      (SELECT COUNT(*) FROM orders o LEFT JOIN order_desk_status d ON d.order_id=o.id
-        WHERE o.created_at>=? AND COALESCE(d.state,'new')<>'done') AS open_count
-  `).bind(since, since, since).first<Record<string, unknown>>();
-  const marker = [row?.order_count, row?.order_updated, row?.desk_count, row?.desk_revisions].map((v) => String(v ?? "")).join("|");
-  return { marker: await sha256(marker), openCount: Number(row?.open_count ?? 0), serverTime: new Date().toISOString(), trackingSince: since };
+      (SELECT MAX(rowid) FROM orders) AS last_rowid,
+      (SELECT MAX(updated_at) FROM orders) AS last_updated,
+      (SELECT value FROM app_settings WHERE key='desk_rev') AS desk_rev,
+      (SELECT COUNT(*) FROM order_desk_status WHERE state IN ('new','entering')) AS open_count
+  `).first<Record<string, unknown>>();
+  const marker = [row?.last_rowid, row?.last_updated, row?.desk_rev].map((v) => String(v ?? "")).join("|");
+  return { marker: await sha256(marker), openCount: Number(row?.open_count ?? 0), serverTime: new Date().toISOString(), trackingSince: await trackingSince() };
 }
 
 const SOURCE_LABELS: Record<string, string> = { app: "거래처 주문", driver: "현장발주", admin: "관리자 입력" };
@@ -278,12 +278,21 @@ export type DeskOrder = ReturnType<typeof toDeskOrder>;
 /** 입력완료 전 주문 전체 (기간 제한 없음 → 입력완료 전에는 목록에서 사라지지 않음) */
 export async function deskOpenOrders() {
   const since = await trackingSince();
-  return loadOrders(
-    "WHERE o.created_at>=? AND COALESCE(d.state,'new')<>'done'",
-    [since],
-    "o.created_at ASC, o.id ASC",
-    1000,
-  );
+  // 1) 처리상태가 신규/입력 중인 주문 (인덱스로 열린 주문만 읽음)
+  const open = await db().prepare("SELECT order_id FROM order_desk_status WHERE state IN ('new','entering')").all<{ order_id: string }>();
+  // 2) 안전장치: 최근 3일 주문 중 처리상태 행이 없는 주문
+  const missing = await db().prepare(`
+    SELECT o.id FROM orders o
+    WHERE o.created_at >= MAX(?, datetime('now','-3 days'))
+      AND NOT EXISTS (SELECT 1 FROM order_desk_status d WHERE d.order_id=o.id)
+  `).bind(since).all<{ id: string }>();
+  const ids = Array.from(new Set([...open.results.map((r) => String(r.order_id)), ...missing.results.map((r) => String(r.id))]));
+  const orders: DeskOrder[] = [];
+  for (let index = 0; index < ids.length; index += 90) {
+    const chunk = ids.slice(index, index + 90);
+    orders.push(...await loadOrders(`WHERE o.id IN (${chunk.map(() => "?").join(",")})`, chunk, "o.created_at ASC, o.id ASC", 90));
+  }
+  return orders.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id.localeCompare(b.id)));
 }
 
 /** 처리내역 / 검색 */
@@ -375,6 +384,9 @@ export async function deskChangeState(staff: DeskStaff, orderId: string, action:
     if (action === "reopen" && desk.state !== "done") message = "입력완료 상태가 아닌 주문입니다.";
     throw new DeskError(message, 409, { conflict: true, order: current });
   }
+
+  // 다른 PC 들이 다음 pulse 에서 바로 알아채도록 변경 카운터 증가
+  await db().prepare("UPDATE app_settings SET value=CAST(CAST(value AS INTEGER)+1 AS TEXT) WHERE key='desk_rev'").run();
 
   const labels: Record<DeskAction, string> = { start: "입력 시작", release: "입력 중 해제", done: "입력완료", reopen: "입력완료 취소" };
   await writeAudit({
