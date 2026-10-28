@@ -62,10 +62,12 @@ class Client {
   }
 }
 
-function setStaffPin(username, pin) {
+// CI 전용 직원 계정 (사무실 직원 2명 역할)
+function upsertStaff(id, username, displayName, pin) {
   const salt = randomBytes(16).toString("hex");
   const hash = pbkdf2Sync(pin, salt, 100000, 32, "sha256").toString("hex");
-  sql(`UPDATE staff_users SET auth_salt='${salt}', auth_hash='${hash}', active=1 WHERE username='${username}'`);
+  sql(`INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash,active) VALUES('${id}','${username}','${displayName}','ADMIN','${salt}','${hash}',1)
+       ON CONFLICT(id) DO UPDATE SET auth_salt=excluded.auth_salt, auth_hash=excluded.auth_hash, active=1`);
 }
 
 async function main() {
@@ -88,26 +90,26 @@ async function main() {
   check("비로그인 상태변경 → 401", postAnon.status === 401, `status ${postAnon.status}`);
 
   /* ---------- 2. 직원 로그인 (PIN) ---------- */
-  setStaffPin("lee", "246813");
-  setStaffPin("jung", "135792");
-  const staffRows = sql("SELECT id, username, active, length(auth_hash) AS hash_len FROM staff_users WHERE username IN ('lee','jung')");
-  check("테스트 직원 PIN 설정 (로컬 D1)", staffRows.length === 2, j(staffRows));
+  upsertStaff("S-CI-DESK-A", "cidesk1", "사무실직원A", "246813");
+  upsertStaff("S-CI-DESK-B", "cidesk2", "사무실직원B", "135792");
+  const staffRows = sql("SELECT id, username, active, length(auth_hash) AS hash_len FROM staff_users WHERE id LIKE 'S-CI-DESK-%'");
+  check("테스트 직원 2명 준비 (로컬 D1)", staffRows.length === 2, j(staffRows));
   const pcA = new Client();
-  const wrongPin = await pcA.json("/api/desk/login", { method: "POST", origin: false, json: { username: "lee", pin: "000000", deviceName: "CI-A" } });
+  const wrongPin = await pcA.json("/api/desk/login", { method: "POST", origin: false, json: { username: "cidesk1", pin: "000000", deviceName: "CI-A" } });
   check("틀린 PIN → 401", wrongPin.status === 401 && !wrongPin.body?.token, JSON.stringify(wrongPin.body));
-  const loginA = await pcA.json("/api/desk/login", { method: "POST", origin: false, json: { username: "lee", pin: "246813", deviceName: "CI-A" } });
+  const loginA = await pcA.json("/api/desk/login", { method: "POST", origin: false, json: { username: "cidesk1", pin: "246813", deviceName: "CI-A" } });
   pcA.token = loginA.body?.token ?? "";
-  check("직원 lee 로그인(PC A) → 토큰 발급", loginA.status === 200 && /^[0-9a-f]{64}$/.test(pcA.token), JSON.stringify(loginA.body));
+  check("직원A 로그인(PC A) → 토큰 발급", loginA.status === 200 && /^[0-9a-f]{64}$/.test(pcA.token), JSON.stringify(loginA.body));
   check("로그인 응답에 쿠키 없음(토큰은 헤더 전용)", pcA.cookies.size === 0);
   const stored = sql("SELECT token_hash FROM desk_sessions WHERE device_name='CI-A'");
   check("서버에는 토큰 원문이 아닌 해시만 저장", stored.length > 0 && stored.every((r) => r.token_hash !== pcA.token), j(stored, 120));
   const pcB = new Client();
-  const loginB = await pcB.json("/api/desk/login", { method: "POST", origin: false, json: { username: "jung", pin: "135792", deviceName: "CI-B" } });
+  const loginB = await pcB.json("/api/desk/login", { method: "POST", origin: false, json: { username: "cidesk2", pin: "135792", deviceName: "CI-B" } });
   pcB.token = loginB.body?.token ?? "";
-  check("직원 jung 로그인(PC B)", loginB.status === 200 && pcB.token.length === 64, JSON.stringify(loginB.body));
+  check("직원B 로그인(PC B)", loginB.status === 200 && pcB.token.length === 64, JSON.stringify(loginB.body));
 
   const pulse0 = await pcA.json("/api/desk/pulse");
-  check("pulse → 직원 정보 + marker", pulse0.status === 200 && pulse0.body?.staff?.username === "lee" && pulse0.body?.marker?.length === 64, JSON.stringify(pulse0.body));
+  check("pulse → 직원 정보 + marker", pulse0.status === 200 && pulse0.body?.staff?.username === "cidesk1" && pulse0.body?.marker?.length === 64, JSON.stringify(pulse0.body));
 
   /* ---------- 3. 거래처 주문 확정 (중복 방지 키) ---------- */
   const customer = new Client();
@@ -160,7 +162,7 @@ async function main() {
   const startA = await pcA.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "start", orderId } });
   check("PC A 입력 시작", startA.status === 200 && startA.body?.order?.desk?.state === "entering" && startA.body.order.desk.enteringBy.length > 0, j(startA.body, 200));
   const seenB = (await pcB.json("/api/desk/orders")).body?.orders?.find((o) => o.id === orderId);
-  check("PC B 에서도 '입력 중(lee)' 으로 보임", seenB?.desk?.state === "entering" && seenB.desk.enteringById === "S-LEE", JSON.stringify(seenB?.desk));
+  check("PC B 에서도 '입력 중(직원A)' 으로 보임", seenB?.desk?.state === "entering" && seenB.desk.enteringById === "S-CI-DESK-A", JSON.stringify(seenB?.desk));
   const startB = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "start", orderId } });
   check("PC B 동시 입력 시작 → 409 충돌", startB.status === 409 && startB.body?.conflict === true, j(startB.body, 200));
   const doneB = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId } });
@@ -180,7 +182,7 @@ async function main() {
   check("입력완료 주문은 처리할 목록에서 빠짐 (PC B)", !(openB.body?.orders ?? []).some((o) => o.id === orderId));
   const history = await pcB.json(`/api/desk/orders?scope=history&from=${kstDate(0)}&to=${kstDate(0)}`);
   const inHistory = (history.body?.orders ?? []).find((o) => o.id === orderId);
-  check("처리내역(오늘 접수)에 보관 + 처리자", inHistory?.desk?.state === "done" && inHistory.desk.doneById === "S-LEE", JSON.stringify(inHistory?.desk));
+  check("처리내역(오늘 접수)에 보관 + 처리자", inHistory?.desk?.state === "done" && inHistory.desk.doneById === "S-CI-DESK-A", JSON.stringify(inHistory?.desk));
   const search = await pcB.json(`/api/desk/orders?scope=history&state=all&q=${encodeURIComponent("태승")}`);
   check("처리내역 검색(거래처명)", (search.body?.orders ?? []).some((o) => o.id === orderId), `count ${search.body?.orders?.length}`);
   const byDelivery = await pcB.json(`/api/desk/orders?scope=history&state=all&dateField=delivery&from=${tomorrow}&to=${tomorrow}`);
@@ -188,7 +190,7 @@ async function main() {
   const reopen = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "reopen", orderId } });
   check("입력완료 취소 → 다시 신규", reopen.status === 200 && reopen.body?.order?.desk?.state === "new");
   const finish = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId } });
-  check("PC B 입력완료(신규에서 바로)", finish.status === 200 && finish.body?.order?.desk?.doneById === "S-JUNG");
+  check("PC B 입력완료(신규에서 바로)", finish.status === 200 && finish.body?.order?.desk?.doneById === "S-CI-DESK-B");
   const takeover = await pcB.json("/api/desk/orders", { method: "POST", origin: false, json: { action: "done", orderId: [...parallelIds][0], force: true } });
   check("남이 입력 중인 주문 이어받아 완료(force)", takeover.status === 200 && takeover.body?.order?.desk?.state === "done", j(takeover.body, 160));
   const audit = sql(`SELECT COUNT(*) AS n FROM audit_logs WHERE entity_id='${orderId}' AND action LIKE 'desk_%'`);
@@ -209,9 +211,9 @@ async function main() {
   const logoutB = await pcB.json("/api/desk/logout", { method: "POST", origin: false, json: {} });
   check("PC B 로그아웃", logoutB.status === 200);
   check("로그아웃한 토큰 → 401", (await pcB.json("/api/desk/pulse")).status === 401);
-  sql("UPDATE staff_users SET active=0 WHERE username='lee'");
+  sql("UPDATE staff_users SET active=0 WHERE id='S-CI-DESK-A'");
   check("직원 계정 중지 → 해당 PC 토큰 즉시 401", (await pcA.json("/api/desk/pulse")).status === 401);
-  sql("UPDATE staff_users SET active=1 WHERE username='lee'");
+  sql("UPDATE staff_users SET active=1 WHERE id='S-CI-DESK-A'");
   check("계정 다시 사용 → 토큰 다시 유효", (await pcA.json("/api/desk/pulse")).status === 200);
 
   /* ---------- 9. 관리자 화면에 알림센터 기능 없음 ---------- */
@@ -219,7 +221,7 @@ async function main() {
   check("관리자 화면에 발주 알림센터 기능 추가 안 됨", !adminHtml.includes("알림센터") && !adminHtml.includes("/api/desk"));
 
   // Python(PC 프로그램) 통합 테스트용 계정/주문 정보 전달
-  writeFileSync("desk-e2e.json", JSON.stringify({ base: BASE, staff: [{ username: "lee", pin: "246813" }, { username: "jung", pin: "135792" }] }));
+  writeFileSync("desk-e2e.json", JSON.stringify({ base: BASE, staff: [{ username: "cidesk1", pin: "246813" }, { username: "cidesk2", pin: "135792" }] }));
 
   console.log("\n================ SUMMARY ================");
   console.log(results.join("\n"));

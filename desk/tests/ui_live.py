@@ -74,7 +74,7 @@ def place_order() -> str:
 
 def main() -> int:
     api = DeskApi(BASE)
-    token, _ = api.login("jung", "135792", "화면테스트")
+    token, _ = api.login("cidesk2", "135792", "화면테스트")
     TokenStore(data_dir()).save(token)
 
     app = QApplication(sys.argv)
@@ -86,7 +86,7 @@ def main() -> int:
     window = controller.window
     check("저장된 로그인으로 자동 연결", pump(app, lambda: controller.connected and controller.staff is not None),
           controller.last_error)
-    check("직원 이름 표시", "정승영" in window.staff_label.text() or bool(window.staff_label.text()), window.staff_label.text())
+    check("직원 이름 표시", "사무실직원B" in window.staff_label.text(), window.staff_label.text())
 
     order_id = place_order()
     check("새 주문이 목록에 자동 표시", pump(app, lambda: any(o.get("id") == order_id for o in window.orders), 30))

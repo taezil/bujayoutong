@@ -77,7 +77,7 @@ def ids(notices) -> list[str]:
 
 def main() -> int:
     info = json.loads(Path("desk-e2e.json").read_text()) if Path("desk-e2e.json").exists() else {
-        "staff": [{"username": "lee", "pin": "246813"}, {"username": "jung", "pin": "135792"}]}
+        "staff": [{"username": "cidesk1", "pin": "246813"}, {"username": "cidesk2", "pin": "135792"}]}
     (u1, p1), (u2, p2) = [(s["username"], s["pin"]) for s in info["staff"][:2]]
     pc_a, home_a = make_pc(u1, p1, "통합-A")
     pc_b, _ = make_pc(u2, p2, "통합-B")
