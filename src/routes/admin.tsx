@@ -50,6 +50,16 @@ function productStatus(product: Product): "selling" | "soldout" | "hidden" {
   return "selling";
 }
 
+// 가격 입력: 쉼표 표시 + 숫자만 저장
+function priceText(value: number | null | undefined) {
+  return value == null ? "" : new Intl.NumberFormat("ko-KR").format(value);
+}
+
+function parsePrice(text: string) {
+  const digits = text.replace(/\D/g, "");
+  return digits ? Number(digits) : null;
+}
+
 function wonText(value: number | null | undefined) {
   return value == null ? "" : `${new Intl.NumberFormat("ko-KR").format(value)}원`;
 }
@@ -373,15 +383,13 @@ function ProductsView({
                   <td className="c-photo"><div className="adm-thumb">{product.photo ? <img src={thumbUrl(product.photo)} alt="" loading="lazy" /> : <img src={BUJA_MARK_DATA} alt="" className="mark" />}</div></td>
                   <td className="c-name">
                     <button type="button" onClick={() => onEdit(product)}>{product.name}</button>
-                    <small>{product.sub || "-"}{(product.servingsPerUnit || product.servingsPerBox) ? " · 인분정보 ✓" : ""}</small>
+                    <small>{product.sub || "-"}{(product.boxContents || product.servingsPerBox) ? " · 인분정보 ✓" : ""}</small>
                   </td>
                   <td className="c-spec">{product.unit || "-"}</td>
                   <td className="c-unit">{product.packOptions.map((o) => o.label).join(" / ") || "-"}</td>
                   <td className="c-cat">{product.category}</td>
                   <td className="c-price">
-                    {product.promoPrice != null
-                      ? <><s>{minPrice.length ? wonText(Math.min(...minPrice)) : ""}</s><b className="promo">{wonText(product.promoPrice)}</b></>
-                      : minPrice.length ? wonText(Math.min(...minPrice)) : <span className="muted">-</span>}
+                    {minPrice.length ? wonText(Math.min(...minPrice)) : <span className="muted">-</span>}
                     {product.packOptions.some((o) => o.priceB != null) && <small className="adm-price-b-badge">B {product.packOptions.filter((o) => o.priceB != null).map((o) => wonText(o.priceB as number)).join(" / ")}</small>}
                   </td>
                   <td className="c-state">
@@ -740,6 +748,8 @@ function ProductEditor({
   onError: (value: string) => void;
 }) {
   const [draft, setDraft] = useState<Product>(() => structuredClone(product));
+  // B그룹 가격은 평소 접어두고, 이미 B가격이 있는 상품이면 펼친 채로 엶
+  const [showPriceB, setShowPriceB] = useState(() => product.packOptions.some((option) => option.priceB != null));
   // 사진 여러 장: 첫 장이 대표 사진(목록·장바구니에 보이는 사진). 새로 고른 파일은 저장할 때 올림
   const [photoList, setPhotoList] = useState<EditorPhoto[]>(() =>
     (product.photos?.length ? product.photos : product.photo ? [product.photo] : []).map((url) => ({ key: url, url, preview: url })));
@@ -916,21 +926,44 @@ function ProductEditor({
 
             <div className="adm-units">
               <div className="adm-units-head">
-                <h3>주문 단위 설정</h3>
+                <h3>주문 단위 · 가격</h3>
                 <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "박스", spec: "", price: null, step: 1 }] })}>＋ 단위 추가</button>
               </div>
-              <p className="adm-help"><b>B그룹 가격</b>은 B그룹 거래처에게만 보이고 주문 금액도 이 가격으로 계산됩니다. 비워두면 B그룹도 정가로 판매됩니다.</p>
-              <p className="adm-help">규격에는 숫자만 입력하세요. 거래처 화면에서는 kg가 자동으로 붙습니다. 예: 10 → ‘10kg’. ‘+/- 증가 단위’는 + 버튼을 한 번 눌렀을 때 늘어나는 수량이며, 박스·봉지는 보통 1로 두면 됩니다.</p>
-              {draft.packOptions.map((option, index) => (
-                <div className="adm-unit-row" key={index}>
-                  <label>단위<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} placeholder="박스" list="adm-unit-presets" /></label>
-                  <label>규격(kg)<input inputMode="decimal" value={option.spec ?? ""} onChange={(e) => updateOption(index, { spec: sanitizeKgNumber(e.target.value) })} placeholder="예: 10" /></label>
-                  <label>+/- 증가 단위<input inputMode="decimal" value={option.step} onChange={(e) => { const value = sanitizeKgNumber(e.target.value); updateOption(index, { step: value ? Number(value) : 1 }); }} /></label>
-                  <label>정가(A그룹)<input inputMode="numeric" value={option.price ?? ""} placeholder="가격문의" onChange={(e) => updateOption(index, { price: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} /></label>
-                  <label className="adm-price-b">B그룹 가격<input inputMode="numeric" value={option.priceB ?? ""} placeholder="정가와 동일" onChange={(e) => updateOption(index, { priceB: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} /></label>
-                  <button type="button" className="adm-unit-del" aria-label="단위 삭제" onClick={() => setDraft({ ...draft, packOptions: draft.packOptions.filter((_, i) => i !== index) })}>×</button>
-                </div>
-              ))}
+              {draft.packOptions.map((option, index) => {
+                const cheaperB = option.priceB != null && option.price != null && option.priceB < option.price;
+                return (
+                  <div className={`adm-unit-row simple${showPriceB ? " with-b" : ""}`} key={index}>
+                    <label>단위<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} placeholder="박스" list="adm-unit-presets" /></label>
+                    <label>가격
+                      <span className="adm-suffix">
+                        <input inputMode="numeric" value={priceText(option.price)} placeholder="가격문의" onChange={(e) => updateOption(index, { price: parsePrice(e.target.value) })} />
+                        <b>원</b>
+                      </span>
+                    </label>
+                    {showPriceB && <label className="adm-price-b">B그룹 가격
+                      <span className="adm-suffix">
+                        <input inputMode="numeric" value={priceText(option.priceB)} placeholder="비우면 같은 가격" onChange={(e) => updateOption(index, { priceB: parsePrice(e.target.value) })} />
+                        <b>원</b>
+                      </span>
+                      {cheaperB && <small className="adm-price-b-warn">B가격이 기본 가격보다 쌉니다. 맞나요?</small>}
+                    </label>}
+                    <button type="button" className="adm-unit-del" aria-label="단위 삭제" onClick={() => setDraft({ ...draft, packOptions: draft.packOptions.filter((_, i) => i !== index) })}>×</button>
+                  </div>
+                );
+              })}
+              {!showPriceB && <button type="button" className="adm-link-btn" onClick={() => setShowPriceB(true)}>▸ B그룹 가격 따로 정하기</button>}
+              {showPriceB && <p className="adm-help">B그룹 거래처는 이 가격으로 보이고 계산됩니다. 비워두면 기본 가격과 같습니다.</p>}
+              <details className="adm-more adm-unit-more">
+                <summary>세부 설정 (단위별 규격 · +/- 증가 단위)</summary>
+                <p className="adm-help">보통은 그대로 두면 됩니다. 규격은 숫자만(kg 자동), 증가 단위는 + 한 번에 늘어나는 수량입니다.</p>
+                {draft.packOptions.map((option, index) => (
+                  <div className="adm-unit-row detail" key={index}>
+                    <span className="adm-unit-name">{option.label || "단위"}</span>
+                    <label>규격(kg)<input inputMode="decimal" value={option.spec ?? ""} onChange={(e) => updateOption(index, { spec: sanitizeKgNumber(e.target.value) })} placeholder={draft.unit ? unitInputValue(draft.unit) : "예: 10"} /></label>
+                    <label>+/- 증가 단위<input inputMode="decimal" value={option.step} onChange={(e) => { const value = sanitizeKgNumber(e.target.value); updateOption(index, { step: value ? Number(value) : 1 }); }} /></label>
+                  </div>
+                ))}
+              </details>
               <datalist id="adm-unit-presets">
                 {["박스", "반박스", "봉지", "팩", "kg", "개", "통", "캔", "판", "묶음"].map((u) => <option key={u} value={u} />)}
               </datalist>
@@ -939,18 +972,8 @@ function ProductEditor({
 
           <div className="adm-editor-col">
             <h3>추가 정보</h3>
-            <label className="adm-field">행사 가격
-              <span className="adm-suffix">
-                <input inputMode="numeric" value={draft.promoPrice ?? ""} placeholder="없음" onChange={(e) => setDraft({ ...draft, promoPrice: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) })} />
-                <b>원</b>
-              </span>
-            </label>
-
             <div className="adm-box-info">
-              <strong>인분 안내 <small>거래처 상품카드에 노란 박스로 표시됩니다</small></strong>
-              <label className="adm-field">1단위(봉지·팩) 기준 인분
-                <input inputMode="numeric" value={draft.servingsPerUnit ?? ""} onChange={(e) => setDraft({ ...draft, servingsPerUnit: digitsOnly(e.target.value) })} placeholder="예: 20" />
-              </label>
+              <strong>인분 안내 <small>거래처 상품 상세에 표시됩니다</small></strong>
               <div className="adm-row2">
                 <label className="adm-field">1박스 입수 수량
                   <input inputMode="numeric" value={draft.boxContents ?? ""} onChange={(e) => setDraft({ ...draft, boxContents: digitsOnly(e.target.value) })} placeholder="예: 10" />

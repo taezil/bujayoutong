@@ -4545,3 +4545,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* 관리자 계정: 비밀번호 미설정 표시 */
 .admin-nopass { color: #c2410c; font-weight: 800; }
+
+/* 주문 단위 · 가격 (단순화): 기본은 단위 + 가격, B그룹 가격과 세부 설정은 접어둠 */
+.adm-unit-row.simple { grid-template-columns: minmax(0,1fr) minmax(0,1.4fr) 36px; }
+.adm-unit-row.simple.with-b { grid-template-columns: minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.3fr) 36px; }
+.adm-unit-row.simple .adm-suffix input { font-size: 17px; font-weight: 800; text-align: right; }
+.adm-unit-row.detail { grid-template-columns: 70px minmax(0,1fr) minmax(0,1fr); align-items: center; }
+.adm-unit-name { font-weight: 800; color: #1f2937; }
+.adm-link-btn { justify-self: start; border: 0; background: none; padding: 6px 2px; color: #1d4ed8; font-size: 14px; font-weight: 800; cursor: pointer; }
+.adm-price-b-warn { color: #c2410c; font-size: 11px; font-weight: 800; }
+.adm-unit-more { margin-top: 4px; }
+.adm-unit-more > .adm-unit-row + .adm-unit-row { margin-top: 6px; }
+@media (max-width: 760px) {
+  .adm-unit-row.simple { grid-template-columns: minmax(0,1fr) minmax(0,1.4fr) 40px; }
+  .adm-unit-row.simple.with-b { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  .adm-unit-row.simple.with-b .adm-unit-del { grid-column: 2; justify-self: end; }
+  .adm-unit-row.simple .adm-unit-del { grid-column: auto; justify-self: stretch; }
+  .adm-unit-row.detail { grid-template-columns: 56px minmax(0,1fr) minmax(0,1fr); }
+}

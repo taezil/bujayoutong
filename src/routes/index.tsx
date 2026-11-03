@@ -1664,8 +1664,6 @@ function ProductInfo({ product }: { product: Product }) {
   if (contents) rows.push(["1박스 입수", contents]);
   const boxServings = servingText(product.servingsPerBox ?? "");
   if (boxServings) rows.push(["1박스 인분", boxServings]);
-  const unitServings = servingText(product.servingsPerUnit ?? "");
-  if (unitServings) rows.push([`1${word || "단위"} 인분`, unitServings]);
   if ((product.storageMethod ?? "").trim()) rows.push(["보관", (product.storageMethod ?? "").trim()]);
   const description = (product.description ?? "").trim();
   if (!rows.length && !description) return null;
