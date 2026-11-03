@@ -29,6 +29,8 @@ async function main() {
     await page.locator(".c-name button", { hasText: product.name }).first().click();
     const editor = page.locator(".adm-editor");
     await editor.waitFor({ timeout: 20000 });
+    // 뒤쪽 목록 페이지가 스크롤된 상태로 모달이 열리면 모바일 에뮬레이션에서 클릭 좌표가 어긋남 → 맨 위로
+    await page.evaluate(() => window.scrollTo(0, 0));
 
     const text = await editor.innerText();
     check("행사 가격 칸 없음", !text.includes("행사 가격"));
@@ -62,6 +64,7 @@ async function main() {
 
     await page.locator(".c-name button", { hasText: product.name }).first().click();
     await editor.waitFor();
+    await page.evaluate(() => window.scrollTo(0, 0));
     check("B가격 있는 상품은 열 때 B칸이 펼쳐져 있음", (await editor.locator(".adm-price-b").count()) >= 1);
 
     // 사진 3장(휴대폰 원본처럼 큰 사진) → 고르자마자 줄여서 올리기 시작, 저장은 바로
@@ -97,6 +100,7 @@ async function main() {
     check("사진 3장 추가 저장(대표 사진 유지)", (withPhotos.photos ?? []).length === (product.photos?.length || (product.photo ? 1 : 0)) + 3, JSON.stringify(withPhotos.photos?.length));
     await page.locator(".c-name button", { hasText: product.name }).first().click();
     await editor.waitFor();
+    await page.evaluate(() => window.scrollTo(0, 0));
     page.once("dialog", (dialog) => void dialog.accept());
     await editor.getByRole("button", { name: /B그룹 가격 닫기/ }).click();
     check("값이 있으면 확인 후 지우고 닫힘", (await editor.locator(".adm-price-b").count()) === 0);
