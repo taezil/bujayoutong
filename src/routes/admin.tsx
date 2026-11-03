@@ -952,7 +952,16 @@ function ProductEditor({
                 );
               })}
               {!showPriceB && <button type="button" className="adm-link-btn" onClick={() => setShowPriceB(true)}>▸ B그룹 가격 따로 정하기</button>}
-              {showPriceB && <p className="adm-help">B그룹 거래처는 이 가격으로 보이고 계산됩니다. 비워두면 기본 가격과 같습니다.</p>}
+              {showPriceB && <div className="adm-priceb-foot">
+                <p className="adm-help">B그룹 거래처는 이 가격으로 보이고 계산됩니다. 비워두면 기본 가격과 같습니다.</p>
+                <button type="button" className="adm-link-btn" onClick={() => {
+                  // 값이 있는 채로 접으면 안 보이는 가격이 적용되므로, 값이 있으면 지우고 닫음
+                  const hasB = draft.packOptions.some((option) => option.priceB != null);
+                  if (hasB && !window.confirm("입력한 B그룹 가격을 지우고 닫을까요?\n(저장하면 B그룹도 기본 가격으로 판매됩니다)")) return;
+                  if (hasB) setDraft({ ...draft, packOptions: draft.packOptions.map((option) => ({ ...option, priceB: null })) });
+                  setShowPriceB(false);
+                }}>▴ B그룹 가격 닫기</button>
+              </div>}
               <details className="adm-more adm-unit-more">
                 <summary>세부 설정 (단위별 규격 · +/- 증가 단위)</summary>
                 <p className="adm-help">보통은 그대로 두면 됩니다. 규격은 숫자만(kg 자동), 증가 단위는 + 한 번에 늘어나는 수량입니다.</p>

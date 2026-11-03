@@ -4565,3 +4565,4 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .adm-price-b .adm-suffix { border-color: #8fd1ae; background: #f3fbf6; }
 .adm-price-b .adm-suffix input { background: transparent; }
+.adm-priceb-foot { display: grid; gap: 2px; }
