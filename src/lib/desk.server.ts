@@ -16,6 +16,7 @@ import type { D1Result } from "@cloudflare/workers-types";
 import { db, ensureDatabase } from "./db.server";
 import { randomHex, sha256, verifyPassword } from "./password.server";
 import { writeAudit } from "./audit.server";
+import { verifyAnyAdminPassword, type AdminIdentity } from "./auth.server";
 
 export type DeskStaff = { id: string; username: string; displayName: string; role: "ADMIN" | "DRIVER"; deviceName: string };
 
@@ -27,9 +28,22 @@ const LOGIN_MAX_FAILURES_PER_IP = 30;
 /** 관리자(admin) 계정으로 알림센터에 로그인할 때 쓰는 처리자 계정. PIN 이 없어 직원 로그인은 불가하고 직원 목록에도 나오지 않음 */
 export const DESK_ADMIN_ID = "S-DESK-ADMIN";
 
-async function verifyAdminPassword(password: string) {
-  const admin = await db().prepare("SELECT salt, hash FROM admin_credentials WHERE id = 1").first<{ salt: string; hash: string }>();
-  return Boolean(admin) && await verifyPassword(password, String(admin?.salt ?? ""), String(admin?.hash ?? ""));
+/** 추가 관리자(buja1 등)가 알림센터에 로그인할 때 쓰는 처리자 계정. PIN 이 없어 직원 로그인 불가, 직원 목록에 안 나옴 */
+const ADMIN_USER_STAFF_PREFIX = "S-ADMINUSER-";
+
+async function ensureAdminUserStaff(admin: AdminIdentity) {
+  const id = `${ADMIN_USER_STAFF_PREFIX}${admin.id}`;
+  await db().prepare(`INSERT INTO staff_users(id,username,display_name,role,auth_salt,auth_hash,active)
+                      VALUES(?, ?, ?, 'ADMIN', '', '', 1)
+                      ON CONFLICT(id) DO UPDATE SET display_name=excluded.display_name, active=1`)
+    .bind(id, `__admin_${admin.username}__`, admin.displayName).run();
+  return { id, username: admin.username, display_name: admin.displayName, role: "ADMIN" } as Record<string, unknown>;
+}
+
+function deskUsername(row: Record<string, unknown>) {
+  if (String(row.id) === DESK_ADMIN_ID) return "admin";
+  const match = /^__admin_(.+)__$/.exec(String(row.username));
+  return match ? match[1] : String(row.username);
 }
 
 async function ensureDeskAdminStaff() {
@@ -105,10 +119,13 @@ export async function deskLogin(request: Request, username: string, pin: string,
     : null;
   if (row && Number(row.active ?? 0) === 1 && await verifyPassword(secret, String(row.auth_salt), String(row.auth_hash))) {
     // 직원 아이디 + 6자리 PIN
-  } else if (normalized === "admin" && await verifyAdminPassword(secret)) {
-    // 관리자 화면 계정(admin + 관리자 비밀번호)
-    row = await ensureDeskAdminStaff();
   } else {
+    // 관리자 화면 계정(admin 또는 buja1 같은 추가 관리자 + 비밀번호)
+    const admin = await verifyAnyAdminPassword(normalized, secret);
+    if (!admin) throw await fail();
+    row = admin.id === "admin" ? await ensureDeskAdminStaff() : await ensureAdminUserStaff(admin);
+  }
+  if (!row) {
     throw await fail();
   }
 
@@ -122,7 +139,7 @@ export async function deskLogin(request: Request, username: string, pin: string,
       .bind(tokenHash, String(row.id), device),
   ]);
   const staff: DeskStaff = {
-    id: String(row.id), username: String(row.id) === DESK_ADMIN_ID ? "admin" : String(row.username), displayName: String(row.display_name),
+    id: String(row.id), username: deskUsername(row), displayName: String(row.display_name),
     role: String(row.role) === "ADMIN" ? "ADMIN" : "DRIVER", deviceName: device,
   };
   await writeAudit({ actor: { type: "staff", id: staff.id, name: staff.displayName }, action: "desk_login", entityType: "desk", summary: `발주 알림센터 로그인 · ${device}` })
@@ -155,7 +172,7 @@ export async function requireDeskStaff(request: Request): Promise<DeskStaff & { 
     await db().prepare(`UPDATE desk_sessions SET last_seen_at=datetime('now'),expires_at=datetime('now','+${TOKEN_DAYS} days') WHERE token_hash=?`).bind(tokenHash).run();
   }
   return {
-    id: String(row.id), username: String(row.id) === DESK_ADMIN_ID ? "admin" : String(row.username), displayName: String(row.display_name),
+    id: String(row.id), username: deskUsername(row), displayName: String(row.display_name),
     role: String(row.role) === "ADMIN" ? "ADMIN" : "DRIVER", deviceName: String(row.device_name ?? ""), tokenHash,
   };
 }

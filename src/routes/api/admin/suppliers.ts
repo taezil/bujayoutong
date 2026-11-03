@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getStaff, isAdmin, validMutationOrigin } from "../../../lib/auth.server";
+import { getStaff, isAdmin, validMutationOrigin, adminActorFor } from "../../../lib/auth.server";
 import { db, ensureDatabase } from "../../../lib/db.server";
 import { cleanText } from "../../../lib/admin-validation.server";
 import { writeAudit, staffActor } from "../../../lib/audit.server";
@@ -16,7 +16,7 @@ export const Route=createFileRoute("/api/admin/suppliers")({server:{handlers:{
     await ensureDatabase();
     try{
       const body=await request.json() as Record<string,unknown>; const action=cleanText(body.action,20);
-      const staff=await getStaff(request); const actor=staff?staffActor(staff):{type:"admin" as const,id:"legacy-admin",name:"관리자"};
+      const staff=await getStaff(request); const actor=staff?staffActor(staff):await adminActorFor(request);
       if(action==="create"){
         const name=cleanText(body.name,100); if(!name) throw new Error("업체명을 입력해 주세요.");
         const id=`SUP-${crypto.randomUUID()}`;

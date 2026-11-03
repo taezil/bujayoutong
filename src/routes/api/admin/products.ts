@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getStaff, isAdmin, validMutationOrigin } from "../../../lib/auth.server";
+import { getStaff, isAdmin, validMutationOrigin, adminActorFor } from "../../../lib/auth.server";
 import { bumpVersion, db, ensureDatabase } from "../../../lib/db.server";
 import { cleanOptions, cleanPrice, cleanText } from "../../../lib/admin-validation.server";
 import { writeAudit, staffActor } from "../../../lib/audit.server";
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/api/admin/products")({
       const body = await request.json() as ProductBody;
       const database = db();
       const staff = await getStaff(request);
-      const actor = staff ? staffActor(staff) : { type: "admin" as const, id: "legacy-admin", name: "관리자" };
+      const actor = staff ? staffActor(staff) : await adminActorFor(request);
       if (body.action === "delete") {
         const id = cleanText(body.id, 80);
         if (!id) throw new Error("상품 ID가 없습니다.");

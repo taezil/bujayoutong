@@ -11,7 +11,7 @@ import {
 
 /*
  * 인증 구조 요약
- * - 관리자(기존 단일 admin 계정): buja_admin_session 쿠키 → admin_sessions
+ * - 관리자(admin + 추가 관리자 admin_users): buja_admin_session 쿠키 → admin_sessions(admin_user_id, admin 은 '')
  * - 부자유통 직원(관리자/배송기사): buja_staff_session 쿠키 → staff_sessions
  * - 거래처: buja_customer_session_v2 쿠키 → customer_sessions
  *     로그인 계정(customer_users) 1개 ↔ 배송처(customers) 여러 곳 (customer_user_customers)
@@ -86,16 +86,41 @@ export async function adminSetupRequired() {
   return !row;
 }
 
-export async function isAdmin(request: Request) {
+export type AdminIdentity = { id: string; username: string; displayName: string };
+
+const MAIN_ADMIN: AdminIdentity = { id: "admin", username: "admin", displayName: "admin" };
+
+/** 로그인한 관리자 (admin 또는 buja1 같은 추가 관리자). 아니면 null */
+export async function getAdminIdentity(request: Request): Promise<AdminIdentity | null> {
   const token = parseCookie(request, ADMIN_COOKIE_NAME);
-  if (!token) return false;
+  if (!token) return null;
   await ensureDatabase();
   const hash = await sha256(token);
-  const row = await db()
-    .prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > datetime('now')")
-    .bind(hash)
-    .first();
-  return Boolean(row);
+  const row = await db().prepare(`
+    SELECT s.admin_user_id, u.username, u.display_name, u.active
+    FROM admin_sessions s
+    LEFT JOIN admin_users u ON u.id = s.admin_user_id
+    WHERE s.token_hash = ? AND s.expires_at > datetime('now')
+    LIMIT 1
+  `).bind(hash).first<{ admin_user_id: string; username: string | null; display_name: string | null; active: number | null }>();
+  if (!row) return null;
+  if (!row.admin_user_id) return MAIN_ADMIN;
+  // 추가 관리자는 계정이 중지되면 즉시 로그인 해제
+  if (Number(row.active ?? 0) !== 1) return null;
+  return { id: row.admin_user_id, username: String(row.username ?? ""), displayName: String(row.display_name || row.username || "") };
+}
+
+/** 관리자 권한 확인. admin 과 추가 관리자(buja1 등)는 모든 관리자 기능을 똑같이 사용 */
+export async function isAdmin(request: Request) {
+  return Boolean(await getAdminIdentity(request));
+}
+
+/** 변경 기록(audit)에 남길 이름: 직원 로그인 → 직원, 관리자 로그인 → 해당 관리자 아이디 */
+export async function adminActorFor(request: Request) {
+  const staff = await getStaff(request);
+  if (staff) return { type: "staff" as const, id: staff.id, name: staff.displayName };
+  const admin = await getAdminIdentity(request);
+  return { type: "admin" as const, id: admin?.id === "admin" ? "legacy-admin" : (admin?.id ?? "legacy-admin"), name: admin?.displayName ?? "관리자" };
 }
 
 export async function createAdmin(password: string, bootstrapKey: string) {
@@ -114,19 +139,52 @@ export async function createAdmin(password: string, bootstrapKey: string) {
 
 export async function loginAdmin(username: string, password: string) {
   await ensureDatabase();
-  if (username.trim().toLowerCase() !== "admin") throw new Error("아이디 또는 비밀번호가 올바르지 않습니다.");
-  const row = await db().prepare("SELECT salt, hash FROM admin_credentials WHERE id = 1").first<{ salt: string; hash: string }>();
-  if (!row) throw new Error("관리자 계정이 준비되지 않았습니다.");
-  if (!(await verifyPassword(password, row.salt, row.hash))) throw new Error("아이디 또는 비밀번호가 올바르지 않습니다.");
-  return createAdminSession();
+  const loginId = username.trim().toLowerCase();
+  if (!loginId || !password) throw new Error("아이디 또는 비밀번호가 올바르지 않습니다.");
+  const throttle = await db().prepare(
+    "SELECT COUNT(*) AS n FROM auth_login_attempts WHERE scope='admin-id' AND attempt_key=? AND created_at > datetime('now','-15 minutes')",
+  ).bind(loginId).first<{ n: number }>();
+  if (Number(throttle?.n ?? 0) >= 10) throw new Error("로그인 시도가 너무 많습니다. 15분 후 다시 시도해 주세요.");
+  const fail = async () => {
+    await db().prepare("INSERT INTO auth_login_attempts(scope,attempt_key) VALUES('admin-id',?)").bind(loginId).run().catch(() => undefined);
+    return new Error("아이디 또는 비밀번호가 올바르지 않습니다.");
+  };
+
+  if (loginId === "admin") {
+    const row = await db().prepare("SELECT salt, hash FROM admin_credentials WHERE id = 1").first<{ salt: string; hash: string }>();
+    if (!row) throw new Error("관리자 계정이 준비되지 않았습니다.");
+    if (!(await verifyPassword(password, row.salt, row.hash))) throw await fail();
+    return createAdminSession("");
+  }
+
+  const user = await db().prepare(
+    "SELECT id, auth_salt, auth_hash, active FROM admin_users WHERE lower(username)=? LIMIT 1",
+  ).bind(loginId).first<{ id: string; auth_salt: string; auth_hash: string; active: number }>();
+  if (!user || Number(user.active) !== 1 || !(await verifyPassword(password, user.auth_salt, user.auth_hash))) throw await fail();
+  return createAdminSession(user.id);
 }
 
-async function createAdminSession() {
+/** admin 또는 추가 관리자 비밀번호 확인 (사무실 알림센터 로그인용). 맞으면 계정 정보 */
+export async function verifyAnyAdminPassword(username: string, password: string): Promise<AdminIdentity | null> {
+  const loginId = username.trim().toLowerCase();
+  if (loginId === "admin") {
+    const row = await db().prepare("SELECT salt, hash FROM admin_credentials WHERE id = 1").first<{ salt: string; hash: string }>();
+    return row && await verifyPassword(password, row.salt, row.hash) ? MAIN_ADMIN : null;
+  }
+  const user = await db().prepare(
+    "SELECT id, username, display_name, auth_salt, auth_hash, active FROM admin_users WHERE lower(username)=? LIMIT 1",
+  ).bind(loginId).first<Record<string, unknown>>();
+  if (!user || Number(user.active) !== 1) return null;
+  if (!(await verifyPassword(password, String(user.auth_salt), String(user.auth_hash)))) return null;
+  return { id: String(user.id), username: String(user.username), displayName: String(user.display_name || user.username) };
+}
+
+async function createAdminSession(adminUserId = "") {
   const token = randomHexValue(32);
   const hash = await sha256(token);
   await db().batch([
     db().prepare("DELETE FROM admin_sessions WHERE expires_at <= datetime('now')"),
-    db().prepare("INSERT INTO admin_sessions (token_hash, expires_at) VALUES (?, datetime('now', '+30 days'))").bind(hash),
+    db().prepare("INSERT INTO admin_sessions (token_hash, expires_at, admin_user_id) VALUES (?, datetime('now', '+30 days'), ?)").bind(hash, adminUserId),
   ]);
   return token;
 }

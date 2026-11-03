@@ -8,7 +8,8 @@ export const Route = createFileRoute("/admin_/accounts")({
   component: AccountsPage,
 });
 
-type AdminStatus={authenticated:boolean;staff?:{displayName:string}|null};
+type AdminStatus={authenticated:boolean;staff?:{displayName:string}|null;admin?:{username:string;displayName:string}|null};
+type AdminUserRow={id:string;username:string;display_name:string;active:number|boolean};
 type StaffRow={id:string;username:string;display_name:string;role:"ADMIN"|"DRIVER";active:number|boolean};
 type CustomerRow={id:string;code:string;name:string;active:boolean;priceGroup?:string;region?:string;businessNumber?:string;phone?:string;storePhone?:string;address?:string};
 type CustomerUser={id:string;customer_id:string;username:string;display_name:string;active:number|boolean;customer_code:string;customer_name:string};
@@ -59,6 +60,7 @@ async function post(path:string,body:Record<string,unknown>){
 
 function AccountsPage(){
   const[status,setStatus]=useState<AdminStatus|null>(null);
+  const[adminUsers,setAdminUsers]=useState<AdminUserRow[]>([]);
   const[staff,setStaff]=useState<StaffRow[]>([]);
   const[customers,setCustomers]=useState<CustomerRow[]>([]);
   const[customerUsers,setCustomerUsers]=useState<CustomerUser[]>([]);
@@ -95,7 +97,7 @@ function AccountsPage(){
       fetch("/api/admin/customer-users",{cache:"no-store"}),
     ]);
     const s=await sr.json() as AdminStatus; setStatus(s);
-    if(st.ok)setStaff(((await st.json()) as {staff:StaffRow[]}).staff);
+    if(st.ok){const data=(await st.json()) as {staff:StaffRow[];adminUsers?:AdminUserRow[]};setStaff(data.staff);setAdminUsers(data.adminUsers??[]);}
     if(cr.ok){
       const rows=((await cr.json()) as {customers:CustomerRow[]}).customers;
       setCustomers(rows);
@@ -273,11 +275,25 @@ function AccountsPage(){
   return <div className="accounts-page">
     <header className="accounts-brandbar">
       <a href="/admin"><img src={BUJA_LOGO_DATA} alt="부자유통"/></a>
-      <div className="session-actions"><span><b>{status?.staff?.displayName||"관리자"}</b><small>관리자</small></span><button type="button" onClick={logout}>로그아웃</button></div>
+      <div className="session-actions"><span><b>{status?.admin?.displayName||status?.staff?.displayName||"관리자"}</b><small>관리자</small></span><button type="button" onClick={logout}>로그아웃</button></div>
     </header>
     <main className="accounts-main">
       <div className="accounts-head"><div><p>부자유통 통합관리</p><h1>계정관리</h1><span>부자유통 직원과 거래처 계정을 분리해서 관리합니다.</span></div><a href="/admin">← 통합관리자로 돌아가기</a></div>
       {error&&<p className="admin-banner-error">{error}</p>}
+
+      <section className="account-section">
+        <div className="account-section-head"><div><p>ADMIN</p><h2>관리자 계정</h2><small>admin 과 똑같이 모든 관리 기능을 쓸 수 있습니다. 관리자 화면과 사무실 알림센터에 아이디·비밀번호로 로그인합니다.</small></div><span>{adminUsers.length+1}개</span></div>
+        <div className="accounts-grid admin-users-grid">
+          <article className="account-card"><div><span className="role-admin">관리자</span><h3>admin</h3><p>대표 계정</p></div></article>
+          {adminUsers.map(row=><article className={`account-card ${!Boolean(row.active)?"disabled":""}`} key={row.id}>
+            <div><span className="role-admin">관리자</span><h3>{row.username}</h3><p>{Boolean(row.active)?"사용 중":"중지됨"}{status?.admin?.username===row.username?" · 지금 로그인":""}</p></div>
+            <div className="account-card-actions">
+              <button onClick={()=>{const v=prompt(`${row.username} 새 비밀번호 (8자 이상)`);if(v)void act("/api/admin/staff",{action:"admin-password",id:row.id,password:v}).then(r=>{if(r)alert("비밀번호를 바꿨습니다.");});}}>비밀번호 변경</button>
+              <button disabled={status?.admin?.username===row.username} onClick={()=>void act("/api/admin/staff",{action:"admin-toggle",id:row.id,active:!Boolean(row.active)})}>{Boolean(row.active)?"계정중지":"계정사용"}</button>
+            </div>
+          </article>)}
+        </div>
+      </section>
 
       <section className="account-section">
         <div className="account-section-head"><div><p>INTERNAL</p><h2>부자유통 직원 계정</h2></div><span>{staff.length}명</span></div>

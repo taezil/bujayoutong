@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getStaff, isAdmin, validMutationOrigin } from "../../../lib/auth.server";
+import { getStaff, isAdmin, validMutationOrigin, adminActorFor } from "../../../lib/auth.server";
 import { db, ensureDatabase } from "../../../lib/db.server";
 import type { CustomerSummary } from "../../../lib/db.server";
 import { createCustomerOrder, kstDate, OrderWarningError } from "../../../lib/orders.server";
@@ -56,7 +56,7 @@ export const Route = createFileRoute("/api/admin/orders")({
       if (!validMutationOrigin(request) || !(await isAdmin(request))) return Response.json({error:"관리자 로그인이 필요합니다."},{status:403});
       await ensureDatabase();
       const staff = await getStaff(request);
-      const actor = adminActor(staff);
+      const actor = staff ? adminActor(staff) : await adminActorFor(request);
       try {
         const body=await request.json() as Record<string,unknown>;
         const action=cleanText(body.action,40);

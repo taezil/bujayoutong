@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getStaff, isAdmin, validMutationOrigin } from "../../../lib/auth.server";
+import { getStaff, isAdmin, validMutationOrigin, adminActorFor } from "../../../lib/auth.server";
 import { bumpVersion, db, ensureDatabase } from "../../../lib/db.server";
 import { writeAudit, staffActor } from "../../../lib/audit.server";
 import { cleanTime, parseRuns } from "../../../lib/delivery-rules";
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/admin/zones")({
         const database = db();
         const name = cleanName(body.name);
         const staff = await getStaff(request);
-        const actor = staff ? staffActor(staff) : { type: "admin" as const, id: "admin", name: "관리자" };
+        const actor = staff ? staffActor(staff) : await adminActorFor(request);
         let summary = "";
 
         if (action === "zone-add") {

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getStaff, isAdmin, makeCustomerPinCredential, normalizeCustomerCode, revokeCustomerSessions, validMutationOrigin } from "../../../lib/auth.server";
+import { getStaff, isAdmin, makeCustomerPinCredential, normalizeCustomerCode, revokeCustomerSessions, validMutationOrigin, adminActorFor } from "../../../lib/auth.server";
 import { db, ensureDatabase } from "../../../lib/db.server";
 import { cleanText } from "../../../lib/admin-validation.server";
 import { writeAudit, staffActor } from "../../../lib/audit.server";
@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/admin/customers")({
         const body = await request.json() as Record<string, unknown>;
         const action = cleanText(body.action, 30);
         const staff = await getStaff(request);
-        const actor = staff ? staffActor(staff) : { type: "admin" as const, id: "legacy-admin", name: "관리자" };
+        const actor = staff ? staffActor(staff) : await adminActorFor(request);
         if (action === "import-batch") {
           const rawRows = Array.isArray(body.rows) ? body.rows : [];
           if (!rawRows.length || rawRows.length > 50) throw new Error("한 번에 1~50개 거래처만 등록할 수 있습니다.");

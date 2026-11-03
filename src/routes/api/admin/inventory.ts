@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getStaff, isAdmin, validMutationOrigin } from "../../../lib/auth.server";
+import { getStaff, isAdmin, validMutationOrigin, adminActorFor } from "../../../lib/auth.server";
 import { db, ensureDatabase } from "../../../lib/db.server";
 import { cleanText } from "../../../lib/admin-validation.server";
 import { writeAudit, staffActor } from "../../../lib/audit.server";
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/admin/inventory")({
           db().prepare(`INSERT INTO inventory_stock(product_id,option_label,quantity,updated_at) VALUES(?,?,?,datetime('now')) ON CONFLICT(product_id,option_label) DO UPDATE SET quantity=excluded.quantity,updated_at=datetime('now')`).bind(productId,optionLabel,next),
           db().prepare("INSERT INTO inventory_ledger(product_id,option_label,quantity_change,event_type,note) VALUES(?,?,?,'adjustment',?)").bind(productId,optionLabel,delta,cleanText(body.note,200)||`재고조정 ${before} → ${next}`),
         ]);
-        const staff=await getStaff(request); const actor=staff?staffActor(staff):{type:"admin" as const,id:"legacy-admin",name:"관리자"};
+        const staff=await getStaff(request); const actor=staff?staffActor(staff):await adminActorFor(request);
         await writeAudit({actor,action:"inventory_adjust",entityType:"product",entityId:productId,summary:`${product?.name ?? productId} ${optionLabel} 재고 ${before} → ${next}`});
         return Response.json({ok:true});
       }catch(error){return Response.json({error:error instanceof Error?error.message:"재고 조정에 실패했습니다."},{status:400});}

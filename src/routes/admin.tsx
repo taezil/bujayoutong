@@ -15,7 +15,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type AdminStatus = { setupRequired: boolean; authenticated: boolean };
+type AdminStatus = { setupRequired: boolean; authenticated: boolean ; admin?: { username: string; displayName: string } | null };
 
 async function jsonPost(path: string, body: unknown) {
   const response = await fetch(path, {
@@ -176,7 +176,7 @@ function AdminPage() {
 
   if (!store) return <AdminShell><p className="admin-loading">상품을 불러오는 중입니다.</p></AdminShell>;
 
-  const staffName = "admin";
+  const staffName = status?.admin?.displayName || "admin";
   const menu: Array<{ id: AdminView; label: string; icon: string }> = [
     { id: "products", label: "상품 관리", icon: "📦" },
     { id: "categories", label: "카테고리 관리", icon: "🗂" },
