@@ -4584,3 +4584,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .adm-excel-change em { font-style: normal; font-weight: 800; color: #0b6a39; }
 .adm-excel-errors { width: 100%; padding: 10px 12px; border-radius: 10px; background: #fff7ed; color: #9a3412; font-size: 13px; }
 .adm-excel-errors ul { margin: 6px 0 0; padding-left: 18px; max-height: 180px; overflow-y: auto; }
+
+/* 상품 사진: 올리는 상태 표시 */
+.adm-photos-grid figure { position: relative; }
+.adm-photo-state { position: absolute; left: 6px; bottom: 34px; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 800; color: #fff; background: rgba(15,23,42,.72); }
+.adm-photo-state.done { background: #0b6a39; }
+.adm-photo-state.fail { background: #c2410c; }

@@ -63,6 +63,38 @@ async function main() {
     await page.locator(".c-name button", { hasText: product.name }).first().click();
     await editor.waitFor();
     check("B가격 있는 상품은 열 때 B칸이 펼쳐져 있음", (await editor.locator(".adm-price-b").count()) >= 1);
+
+    // 사진 3장(휴대폰 원본처럼 큰 사진) → 고르자마자 줄여서 올리기 시작, 저장은 바로
+    const bigPhotos = await page.evaluate(async () => {
+      const out = [];
+      for (let i = 0; i < 3; i += 1) {
+        const c = document.createElement("canvas"); c.width = 4000; c.height = 3000;
+        const g = c.getContext("2d");
+        for (let y = 0; y < 3000; y += 50) for (let x = 0; x < 4000; x += 50) { g.fillStyle = `hsl(${(x + y + i * 97) % 360},70%,${40 + ((x * y) % 30)}%)`; g.fillRect(x, y, 50, 50); }
+        const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.95));
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        let bin = "";
+        for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(k, k + 0x8000)));
+        out.push({ name: `big${i}.jpg`, mimeType: "image/jpeg", b64: btoa(bin) });
+      }
+      return out;
+    });
+    const sizes = bigPhotos.map((p) => Math.round(Buffer.from(p.b64, "base64").length / 1024));
+    const photoRequests = [];
+    page.on("request", (r) => { if (r.url().endsWith("/api/photo") && r.method() === "POST") photoRequests.push(r.postDataBuffer()?.length ?? 0); });
+    await editor.locator(".adm-photos-add input").setInputFiles(bigPhotos.map((p) => ({ name: p.name, mimeType: p.mimeType, buffer: Buffer.from(p.b64, "base64") })));
+    await editor.locator(".adm-photo-state.done").nth(2).waitFor({ timeout: 30000 });
+    const t0 = Date.now();
+    await page.getByRole("button", { name: "저장하기" }).click();
+    await editor.waitFor({ state: "detached", timeout: 20000 });
+    const saveMs = Date.now() - t0;
+    const mainUploads = photoRequests.filter((n) => n > 0).sort((a, b) => b - a).slice(0, 3).map((n) => Math.round(n / 1024));
+    check("사진 고르자마자 올라감 → 저장 2초 이내", saveMs < 2000, `${saveMs}ms`);
+    check("큰 사진은 줄여서 올림", mainUploads.every((kb, i) => kb < sizes[0] / 2), `원본 ${sizes.join("/")}KB → 올린 크기 ${mainUploads.join("/")}KB`);
+    const withPhotos = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === product.id);
+    check("사진 3장 추가 저장(대표 사진 유지)", (withPhotos.photos ?? []).length === (product.photos?.length || (product.photo ? 1 : 0)) + 3, JSON.stringify(withPhotos.photos?.length));
+    await page.locator(".c-name button", { hasText: product.name }).first().click();
+    await editor.waitFor();
     page.once("dialog", (dialog) => void dialog.accept());
     await editor.getByRole("button", { name: /B그룹 가격 닫기/ }).click();
     check("값이 있으면 확인 후 지우고 닫힘", (await editor.locator(".adm-price-b").count()) === 0);

@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
 import { thumbUrl } from "../lib/photo-url";
-import { createThumbnailForUpload, generateMissingThumbnails, type ThumbnailProgress } from "../lib/photo-thumbs";
+import { generateMissingThumbnails, preparePhoto, uploadThumbnail, type ThumbnailProgress } from "../lib/photo-thumbs";
+import { photoKeyFromUrl } from "../lib/photo-url";
 import { LocationsView, ZonesView } from "../admin-zones";
 
 export const Route = createFileRoute("/admin")({
@@ -64,14 +65,18 @@ function wonText(value: number | null | undefined) {
   return value == null ? "" : `${new Intl.NumberFormat("ko-KR").format(value)}원`;
 }
 
+// 사진 올리기: 휴대폰에서 먼저 줄인 뒤(1600px) 올리고, 같은 사진으로 만든 목록용 썸네일도 저장
 async function uploadPhoto(file: File) {
+  const { main, thumb } = await preparePhoto(file);
+  const ext = main.type === "image/png" ? "png" : main.type === "image/jpeg" ? "jpg" : "webp";
   const form = new FormData();
-  form.append("file", file);
+  form.append("file", main instanceof File ? main : new File([main], `photo.${ext}`, { type: main.type }));
   const upload = await fetch("/api/photo", { method: "POST", body: form });
   const data = await upload.json() as { url?: string; error?: string };
   if (!upload.ok || !data.url) throw new Error(data.error || "사진 업로드에 실패했습니다.");
-  // 목록용 작은 사진도 함께 저장 (실패해도 원본 업로드는 정상)
-  await createThumbnailForUpload(data.url, file);
+  const key = photoKeyFromUrl(data.url);
+  // 목록용 작은 사진 (실패해도 사진 업로드는 정상)
+  if (key) await uploadThumbnail(key, thumb).catch((error) => console.warn("thumbnail upload skipped", error));
   return data.url;
 }
 
@@ -863,7 +868,9 @@ function ProductEditor({
   const [draft, setDraft] = useState<Product>(() => structuredClone(product));
   // B그룹 가격은 평소 접어두고, 이미 B가격이 있는 상품이면 펼친 채로 엶
   const [showPriceB, setShowPriceB] = useState(() => product.packOptions.some((option) => option.priceB != null));
-  // 사진 여러 장: 첫 장이 대표 사진(목록·장바구니에 보이는 사진). 새로 고른 파일은 저장할 때 올림
+  // 사진 여러 장: 첫 장이 대표 사진(목록·장바구니에 보이는 사진). 새로 고른 파일은 고르자마자 올리기 시작
+  const uploads = useRef(new Map<string, Promise<string>>());
+  const [uploadState, setUploadState] = useState<Record<string, "up" | "done" | "fail">>({});
   const [photoList, setPhotoList] = useState<EditorPhoto[]>(() =>
     (product.photos?.length ? product.photos : product.photo ? [product.photo] : []).map((url) => ({ key: url, url, preview: url })));
   const [locations, setLocations] = useState<string[]>([]);
@@ -911,6 +918,19 @@ function ProductEditor({
     const picked = Array.from(files).slice(0, room).map((file, index) => ({ key: `new-${Date.now()}-${index}`, file, preview: URL.createObjectURL(file) }));
     if (files.length > room) setLocalError("사진은 상품마다 최대 10장까지 올릴 수 있습니다.");
     setPhotoList((current) => [...current, ...picked]);
+    // 고르자마자 뒤에서 동시에 올리기 시작 → 저장할 때는 거의 기다리지 않음
+    for (const item of picked) startUpload(item.key, item.file);
+  }
+
+  function startUpload(key: string, file: File) {
+    setUploadState((current) => ({ ...current, [key]: "up" }));
+    const job = uploadPhoto(file);
+    uploads.current.set(key, job);
+    job.then(
+      () => setUploadState((current) => ({ ...current, [key]: "done" })),
+      () => setUploadState((current) => ({ ...current, [key]: "fail" })),
+    );
+    return job;
   }
 
   function movePhoto(index: number, delta: number) {
@@ -949,8 +969,17 @@ function ProductEditor({
     setBusy(true);
     onError("");
     try {
-      const urls: string[] = [];
-      for (const item of photoList) urls.push(item.url ?? await uploadPhoto(item.file as File));
+      // 이미 올라가는 중인 사진은 기다리고, 실패했던 사진은 다시 올림 (동시에)
+      const urls = await Promise.all(photoList.map(async (item) => {
+        if (item.url) return item.url;
+        const pending = uploads.current.get(item.key);
+        try {
+          if (pending) return await pending;
+        } catch {
+          // 아래에서 다시 시도
+        }
+        return startUpload(item.key, item.file as File);
+      }));
       await jsonPost("/api/admin/products", {
         action: creating ? "create" : "update",
         product: { ...draft, name: draft.name.trim(), unit: normalizeStoredUnit(draft.unit), photo: urls[0] ?? "", photos: urls },
@@ -993,6 +1022,9 @@ function ProductEditor({
                   <figure key={item.key} className={index === 0 ? "main" : ""}>
                     <img src={item.preview} alt="" />
                     {index === 0 && <figcaption>대표</figcaption>}
+                    {uploadState[item.key] === "up" && <span className="adm-photo-state up">올리는 중…</span>}
+                    {uploadState[item.key] === "done" && <span className="adm-photo-state done">✓</span>}
+                    {uploadState[item.key] === "fail" && <span className="adm-photo-state fail">저장할 때 다시 올림</span>}
                     <div className="adm-photos-tools">
                       <button type="button" disabled={index === 0} onClick={() => movePhoto(index, -1)} aria-label="앞으로">◀</button>
                       <button type="button" disabled={index === photoList.length - 1} onClick={() => movePhoto(index, 1)} aria-label="뒤로">▶</button>
@@ -1154,7 +1186,7 @@ function ProductEditor({
           {!creating && <button type="button" className="adm-btn-del" onClick={remove} disabled={busy}>상품 삭제</button>}
           <span />
           <button type="button" className="adm-ghost" onClick={onClose} disabled={busy}>취소</button>
-          <button type="button" className="adm-primary" onClick={save} disabled={busy}>{busy ? "저장 중…" : "저장하기"}</button>
+          <button type="button" className="adm-primary" onClick={save} disabled={busy}>{busy ? (Object.values(uploadState).some((v) => v === "up") ? "사진 올리는 중…" : "저장 중…") : "저장하기"}</button>
         </footer>
       </section>
     </div>

@@ -5,26 +5,60 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number) 
   return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
 }
 
+/** 상품 상세용 사진 최대 크기(긴 변). 휴대폰 원본(3~8MB)을 200~400KB 정도로 줄임 */
+export const PHOTO_MAX_SIZE = 1600;
+
+async function encode(bitmap: ImageBitmap, maxSize: number, quality: number): Promise<Blob | null> {
+  const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.imageSmoothingQuality = "high";
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  let blob = await canvasToBlob(canvas, "image/webp", quality);
+  // 사파리 등 webp 저장을 못 하면 jpeg
+  if (!blob || blob.type !== "image/webp") blob = await canvasToBlob(canvas, "image/jpeg", Math.min(0.9, quality + 0.02));
+  return blob;
+}
+
+async function openBitmap(source: Blob) {
+  try {
+    return await createImageBitmap(source, { imageOrientation: "from-image" });
+  } catch {
+    return createImageBitmap(source);
+  }
+}
+
+const SAFE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 /** 긴 변 기준 THUMB_MAX_SIZE 로 줄인 사진. 원본이 더 작고 가벼우면 원본 그대로 */
 export async function makeThumbnail(source: Blob): Promise<Blob> {
-  const bitmap = await createImageBitmap(source);
+  const bitmap = await openBitmap(source);
   try {
-    const scale = Math.min(1, THUMB_MAX_SIZE / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const context = canvas.getContext("2d");
-    if (!context) return source;
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.imageSmoothingQuality = "high";
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    let blob = await canvasToBlob(canvas, "image/webp", 0.8);
-    // 사파리 등 webp 저장을 못 하면 jpeg
-    if (!blob || blob.type !== "image/webp") blob = await canvasToBlob(canvas, "image/jpeg", 0.82);
+    const blob = await encode(bitmap, THUMB_MAX_SIZE, 0.8);
     if (!blob) return source;
-    const sourceOk = ["image/jpeg", "image/png", "image/webp"].includes(source.type);
-    return sourceOk && source.size <= blob.size ? source : blob;
+    return SAFE_TYPES.includes(source.type) && source.size <= blob.size ? source : blob;
+  } finally {
+    bitmap.close();
+  }
+}
+
+/** 올릴 사진 준비: 한 번만 열어서 상세용(1600px)과 목록용 썸네일(480px)을 같이 만듦 */
+export async function preparePhoto(file: Blob): Promise<{ main: Blob; thumb: Blob }> {
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await openBitmap(file);
+  } catch {
+    return { main: file, thumb: file };
+  }
+  try {
+    const [main, thumb] = [await encode(bitmap, PHOTO_MAX_SIZE, 0.85), await encode(bitmap, THUMB_MAX_SIZE, 0.8)];
+    const keepOriginal = SAFE_TYPES.includes(file.type) && (!main || file.size <= main.size);
+    return { main: keepOriginal || !main ? file : main, thumb: thumb ?? file };
   } finally {
     bitmap.close();
   }
