@@ -80,6 +80,118 @@ function formatBytes(bytes: number) {
   return `${Math.round(bytes / 1024)}KB`;
 }
 
+/** 상품 엑셀 내려받기 / 엑셀 올려서 일괄 수정 (바뀔 내용을 먼저 보여주고 확인 후 반영) */
+function ExcelTool({ store, onReload, onNotice }: { store: StoreData; onReload: () => Promise<void>; onNotice: (value: string) => void }) {
+  type Plan = import("../lib/product-sheet").SheetPlan;
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [fileName, setFileName] = useState("");
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState("");
+  const [failures, setFailures] = useState<string[]>([]);
+
+  async function download() {
+    setBusy("내려받는 중…");
+    try {
+      const [{ buildXlsx, downloadBytes }, { productSheets }] = await Promise.all([import("../lib/xlsx-lite"), import("../lib/product-sheet")]);
+      const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date()).replace(/-/g, "");
+      downloadBytes(buildXlsx(productSheets(store)), `부자유통_상품목록_${today}.xlsx`);
+      setMessage(`상품 ${store.products.length}개를 엑셀로 내려받았습니다.`);
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "엑셀을 만들지 못했습니다.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function choose(file: File | null) {
+    if (!file) return;
+    setBusy("엑셀 읽는 중…");
+    setFailures([]);
+    try {
+      const [{ readXlsx }, { planProductSheet }] = await Promise.all([import("../lib/xlsx-lite"), import("../lib/product-sheet")]);
+      const table = readXlsx(await file.arrayBuffer());
+      setFileName(file.name);
+      setPlan(planProductSheet(store, table));
+    } catch (reason) {
+      setMessage(reason instanceof Error ? `엑셀을 읽지 못했습니다: ${reason.message}` : "엑셀을 읽지 못했습니다.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function apply() {
+    if (!plan?.changes.length) return;
+    const queue = [...plan.changes];
+    const failed: string[] = [];
+    let done = 0;
+    setBusy(`반영 중 0/${queue.length}`);
+    async function worker() {
+      while (queue.length) {
+        const item = queue.shift()!;
+        try {
+          await jsonPost("/api/admin/products", { action: "update", product: { ...item.next, photo: item.next.photo, photos: item.next.photos ?? (item.next.photo ? [item.next.photo] : []) } });
+        } catch (reason) {
+          failed.push(`${item.product.name}: ${reason instanceof Error ? reason.message : "실패"}`);
+        }
+        done += 1;
+        setBusy(`반영 중 ${done}/${plan!.changes.length}`);
+      }
+    }
+    await Promise.all([worker(), worker(), worker()]);
+    await onReload();
+    setBusy("");
+    setPlan(null);
+    setFailures(failed);
+    const ok = done - failed.length;
+    setMessage(`엑셀 일괄 수정: ${ok}개 상품 반영${failed.length ? `, ${failed.length}개 실패` : ""}`);
+    onNotice(`엑셀로 ${ok}개 상품을 수정했습니다.`);
+  }
+
+  return (
+    <div className="adm-thumb-tool adm-excel-tool">
+      <button type="button" disabled={Boolean(busy)} onClick={() => void download()}>⬇ 엑셀 내려받기</button>
+      <label className={`adm-excel-upload${busy ? " disabled" : ""}`}>
+        ⬆ 엑셀 올려서 일괄 수정
+        <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" disabled={Boolean(busy)}
+          onChange={(e) => { void choose(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+      </label>
+      <span>{busy || message || "전 품목을 엑셀로 받아 고친 뒤 올리면, 바뀔 내용을 먼저 보여드립니다."}</span>
+      {failures.length > 0 && <ul className="adm-excel-errors">{failures.map((f) => <li key={f}>{f}</li>)}</ul>}
+
+      {plan && (
+        <div className="adm-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) setPlan(null); }}>
+          <section className="adm-editor adm-excel-preview" role="dialog" aria-modal="true" aria-label="엑셀 일괄 수정 미리보기">
+            <header className="adm-editor-head">
+              <div><p>엑셀 일괄 수정 · {fileName}</p><h2>{plan.changes.length ? `${plan.changes.length}개 상품이 바뀝니다` : "바뀌는 상품이 없습니다"}</h2></div>
+              <button type="button" aria-label="닫기" disabled={Boolean(busy)} onClick={() => setPlan(null)}>×</button>
+            </header>
+            <div className="adm-excel-body">
+              <p className="adm-help">엑셀 {plan.rowCount}줄 · 상품 {plan.productCount}개 확인. 아래 내용만 바뀌고, 나머지(사진 등)는 그대로입니다.</p>
+              {plan.errors.length > 0 && <div className="adm-excel-errors">
+                <b>반영하지 않는 줄 {plan.errors.length}개</b> (문제가 있는 상품은 통째로 건너뜁니다)
+                <ul>{plan.errors.slice(0, 200).map((e) => <li key={e}>{e}</li>)}</ul>
+              </div>}
+              {plan.changes.map((item) => (
+                <div className="adm-excel-change" key={item.product.id}>
+                  <b>{item.product.name}</b> <small>{item.product.id}</small>
+                  <ul>{item.changes.map((c) => <li key={c.field}><span>{c.field}</span> <s>{c.before}</s> → <em>{c.after}</em></li>)}</ul>
+                </div>
+              ))}
+            </div>
+            <footer className="adm-editor-foot">
+              <span />
+              <button type="button" className="adm-ghost" disabled={Boolean(busy)} onClick={() => setPlan(null)}>취소</button>
+              <button type="button" className="adm-primary" disabled={Boolean(busy) || !plan.changes.length} onClick={() => void apply()}>
+                {busy || `${plan.changes.length}개 상품 반영하기`}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** 상품 목록용 썸네일 일괄 생성 (관리자 브라우저에서 처리, 원본은 그대로 유지) */
 function ThumbnailTool({ store }: { store: StoreData }) {
   const [progress, setProgress] = useState<ThumbnailProgress | null>(null);
@@ -353,6 +465,7 @@ function ProductsView({
         <button type="button" className="adm-primary" onClick={onCreate}>＋ 상품 추가</button>
       </div>
       <ThumbnailTool store={store} />
+      <ExcelTool store={store} onReload={onReload} onNotice={onNotice} />
       <div className="adm-toolbar">
         <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="상품명, 코드 검색" />
         <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="카테고리">

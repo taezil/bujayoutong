@@ -74,6 +74,11 @@ jobs:
       - name: Admin product editor checks
         if: always() && hashFiles('tests/admin-editor-e2e.mjs') != ''
         run: node tests/admin-editor-e2e.mjs http://localhost:4173
+      - name: Admin product excel checks
+        if: always() && hashFiles('tests/admin-excel-e2e.mjs') != ''
+        run: |
+          python3 -m pip install -q --break-system-packages openpyxl || python3 -m pip install -q openpyxl
+          node tests/admin-excel-e2e.mjs http://localhost:4173
       - name: Desk alert center API checks (주문 확정 · 알림센터 서버 API)
         if: always() && hashFiles('tests/desk-e2e.mjs') != ''
         run: node tests/desk-e2e.mjs http://localhost:4173
@@ -133,6 +138,7 @@ jobs:
           for f in desk-summary.txt desk-live-summary.txt desk-ui-summary.txt; do
             if [ -f "$f" ]; then echo "::notice title=$f::$(sed ':a;N;$!ba;s/\n/%0A/g' "$f")"; fi
           done
+          if [ -f admin-excel-summary.txt ]; then echo "::notice title=Admin excel summary::$(sed ':a;N;$!ba;s/\n/%0A/g' admin-excel-summary.txt)"; fi
           if [ -f admin-editor-summary.txt ]; then echo "::notice title=Admin editor summary::$(sed ':a;N;$!ba;s/\n/%0A/g' admin-editor-summary.txt)"; fi
           if [ -f admin-users-summary.txt ]; then echo "::notice title=Admin users summary::$(sed ':a;N;$!ba;s/\n/%0A/g' admin-users-summary.txt)"; fi
           if [ -f delivery-summary.txt ]; then echo "::notice title=Delivery summary::$(sed ':a;N;$!ba;s/\n/%0A/g' delivery-summary.txt)"; fi

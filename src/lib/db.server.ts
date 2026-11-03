@@ -143,6 +143,8 @@ export type Product = {
   promoPrice?: number | null;
   /** 상품 사진 전체 (첫 장 = 대표 사진 photo). 상세 화면에서 넘겨 봄 */
   photos?: string[];
+  /** 마지막 수정 시각 (관리자 데이터에만 포함) */
+  updatedAt?: string;
   packOptions: PackOption[];
 };
 
@@ -676,7 +678,7 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
   const [categoryRows, subRows, productRows, optionRows, settingsRows] = await Promise.all([
     database.prepare("SELECT name, sort_order, is_promo, image, storage FROM categories ORDER BY sort_order, name").all(),
     database.prepare("SELECT category_name, name, sort_order FROM subcategories ORDER BY category_name, sort_order, name").all(),
-    database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone, description, servings_per_unit, box_contents, servings_per_box, storage_method, price_list_visible, price_display_mode, hidden, promo_price, photos FROM products ORDER BY sort_order, name").all(),
+    database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone, description, servings_per_unit, box_contents, servings_per_box, storage_method, price_list_visible, price_display_mode, hidden, promo_price, photos, updated_at FROM products ORDER BY sort_order, name").all(),
     database.prepare("SELECT product_id, label, spec, price, price_a, price_b, step, sort_order FROM pack_options ORDER BY product_id, sort_order, id").all(),
     database.prepare("SELECT key, value FROM app_settings").all(),
   ]);
@@ -739,6 +741,7 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
     hidden: Number(row.hidden ?? 0) === 1,
     promoPrice: row.promo_price == null ? null : Number(row.promo_price),
     photos: productPhotos(String(row.photo ?? ""), row.photos),
+    ...(options.includeHidden ? { updatedAt: String(row.updated_at ?? "") } : {}),
     packOptions: optionsByProduct.get(String(row.id)) ?? [],
   }));
 
