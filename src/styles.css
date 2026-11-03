@@ -4632,3 +4632,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .sms-row .sms-del { grid-column: 2; grid-row: 1; }
 }
 .manual-submitted { margin-left: 10px; color: #0b6a39; font-weight: 800; }
+.sms-learn.fail { color: #c2410c; }
+.sms-alias-add { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(200px, 1.6fr) auto; gap: 6px; align-items: start; margin: 8px 0; }
+.sms-alias-add input { width: 100%; min-height: 36px; padding: 0 8px; border: 1px solid #cbd5cf; border-radius: 8px; font-size: 14px; }
+.sms-alias-picked { display: flex; align-items: center; gap: 6px; min-height: 36px; flex-wrap: wrap; }
+.sms-alias-picked button { border: 1px solid #cbd5cf; border-radius: 6px; background: #fff; cursor: pointer; }
+@media (max-width: 760px) { .sms-alias-add { grid-template-columns: 1fr; } }

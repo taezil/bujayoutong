@@ -100,10 +100,24 @@ export function splitItems(text: string, consumed: string) {
   body = body.replace(/(\d+(?:\.\d+)?\s*(?:박스|봉지|봉|팩|개|통|캔|판|병))(?=[가-힣])(?!요|이요|씩|만)/g, "$1\n");
   // "해물모듬2박스 4종혼합야채3" 처럼 한 줄에 띄어쓰기로 나열한 경우: 수량(+단위) 뒤 띄어쓰기에서 나눔
   body = body.replace(new RegExp(`([가-힣a-zA-Z)\\]]\\s*\\d+(?:\\.\\d+)?\\s*(?:${UNIT_RE})?(?:${TAIL_RE.source.slice(0, -1)})?)[ \\t]+(?=\\d*[가-힣a-zA-Z])`, "gi"), "$1\n");
-  return body
-    .split(/[\n\r.,，、·;]+|\s{2,}/)
+  // 마침표는 숫자 사이(1.5kg)가 아닐 때만 나눔
+  const parts = body
+    .split(/[\n\r,，、·;]+|(?<!\d)\.|\.(?!\d)|\s{2,}/)
     .map((part) => part.trim())
-    .filter((part) => part && /[가-힣a-zA-Z]/.test(part) && part.replace(TAIL_RE, "").trim());
+    .filter((part) => part && part.replace(TAIL_RE, "").trim());
+  // "종이컵1.박스", "종이컵.1박스" 처럼 단위·수량만 떨어져 나온 조각은 앞 품목에 붙임
+  const unitOnly = new RegExp(`^(\\d+(?:\\.\\d+)?)?\\s*(${UNIT_RE})?\\s*(${TAIL_RE.source.slice(0, -1)})?$`, "i");
+  const out: string[] = [];
+  for (const part of parts) {
+    if (unitOnly.test(part) && out.length) {
+      const prev = out[out.length - 1];
+      // 숫자 뒤에 숫자가 오면 띄어서 붙임 ("1.5kg" + "2통" → "1.5kg 2통")
+      out[out.length - 1] = /\d$/.test(prev) && /^\d/.test(part) ? `${prev} ${part}` : `${prev}${part}`;
+      continue;
+    }
+    if (/[가-힣a-zA-Z]/.test(part) && !unitOnly.test(part)) out.push(part);
+  }
+  return out;
 }
 
 function pickOption(product: Product, unitWord: string) {

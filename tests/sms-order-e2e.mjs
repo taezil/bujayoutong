@@ -19,8 +19,8 @@ async function main() {
   const core = (n) => n.replace(/\([^)]*\)/g, "").replace(/\s+/g, "");
   const plain = store.products.filter((p) => !p.hidden && !p.soldout && p.packOptions.length >= 1 && /^[가-힣]{3,8}$/.test(core(p.name)));
   const unique = plain.filter((p) => plain.filter((q) => core(q.name).includes(core(p.name)) || core(p.name).includes(core(q.name))).length === 1);
-  const [pA, pB, pTarget] = [unique[3], unique[11], unique[20]];
-  const sms = `120-13\n${core(pA.name)}2.${core(pB.name)}1박스요.동전어묵1봉`;
+  const [pA, pB, pTarget, pTeach] = [unique[3], unique[11], unique[20], unique[25]];
+  const sms = `120-13\n${core(pA.name)}2.${core(pB.name)}1.박스요.동전어묵1봉`;
 
   const browser = await chromium.launch();
   const context = await browser.newContext({ baseURL: BASE, viewport: { width: 1280, height: 1000 } });
@@ -41,10 +41,10 @@ async function main() {
     const selected = await page.locator(".manual-customer").inputValue();
     check("문자 첫 줄 120-13 → 거래처 자동 선택", selected === "C-ERP-00124" && note.includes("120-13"), `${selected} / ${note}`);
     const rows = box.locator(".sms-row");
-    check("품목 3줄로 나눔", (await rows.count()) === 3, String(await rows.count()));
+    check("품목 3줄로 나눔 ('1.박스' 처럼 떨어진 단위는 앞 품목에 붙임)", (await rows.count()) === 3, (await box.locator(".sms-raw code").allInnerTexts()).join(" | "));
     const rowA = rows.nth(0), rowB = rows.nth(1), rowX = rows.nth(2);
     check(`'${core(pA.name)}2' → ${pA.name} 자동, 수량 2`, (await rowA.getAttribute("class")).includes("s-auto") && (await rowA.locator(".sms-product select").inputValue()) === pA.id && (await rowA.locator(".sms-qty input").inputValue()) === "2");
-    check(`'${core(pB.name)}1박스요' → ${pB.name} 자동, 수량 1 ('요' 무시)`, (await rowB.getAttribute("class")).includes("s-auto") && (await rowB.locator(".sms-qty input").inputValue()) === "1");
+    check(`'${core(pB.name)}1.박스요' → ${pB.name} 자동, 수량 1 ('요' 무시)`, (await rowB.getAttribute("class")).includes("s-auto") && (await rowB.locator(".sms-qty input").inputValue()) === "1");
     const xClass = await rowX.getAttribute("class");
     check("'동전어묵1봉' → 자동으로 넣지 않음(빨강 또는 노랑 확인)", !xClass.includes("s-auto"), xClass);
     await page.screenshot({ path: "desk-shot-sms-1-read.png" });
@@ -52,7 +52,10 @@ async function main() {
     // 못 찾은 품목 직접 검색해서 고르기 → 연관어 저장 예정 표시
     await rowX.locator(".sms-search input").fill(pTarget.name.slice(0, 4));
     await rowX.locator(".sms-search-list button", { hasText: pTarget.name }).first().click();
-    check("직접 고르면 연관어 저장 안내", (await rowX.locator(".sms-learn").innerText()).includes("동전어묵"));
+    await rowX.locator(".sms-learn", { hasText: "저장됨" }).waitFor({ timeout: 10000 });
+    check("직접 고르면 주문 전에 바로 연관어 저장", (await rowX.locator(".sms-learn").innerText()).includes("동전어묵"));
+    const ctxNow = await (await fetch(`${BASE}/api/admin/orders`, { method: "POST", headers: { cookie, "content-type": "application/json", origin: BASE }, body: JSON.stringify({ action: "sms-context", customerId: "" }) })).json();
+    check("주문 접수 전 서버에 연관어 있음", ctxNow.aliases.some((a) => a.alias === "동전어묵" && a.productId === pTarget.id), JSON.stringify(ctxNow.aliases).slice(0, 200));
     await box.getByRole("button", { name: /주문 목록에 담기/ }).click();
     const items = await page.locator(".manual-items").innerText();
     check("주문 목록에 3품목 담김", items.includes(pA.name) && items.includes(pB.name) && items.includes(pTarget.name), items.replace(/\n/g, " "));
@@ -72,8 +75,20 @@ async function main() {
     check("다음부터 '동전어묵' 자동으로 찾음(연관어)", (await again.getAttribute("class")).includes("s-auto") && (await again.locator(".sms-product select").inputValue()) === pTarget.id && (await again.locator(".sms-qty input").inputValue()) === "3");
     await page.screenshot({ path: "desk-shot-sms-2-alias.png" });
 
-    // 연관어 관리: 목록 · 삭제
+    // 연관어 관리: 주문 없이 미리 가르치기 · 목록 · 삭제
     await box.getByRole("button", { name: "연관어 관리" }).click();
+    const add = box.locator(".sms-alias-add");
+    await add.waitFor({ timeout: 10000 });
+    await add.locator("input").first().fill("테스트별칭");
+    await add.locator(".sms-search input").fill(pTeach.name.slice(0, 4));
+    await add.locator(".sms-search-list button", { hasText: pTeach.name }).first().click();
+    await add.getByRole("button", { name: "연관어 저장" }).click();
+    await box.locator(".sms-aliases li", { hasText: "테스트별칭" }).first().waitFor({ timeout: 10000 });
+    await box.locator("textarea").fill("120-13\n테스트별칭2박스");
+    await box.getByRole("button", { name: "문자 읽기" }).click();
+    await page.waitForTimeout(1000);
+    const taught = box.locator(".sms-row").first();
+    check("주문 없이 가르친 연관어로 자동", (await taught.getAttribute("class")).includes("s-auto") && (await taught.locator(".sms-product select").inputValue()) === pTeach.id && (await taught.locator(".sms-qty input").inputValue()) === "2");
     const aliasList = box.locator(".sms-aliases li", { hasText: "동전어묵" });
     await aliasList.first().waitFor({ timeout: 10000 });
     check("연관어 관리 목록에 표시", (await aliasList.count()) >= 1, await box.locator(".sms-aliases").innerText());

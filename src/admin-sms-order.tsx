@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { Product, StoreData } from "./lib/db.server";
 import { normalizeAlias, normalizeName, pickOption, readSms, type SmsAlias, type SmsCustomer, type SmsLine } from "./lib/sms-order";
 
-type Row = SmsLine & { key: string; picked: boolean };
+type Row = SmsLine & { key: string; picked: boolean; saved?: "saving" | "ok" | "fail" };
 export type SmsItem = { productId: string; productName: string; optionLabel: string; quantity: number };
 
 async function post<T>(body: Record<string, unknown>): Promise<T> {
@@ -49,6 +49,9 @@ export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd,
   const [busy, setBusy] = useState(false);
   const [aliases, setAliases] = useState<Array<SmsAlias & { useCount?: number }>>([]);
   const [showAliases, setShowAliases] = useState(false);
+  const [readFor, setReadFor] = useState("");
+  const [newWord, setNewWord] = useState("");
+  const [newProduct, setNewProduct] = useState<Product | null>(null);
   const byId = useMemo(() => new Map(store.products.map((p) => [p.id, p])), [store.products]);
   const selectable = useMemo(() => store.products.filter((p) => !p.hidden), [store.products]);
 
@@ -62,6 +65,7 @@ export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd,
       const targetId = first.customerId || customerId;
       const ctx = await post<{ aliases: Array<SmsAlias & { useCount: number }>; history: Array<{ productId: string; count: number }> }>({ action: "sms-context", customerId: targetId });
       setAliases(ctx.aliases);
+      setReadFor(targetId);
       const result = readSms(text, customers, { products: store.products, aliases: ctx.aliases, history: new Map(ctx.history.map((h) => [h.productId, h.count])), customerId: targetId });
       if (first.customerId && first.customerId !== customerId) onCustomer(first.customerId);
       const found = first.customer;
@@ -88,21 +92,43 @@ export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd,
     setRows((current) => current.map((row) => row.key === key ? { ...row, ...patch } : row));
   }
 
-  function choose(row: Row, product: Product) {
-    update(row.key, { productId: product.id, optionLabel: pickOption(product, row.unitWord), picked: true, status: "auto" });
+  // 직접 고르면 바로 연관어로 저장 (주문 접수를 안 해도 학습됨)
+  async function choose(row: Row, product: Product) {
+    const optionLabel = pickOption(product, row.unitWord);
+    const alias = normalizeAlias(row.query);
+    update(row.key, { productId: product.id, optionLabel, picked: true, status: "auto", saved: alias ? "saving" : undefined });
+    if (!alias) return;
+    try {
+      await post({ action: "alias-save", alias, productId: product.id, optionLabel, customerId: readFor || customerId });
+      update(row.key, { saved: "ok" });
+      setAliases((current) => [...current.filter((a) => !(a.alias === alias && a.customerId === "")), { alias, customerId: "", productId: product.id, optionLabel }]);
+    } catch {
+      update(row.key, { saved: "fail" });
+    }
+  }
+
+  async function addAlias() {
+    const alias = normalizeAlias(newWord);
+    if (!alias || !newProduct) return;
+    try {
+      await post({ action: "alias-save", alias, productId: newProduct.id, optionLabel: pickOption(newProduct, ""), customerId: "" });
+      setNewWord("");
+      setNewProduct(null);
+      await loadAliases();
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "연관어를 저장하지 못했습니다.");
+    }
   }
 
   async function addAll() {
     const ready = rows.filter((row) => row.productId && row.quantity > 0);
     const skipped = rows.length - ready.length;
     if (!ready.length) { onError("담을 품목이 없습니다. 상품을 골라 주세요."); return; }
-    // 직접 고른 품목은 연관어로 저장 (다음부터 자동)
-    const toSave = ready.filter((row) => row.picked && normalizeAlias(row.query));
-    await Promise.all(toSave.map((row) => post({ action: "alias-save", alias: normalizeAlias(row.query), productId: row.productId, optionLabel: row.optionLabel, customerId }).catch(() => undefined)));
+    const toSave = ready.filter((row) => row.saved === "ok");
     onAdd(ready.map((row) => ({ productId: row.productId, productName: byId.get(row.productId)?.name ?? "", optionLabel: row.optionLabel, quantity: row.quantity })));
     setRows([]);
     setText("");
-    setNote(`${ready.length}개 품목을 담았습니다.${toSave.length ? ` 연관어 ${toSave.length}개 저장.` : ""}${skipped ? ` 상품을 고르지 않은 ${skipped}개는 빠졌습니다.` : ""}`);
+    setNote(`${ready.length}개 품목을 담았습니다.${toSave.length ? ` (연관어 ${toSave.length}개는 고를 때 이미 저장됨)` : ""}${skipped ? ` 상품을 고르지 않은 ${skipped}개는 빠졌습니다.` : ""}`);
   }
 
   async function loadAliases() {
@@ -148,14 +174,14 @@ export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd,
                 <div className="sms-raw"><span className="sms-badge">{!row.productId ? "🔴" : row.status === "auto" ? "✅" : "🟡"}</span><code>{row.raw}</code></div>
                 <div className="sms-product">
                   {row.candidates.length > 0 && (
-                    <select value={row.productId} onChange={(e) => { const p = byId.get(e.target.value); if (p) choose(row, p); else update(row.key, { productId: "", optionLabel: "" }); }}>
+                    <select value={row.productId} onChange={(e) => { const p = byId.get(e.target.value); if (p) void choose(row, p); else update(row.key, { productId: "", optionLabel: "" }); }}>
                       {!row.productId && <option value="">— 상품 고르기 —</option>}
                       {row.productId && !row.candidates.some((c) => c.product.id === row.productId) && product && <option value={product.id}>{product.name}</option>}
                       {row.candidates.map((c) => <option key={c.product.id} value={c.product.id}>{c.product.name}{c.product.soldout ? " (품절)" : ""} · {c.why}</option>)}
                     </select>
                   )}
-                  <ProductSearch products={selectable} onPick={(p) => choose(row, p)} placeholder={row.candidates.length ? "다른 상품 검색" : `'${row.query}' 상품 검색해서 고르기`} />
-                  {row.picked && <small className="sms-learn">'{normalizeAlias(row.query)}' → {product?.name} 연관어로 저장됩니다</small>}
+                  <ProductSearch products={selectable} onPick={(p) => void choose(row, p)} placeholder={row.candidates.length ? "다른 상품 검색" : `'${row.query}' 상품 검색해서 고르기`} />
+                  {row.picked && <small className={`sms-learn${row.saved === "fail" ? " fail" : ""}`}>'{normalizeAlias(row.query)}' → {product?.name} {row.saved === "ok" ? "연관어 저장됨 ✓ (다음부터 자동)" : row.saved === "fail" ? "연관어 저장 실패 — 다시 골라 주세요" : "연관어 저장 중…"}</small>}
                 </div>
                 <div className="sms-qty">
                   <input type="number" min="0" step="any" value={row.quantity} onChange={(e) => update(row.key, { quantity: Math.max(0, Number(e.target.value || 0)) })} />
@@ -176,7 +202,14 @@ export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd,
 
       {showAliases && (
         <div className="sms-aliases">
-          <b>연관어 {aliases.length}개</b> <small>직접 고른 상품이 저장됩니다. 잘못 연결된 것은 지우세요.</small>
+          <b>연관어 {aliases.length}개</b> <small>문자에서 직접 고른 상품이 바로 저장됩니다. 주문 없이 여기서 미리 가르칠 수도 있습니다.</small>
+          <div className="sms-alias-add">
+            <input value={newWord} placeholder="문자에 쓰는 말 (예: 동전어묵)" onChange={(e) => setNewWord(e.target.value)} />
+            {newProduct
+              ? <span className="sms-alias-picked">→ <b>{newProduct.name}</b> <button type="button" onClick={() => setNewProduct(null)}>바꾸기</button></span>
+              : <ProductSearch products={selectable} onPick={setNewProduct} placeholder="연결할 상품 검색" />}
+            <button type="button" className="admin-primary" disabled={!normalizeAlias(newWord) || !newProduct} onClick={() => void addAlias()}>연관어 저장</button>
+          </div>
           <ul>
             {aliases.map((a) => <li key={`${a.alias}|${a.customerId}`}>
               <code>{a.alias}</code> → {byId.get(a.productId)?.name ?? "(삭제된 상품)"} <small>{a.customerId ? customerName(a.customerId) : "모든 거래처"}{a.useCount ? ` · ${a.useCount}회` : ""}</small>
