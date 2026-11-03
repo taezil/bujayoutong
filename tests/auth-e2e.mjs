@@ -265,6 +265,8 @@ async function main() {
     await page.waitForTimeout(1500);
     check("[화면] 비로그인 / → 로그인 화면만", (await page.locator(".od-card, .od-search").count()) === 0 && productRequests.every((code) => code === 401),
       `cards ${await page.locator(".od-card").count()}, store responses ${JSON.stringify(productRequests)}`);
+    const staffLink = page.locator('a[href="/driver"]');
+    check("[화면] 첫 화면에 배송기사·직원 로그인 링크", (await staffLink.count()) === 1 && (await staffLink.innerText()).includes("배송기사"));
     const idMode = await page.locator('input[name="username"]').getAttribute("inputmode");
     const pwMode = await page.locator('input[name="password"]').getAttribute("inputmode");
     check("[화면] 아이디/비밀번호 숫자 키패드", idMode === "numeric" && pwMode === "numeric", `${idMode}/${pwMode}`);

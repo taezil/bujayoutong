@@ -520,6 +520,7 @@ function OrderLogin({
           <span>아이디가 120-13이라면 하이픈 없이 12013만 입력해도 됩니다.</span>
           <span>한 번 로그인하면 같은 휴대폰에서는 로그인 상태가 유지됩니다.</span>
         </div>
+        <a className="order-login-staff" href="/driver">🚚 배송기사 · 직원 로그인 ›</a>
       </section>
     </main>
   </div>;
