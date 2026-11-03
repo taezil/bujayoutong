@@ -248,6 +248,8 @@ async function ensureOperationsSchema(database: D1Database) {
   await database.exec("CREATE TABLE IF NOT EXISTS admin_users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL, auth_salt TEXT NOT NULL DEFAULT '', auth_hash TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))");
   await ensureColumn(database, "admin_sessions", "admin_user_id", "TEXT NOT NULL DEFAULT ''");
   await database.exec("CREATE INDEX IF NOT EXISTS idx_orders_delivery_date ON orders(delivery_date, status)");
+  // 문자 주문 연관어: "동전어묵" → 오뎅명품조림볼. customer_id='' 은 모든 거래처 공통
+  await database.exec("CREATE TABLE IF NOT EXISTS product_aliases (alias TEXT NOT NULL, customer_id TEXT NOT NULL DEFAULT '', product_id TEXT NOT NULL, option_label TEXT NOT NULL DEFAULT '', use_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY(alias, customer_id))");
   await database.exec("INSERT OR IGNORE INTO customer_user_customers(customer_user_id, customer_id, sort_order) SELECT id, customer_id, 0 FROM customer_users");
 
   await database.exec("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL DEFAULT 'system', actor_id TEXT NOT NULL DEFAULT '', actor_name TEXT NOT NULL DEFAULT '', action TEXT NOT NULL, entity_type TEXT NOT NULL DEFAULT '', entity_id TEXT NOT NULL DEFAULT '', summary TEXT NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL DEFAULT (datetime('now')))");

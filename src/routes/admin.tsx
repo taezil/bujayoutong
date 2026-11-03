@@ -6,6 +6,7 @@ import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
 import { thumbUrl } from "../lib/photo-url";
 import { generateMissingThumbnails, preparePhoto, uploadThumbnail, type ThumbnailProgress } from "../lib/photo-thumbs";
 import { photoKeyFromUrl } from "../lib/photo-url";
+import { SmsOrderPaste } from "../admin-sms-order";
 import { LocationsView, ZonesView } from "../admin-zones";
 
 export const Route = createFileRoute("/admin")({
@@ -41,7 +42,7 @@ function orderPeriod(value: string) {
   return hour < 12 ? "오전발주" : "오후발주";
 }
 
-type AdminView = "products" | "categories" | "zones" | "locations" | "settings";
+type AdminView = "products" | "orders" | "categories" | "zones" | "locations" | "settings";
 type StatusFilter = "all" | "selling" | "soldout" | "hidden" | "promo";
 const PAGE_SIZE = 20;
 
@@ -318,6 +319,7 @@ function AdminPage() {
   }
   const menu: Array<{ id: AdminView; label: string; icon: string }> = [
     { id: "products", label: "상품 관리", icon: "📦" },
+    { id: "orders", label: "주문 입력", icon: "📩" },
     { id: "categories", label: "카테고리 관리", icon: "🗂" },
     { id: "zones", label: "구역 · 배송 마감", icon: "🚚" },
     { id: "locations", label: "창고 위치", icon: "📍" },
@@ -356,6 +358,7 @@ function AdminPage() {
             onNotice={setNotice}
           />
         )}
+        {view === "orders" && <OrderOpsPanel store={store} onError={setError} entryOnly />}
         {view === "categories" && <CategoryView store={store} onSaved={loadStore} onError={setError} onNotice={setNotice} />}
         {view === "zones" && <ZonesView onError={setError} onNotice={setNotice} />}
         {view === "locations" && <LocationsView store={store} onReload={loadStore} onError={setError} onNotice={setNotice} />}
@@ -1329,7 +1332,8 @@ function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
   );
 }
 
-function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: string) => void }) {
+// entryOnly: 관리자 '주문 입력' 메뉴 — 문자 붙여넣기 + 직접 입력만 (주문 처리·출력은 사무실 알림센터에서)
+function OrderOpsPanel({ store, onError, entryOnly = false }: { store: StoreData; onError: (value: string) => void; entryOnly?: boolean }) {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [customers, setCustomers] = useState<AdminCustomer[]>([]);
   const [customerId, setCustomerId] = useState("");
@@ -1342,13 +1346,14 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
   const [productSearch, setProductSearch] = useState(product?.name ?? "");
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [deliveryDate, setDeliveryDate] = useState(kstDateLocal(0));
+  const [submitted, setSubmitted] = useState("");
 
   async function load() {
     const [or, cr] = await Promise.all([
-      fetch("/api/admin/orders", { cache: "no-store" }),
+      entryOnly ? Promise.resolve(null) : fetch("/api/admin/orders", { cache: "no-store" }),
       fetch("/api/admin/customers", { cache: "no-store" }),
     ]);
-    if (or.ok) setOrders(((await or.json()) as { orders: AdminOrder[] }).orders);
+    if (or?.ok) setOrders(((await or.json()) as { orders: AdminOrder[] }).orders);
     if (cr.ok) {
       const list = ((await cr.json()) as { customers: AdminCustomer[] }).customers;
       setCustomers(list);
@@ -1357,6 +1362,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
   }
   useEffect(() => {
     void load();
+    if (entryOnly) return;
     const timer = window.setInterval(() => void load(), 5000);
     return () => window.clearInterval(timer);
   }, []);
@@ -1386,6 +1392,8 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
       return;
     }
     if (!response.ok) { onError(data.error || "주문 접수에 실패했습니다."); return; }
+    const customer = customers.find((c) => c.id === customerId);
+    setSubmitted(`✅ ${customer ? `${customer.code} ${customer.name}` : ""} 주문 ${manualItems.length}품목 접수 완료 (${deliveryDate} ${orderPeriodValue === "PM" ? "오후" : "오전"})`);
     setManualItems([]); await load();
   }
 
@@ -1408,8 +1416,9 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
 
   return (
     <section className="admin-section ops-section" id="admin-orders">
-      <div className="admin-section-head"><div><h2>주문 · 전표출력 · 출고</h2><p>앱/전화/문자 주문을 한 곳에서 처리하고 지역별 신규분만 출력합니다.</p></div><div className="ops-metric"><b>{active.length}</b><span>출고대기</span><b>{active.filter((o) => !o.printedAt).length}</b><span>미출력</span></div></div>
+      {entryOnly ? <div className="admin-section-head"><div><h2>주문 입력</h2><p>전화·문자로 받은 주문을 직원이 대신 넣습니다. 앱 주문과 똑같이 알림센터·상차준비표에 나옵니다.</p></div></div> : <div className="admin-section-head"><div><h2>주문 · 전표출력 · 출고</h2><p>앱/전화/문자 주문을 한 곳에서 처리하고 지역별 신규분만 출력합니다.</p></div><div className="ops-metric"><b>{active.length}</b><span>출고대기</span><b>{active.filter((o) => !o.printedAt).length}</b><span>미출력</span></div></div>}
 
+      {!entryOnly && <>
       <div className="region-cards">
         {regions.map((region) => {
           const rows = active.filter((o) => (o.region || "미지정") === region);
@@ -1431,7 +1440,10 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
         {!regions.length && <p className="ops-empty">현재 출고대기 주문이 없습니다.</p>}
       </div>
 
+      </>}
       <div className="manual-order-box">
+        <SmsOrderPaste store={store} customers={customers} customerId={customerId} onCustomer={setCustomerId} onError={onError}
+          onAdd={(items) => setManualItems((current) => [...current, ...items])} />
         <div className="manual-order-title"><div><h3>주문발주 입력</h3><p>직원이 대신 입력한 주문도 앱 주문과 동일하게 재고·미수·전표 흐름에 반영됩니다.</p></div></div>
         <div className="manual-order-controls">
           <select className="manual-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>{customers.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
@@ -1467,9 +1479,10 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
           <button type="button" className="manual-add-item" onClick={addManualItem}>품목 추가</button>
         </div>
         {manualItems.length > 0 && <div className="manual-items">{manualItems.map((item, index) => <span key={`${item.productId}-${index}`}>{item.productName} {item.quantity}{item.optionLabel}<button type="button" onClick={() => setManualItems((x) => x.filter((_, i) => i !== index))}>×</button></span>)}</div>}
-        <div className="manual-submit-row"><button className="admin-primary" type="button" disabled={!customerId || !manualItems.length} onClick={() => void createManualOrder(false)}>이 주문 접수</button></div>
+        <div className="manual-submit-row"><button className="admin-primary" type="button" disabled={!customerId || !manualItems.length} onClick={() => { setSubmitted(""); void createManualOrder(false); }}>이 주문 접수</button>{submitted && <span className="manual-submitted">{submitted}</span>}</div>
       </div>
 
+      {!entryOnly && <>
       <div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>주문</th><th>지역</th><th>품목</th><th>금액</th><th>상태/처리</th></tr></thead><tbody>
         {orders.slice(0, 80).map((o) => <tr key={o.id} data-order-id={o.id}>
           <td><b>{o.customerCode} · {o.customerName} {o.isAdditional && <em className="additional-badge">🚨 추가발주</em>}</b><span>배송 {o.deliveryDate || "미지정"} · <strong className="order-period-badge">{o.orderPeriod === "PM" ? "오후발주" : "오전발주"}</strong> · {o.createdAt} · {o.createdByStaffName || o.source}</span></td><td>{o.region || "미지정"}</td>
@@ -1478,6 +1491,7 @@ function OrderOpsPanel({ store, onError }: { store: StoreData; onError: (value: 
           <td><div className="row-actions"><span>{o.status === "shipped" ? "출고완료" : o.status === "cancelled" ? "취소" : o.printedAt ? "출력완료" : "접수"}</span>{o.status !== "shipped" && o.status !== "cancelled" && <><button type="button" onClick={() => { if (window.confirm(`${o.customerName} 주문을 출고확정할까요? 재고와 미수금이 반영됩니다.`)) void action({ action: "ship", id: o.id }); }}>출고확정</button><button type="button" onClick={() => { if (window.confirm("이 주문을 취소할까요?")) void action({ action: "cancel", id: o.id }); }}>취소</button></>}</div></td>
         </tr>)}
       </tbody></table></div>
+      </>}
     </section>
   );
 }
