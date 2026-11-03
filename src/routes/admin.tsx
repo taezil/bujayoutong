@@ -148,7 +148,7 @@ function ExcelTool({ store, onReload, onNotice }: { store: StoreData; onReload: 
   }
 
   return (
-    <div className="adm-thumb-tool adm-excel-tool">
+    <div className="adm-excel-tool">
       <button type="button" disabled={Boolean(busy)} onClick={() => void download()}>⬇ 엑셀 내려받기</button>
       <label className={`adm-excel-upload${busy ? " disabled" : ""}`}>
         ⬆ 엑셀 올려서 일괄 수정

@@ -4568,7 +4568,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .adm-priceb-foot { display: grid; gap: 2px; }
 
 /* 상품 엑셀 내려받기 · 일괄 수정 */
-.adm-excel-tool { background: #f5f8ff; border-color: #dbe4f5; }
+.adm-excel-tool { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 10px; padding: 10px 12px; border: 1px solid #dbe4f5; border-radius: 10px; background: #f5f8ff; }
+.adm-excel-tool > span { color: #4a5a50; font-size: 13px; }
 .adm-excel-tool > button, .adm-excel-upload { border: 0; border-radius: 8px; padding: 8px 14px; background: #1d4ed8; color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; }
 .adm-excel-upload { position: relative; overflow: hidden; display: inline-flex; align-items: center; background: #0b6a39; }
 .adm-excel-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
