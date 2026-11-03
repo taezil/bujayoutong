@@ -4542,3 +4542,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .alerts-steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: #374151; font-size: 14.5px; line-height: 1.5; }
 .alerts-message { margin: 0; padding: 12px 14px; border-radius: 12px; background: #eaf1ff; color: #1e3a8a; font-weight: 700; }
 .alerts-error { margin: 0; padding: 12px 14px; border-radius: 12px; background: #fdecec; color: #b42318; font-weight: 700; }
+
+/* 관리자 계정: 비밀번호 미설정 표시 */
+.admin-nopass { color: #c2410c; font-weight: 800; }

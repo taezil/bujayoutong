@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { adminActorFor, getAdminIdentity, isAdmin, resetStaffPin, validMutationOrigin } from "../../../lib/auth.server";
+import { ADMIN_PASSWORD_MIN, adminActorFor, changeOwnAdminPassword, getAdminIdentity, isAdmin, resetStaffPin, validMutationOrigin } from "../../../lib/auth.server";
 import { makeCustomerPasswordCredential } from "../../../lib/password.server";
 import { db, ensureDatabase } from "../../../lib/db.server";
 import { cleanText } from "../../../lib/admin-validation.server";
@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/admin/staff")({
       await ensureDatabase();
       const rows=await db().prepare("SELECT id,username,display_name,role,active,updated_at FROM staff_users WHERE id<>'S-DESK-ADMIN' AND id NOT LIKE 'S-ADMINUSER-%' ORDER BY CASE role WHEN 'ADMIN' THEN 0 ELSE 1 END, display_name").all();
       // 관리자 계정(admin + 추가 관리자) 목록
-      const admins=await db().prepare("SELECT id,username,display_name,active,updated_at FROM admin_users ORDER BY username").all();
+      const admins=await db().prepare("SELECT id,username,display_name,active,updated_at,(auth_hash<>'') AS has_password FROM admin_users ORDER BY username").all();
       const me=await getAdminIdentity(request);
       return Response.json({staff:rows.results,adminUsers:admins.results,me},{headers:{"Cache-Control":"no-store"}});
     },
@@ -23,25 +23,45 @@ export const Route = createFileRoute("/api/admin/staff")({
         const body=await request.json() as Record<string,unknown>; const action=cleanText(body.action,30); const id=cleanText(body.id,80);
         const actor=await adminActorFor(request);
 
+        // ---- 내 비밀번호 변경 (admin 포함, 로그인한 본인) ----
+        if(action==="my-password"){
+          const me=await changeOwnAdminPassword(request,String(body.currentPassword??""),String(body.password??""));
+          await writeAudit({actor,action:"admin_own_password",entityType:"admin_user",entityId:me.id,summary:`${me.displayName} 본인 비밀번호 변경`});
+          return Response.json({ok:true});
+        }
+
         // ---- 관리자 계정 (admin 외 추가 관리자: 모두 같은 전체 권한) ----
         if(action==="admin-create"){
           const username=cleanText(body.username,40).toLowerCase();
           const password=cleanText(body.password,64);
+          const displayName=cleanText(body.displayName,40)||username;
           if(!/^[a-z0-9._-]{2,40}$/.test(username)||username==="admin") throw new Error("아이디는 영문 소문자·숫자로 2자 이상 입력해 주세요. (admin 은 사용할 수 없습니다)");
-          if(password.length<8) throw new Error("비밀번호는 8자 이상으로 정해 주세요.");
+          if(password.length<ADMIN_PASSWORD_MIN) throw new Error(`비밀번호는 ${ADMIN_PASSWORD_MIN}자 이상으로 정해 주세요.`);
           if(await db().prepare("SELECT id FROM admin_users WHERE lower(username)=? LIMIT 1").bind(username).first()) throw new Error("이미 있는 관리자 아이디입니다.");
           const credential=await makeCustomerPasswordCredential(password);
           const newId=`A-${crypto.randomUUID()}`;
-          await db().prepare("INSERT INTO admin_users(id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,1)").bind(newId,username,username,credential.salt,credential.hash).run();
+          await db().prepare("INSERT INTO admin_users(id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,1)").bind(newId,username,displayName,credential.salt,credential.hash).run();
           await writeAudit({actor,action:"admin_user_create",entityType:"admin_user",entityId:newId,summary:`관리자 계정 ${username} 추가`});
           return Response.json({ok:true,id:newId});
+        }
+        if(action==="admin-rename"){
+          const displayName=cleanText(body.displayName,40);
+          if(!displayName) throw new Error("이름(호칭)을 입력해 주세요.");
+          const target=await db().prepare("SELECT id,username FROM admin_users WHERE id=?").bind(id).first<{id:string;username:string}>();
+          if(!target) throw new Error("관리자 계정을 찾을 수 없습니다.");
+          await db().batch([
+            db().prepare("UPDATE admin_users SET display_name=?,updated_at=datetime('now') WHERE id=?").bind(displayName,id),
+            db().prepare("UPDATE staff_users SET display_name=? WHERE id=?").bind(displayName,`S-ADMINUSER-${id}`),
+          ]);
+          await writeAudit({actor,action:"admin_user_rename",entityType:"admin_user",entityId:id,summary:`관리자 계정 ${target.username} 이름 → ${displayName}`});
+          return Response.json({ok:true});
         }
         if(action==="admin-password"||action==="admin-toggle"){
           const target=await db().prepare("SELECT id,username FROM admin_users WHERE id=?").bind(id).first<{id:string;username:string}>();
           if(!target) throw new Error("관리자 계정을 찾을 수 없습니다.");
           if(action==="admin-password"){
             const password=cleanText(body.password,64);
-            if(password.length<8) throw new Error("비밀번호는 8자 이상으로 정해 주세요.");
+            if(password.length<ADMIN_PASSWORD_MIN) throw new Error(`비밀번호는 ${ADMIN_PASSWORD_MIN}자 이상으로 정해 주세요.`);
             const credential=await makeCustomerPasswordCredential(password);
             const me=await getAdminIdentity(request);
             await db().batch([

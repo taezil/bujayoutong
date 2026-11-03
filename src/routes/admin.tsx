@@ -177,6 +177,18 @@ function AdminPage() {
   if (!store) return <AdminShell><p className="admin-loading">상품을 불러오는 중입니다.</p></AdminShell>;
 
   const staffName = status?.admin?.displayName || "admin";
+  async function changeMyAdminPassword() {
+    const current = window.prompt("지금 비밀번호"); if (!current) return;
+    const next = window.prompt("새 비밀번호 (6자 이상)"); if (!next) return;
+    const again = window.prompt("새 비밀번호를 한 번 더 입력"); if (again === null) return;
+    if (next !== again) { window.alert("새 비밀번호가 서로 다릅니다."); return; }
+    try {
+      await jsonPost("/api/admin/staff", { action: "my-password", currentPassword: current, password: next });
+      window.alert("비밀번호를 바꿨습니다. 다른 기기에서는 새 비밀번호로 다시 로그인해 주세요.");
+    } catch (reason) {
+      window.alert(reason instanceof Error ? reason.message : "비밀번호를 바꾸지 못했습니다.");
+    }
+  }
   const menu: Array<{ id: AdminView; label: string; icon: string }> = [
     { id: "products", label: "상품 관리", icon: "📦" },
     { id: "categories", label: "카테고리 관리", icon: "🗂" },
@@ -198,6 +210,7 @@ function AdminPage() {
         </nav>
         <div className="adm-side-foot">
           <span>{staffName}</span>
+          <button type="button" className="adm-side-link" onClick={() => void changeMyAdminPassword()}>내 비밀번호 변경</button>
           <a href="/admin/accounts" title="거래처 계정 · 가격 그룹(A/B) · 직원 PIN">거래처 계정 관리</a>
           <small className="adm-side-hint">가격 그룹(A/B) · 직원 PIN도 여기서</small>
           <button type="button" onClick={logout}>로그아웃</button>

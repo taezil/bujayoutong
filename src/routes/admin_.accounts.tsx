@@ -9,7 +9,7 @@ export const Route = createFileRoute("/admin_/accounts")({
 });
 
 type AdminStatus={authenticated:boolean;staff?:{displayName:string}|null;admin?:{username:string;displayName:string}|null};
-type AdminUserRow={id:string;username:string;display_name:string;active:number|boolean};
+type AdminUserRow={id:string;username:string;display_name:string;active:number|boolean;has_password?:number|boolean};
 type StaffRow={id:string;username:string;display_name:string;role:"ADMIN"|"DRIVER";active:number|boolean};
 type CustomerRow={id:string;code:string;name:string;active:boolean;priceGroup?:string;region?:string;businessNumber?:string;phone?:string;storePhone?:string;address?:string};
 type CustomerUser={id:string;customer_id:string;username:string;display_name:string;active:number|boolean;customer_code:string;customer_name:string};
@@ -262,6 +262,14 @@ function AccountsPage(){
   const safeAccountPage=Math.min(accountPage,accountPageCount);
   const pagedCustomerUsers=filteredCustomerUsers.slice((safeAccountPage-1)*accountPageSize,safeAccountPage*accountPageSize);
 
+  async function changeMyPassword(){
+    const current=prompt("지금 비밀번호");if(!current)return;
+    const next=prompt("새 비밀번호 (6자 이상)");if(!next)return;
+    const again=prompt("새 비밀번호를 한 번 더 입력");if(again===null)return;
+    if(next!==again){alert("새 비밀번호가 서로 다릅니다.");return;}
+    const r=await act("/api/admin/staff",{action:"my-password",currentPassword:current,password:next});
+    if(r)alert("비밀번호를 바꿨습니다. 다른 기기에서는 새 비밀번호로 다시 로그인해 주세요.");
+  }
   async function logout(){
     await Promise.allSettled([
       fetch("/api/admin/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}),
@@ -275,7 +283,7 @@ function AccountsPage(){
   return <div className="accounts-page">
     <header className="accounts-brandbar">
       <a href="/admin"><img src={BUJA_LOGO_DATA} alt="부자유통"/></a>
-      <div className="session-actions"><span><b>{status?.admin?.displayName||status?.staff?.displayName||"관리자"}</b><small>관리자</small></span><button type="button" onClick={logout}>로그아웃</button></div>
+      <div className="session-actions"><span><b>{status?.admin?.displayName||status?.staff?.displayName||"관리자"}</b><small>관리자</small></span>{status?.admin&&<button type="button" onClick={()=>void changeMyPassword()}>내 비밀번호 변경</button>}<button type="button" onClick={logout}>로그아웃</button></div>
     </header>
     <main className="accounts-main">
       <div className="accounts-head"><div><p>부자유통 통합관리</p><h1>계정관리</h1><span>부자유통 직원과 거래처 계정을 분리해서 관리합니다.</span></div><a href="/admin">← 통합관리자로 돌아가기</a></div>
@@ -286,9 +294,13 @@ function AccountsPage(){
         <div className="accounts-grid admin-users-grid">
           <article className="account-card"><div><span className="role-admin">관리자</span><h3>admin</h3><p>대표 계정</p></div></article>
           {adminUsers.map(row=><article className={`account-card ${!Boolean(row.active)?"disabled":""}`} key={row.id}>
-            <div><span className="role-admin">관리자</span><h3>{row.username}</h3><p>{Boolean(row.active)?"사용 중":"중지됨"}{status?.admin?.username===row.username?" · 지금 로그인":""}</p></div>
+            <div><span className="role-admin">관리자</span><h3>{row.display_name}</h3><p>아이디 {row.username}</p>
+              <p>{!Boolean(row.has_password)?<b className="admin-nopass">비밀번호 미설정 · 로그인 불가</b>:Boolean(row.active)?"사용 중":"중지됨"}{status?.admin?.username===row.username?" · 지금 로그인":""}</p></div>
             <div className="account-card-actions">
-              <button onClick={()=>{const v=prompt(`${row.username} 새 비밀번호 (8자 이상)`);if(v)void act("/api/admin/staff",{action:"admin-password",id:row.id,password:v}).then(r=>{if(r)alert("비밀번호를 바꿨습니다.");});}}>비밀번호 변경</button>
+              <button onClick={()=>{const v=prompt("호칭 (알림센터·기록에 이 이름으로 표시)",row.display_name);if(v&&v.trim())void act("/api/admin/staff",{action:"admin-rename",id:row.id,displayName:v.trim()});}}>이름 변경</button>
+              {!Boolean(row.has_password)
+                ?<button className="primary" onClick={()=>{const v=prompt(`${row.display_name}(${row.username}) 처음 비밀번호 (6자 이상)`,"987654");if(v)void act("/api/admin/staff",{action:"admin-password",id:row.id,password:v}).then(r=>{if(r)alert(`${row.display_name} 비밀번호를 정했습니다.\n아이디 ${row.username} / 비밀번호 ${v}\n로그인 후 「내 비밀번호 변경」으로 바꿀 수 있습니다.`);});}}>비밀번호 정하기</button>
+                :<button onClick={()=>{const v=prompt(`${row.display_name}(${row.username}) 새 비밀번호 (6자 이상)`);if(v)void act("/api/admin/staff",{action:"admin-password",id:row.id,password:v}).then(r=>{if(r)alert("비밀번호를 바꿨습니다.");});}}>비밀번호 변경</button>}
               <button disabled={status?.admin?.username===row.username} onClick={()=>void act("/api/admin/staff",{action:"admin-toggle",id:row.id,active:!Boolean(row.active)})}>{Boolean(row.active)?"계정중지":"계정사용"}</button>
             </div>
           </article>)}

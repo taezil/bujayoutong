@@ -361,13 +361,14 @@ async function markSetting(database: D1Database, key: string, value = "1") {
  * 실패해도 사이트 전체가 멈추지 않도록 오류는 app_settings 에 기록만 합니다.
  */
 async function runAuthMaintenance(database: D1Database) {
-  // 0) 관리자 계정 buja1·buja2·buja3 1회 생성 (초기 비밀번호는 관리자에게 따로 전달, 계정관리에서 변경 가능)
+  // 0) 관리자 계정 buja1(사모님)·buja2(대리님)·buja3(주임님) 1회 생성.
+  //    저장소가 공개라 비밀번호는 코드에 넣지 않음 → 계정관리에서 admin 이 처음 비밀번호를 정함
   try {
     if ((await settingValue(database, "admin_users_seed_v1")) !== "1") {
       await database.batch([
-        database.prepare("INSERT OR IGNORE INTO admin_users(id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,1)").bind("A-BUJA1", "buja1", "buja1", "e88a25491b536a425d69132cb9775f2c", "ad64b9911a41cba055b328806c59712fc2648717f3b423c75002e48455d9bcd9"),
-        database.prepare("INSERT OR IGNORE INTO admin_users(id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,1)").bind("A-BUJA2", "buja2", "buja2", "5fd42824594ba2ff172d5ad89c95f8f5", "f2bd27fc3969dcbbf0533e9652475d87e52be2ba0c0e1ac9cce0c56afcb22eb6"),
-        database.prepare("INSERT OR IGNORE INTO admin_users(id,username,display_name,auth_salt,auth_hash,active) VALUES(?,?,?,?,?,1)").bind("A-BUJA3", "buja3", "buja3", "84e068dc9bbef97a3117b234d8237dcd", "7e1f8ab67c785ffab8cd67c23f4a420d86351387f0818b7d56150b4b6c35c4b3"),
+        database.prepare("INSERT OR IGNORE INTO admin_users(id,username,display_name,auth_salt,auth_hash,active) VALUES('A-BUJA1','buja1','사모님','','',1)"),
+        database.prepare("INSERT OR IGNORE INTO admin_users(id,username,display_name,auth_salt,auth_hash,active) VALUES('A-BUJA2','buja2','대리님','','',1)"),
+        database.prepare("INSERT OR IGNORE INTO admin_users(id,username,display_name,auth_salt,auth_hash,active) VALUES('A-BUJA3','buja3','주임님','','',1)"),
         database.prepare("INSERT OR REPLACE INTO app_settings(key,value) VALUES('admin_users_seed_v1','1')"),
       ]);
     }

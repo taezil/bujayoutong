@@ -34,12 +34,45 @@ async function main() {
   const admin = new Client();
   check("admin 로그인", (await admin.json("/api/admin/login", { method: "POST", json: { username: "admin", password: "ci-admin-password" } })).status === 200);
   const list = await admin.json("/api/admin/staff");
-  const names = (list.body?.adminUsers ?? []).map((u) => u.username);
-  check("기본 관리자 계정 buja1·buja2·buja3 생성됨", ["buja1", "buja2", "buja3"].every((n) => names.includes(n)), names.join(","));
-  const wrong = await new Client().json("/api/admin/login", { method: "POST", json: { username: "buja1", password: "wrong-password" } });
-  check("buja1 틀린 비밀번호 거절", wrong.status === 401);
+  const seeded = Object.fromEntries((list.body?.adminUsers ?? []).map((u) => [u.username, u]));
+  check("buja1 사모님 · buja2 대리님 · buja3 주임님 생성",
+    seeded.buja1?.display_name === "사모님" && seeded.buja2?.display_name === "대리님" && seeded.buja3?.display_name === "주임님",
+    JSON.stringify(Object.values(seeded).map((u) => `${u.username}=${u.display_name}`)));
+  check("처음엔 비밀번호 미설정 → 로그인 불가", !seeded.buja1?.has_password
+    && (await new Client().json("/api/admin/login", { method: "POST", json: { username: "buja1", password: "987654" } })).status === 401);
 
-  const created = await admin.json("/api/admin/staff", { method: "POST", json: { action: "admin-create", username: "cibuja", password: "ci-first-pass" } });
+  // admin 이 처음 비밀번호 987654 지정 → 로그인
+  const setPw = await admin.json("/api/admin/staff", { method: "POST", json: { action: "admin-password", id: seeded.buja1?.id, password: "987654" } });
+  check("admin 이 buja1 처음 비밀번호 987654 지정", setPw.status === 200, JSON.stringify(setPw.body));
+  const samonim = new Client();
+  check("buja1 / 987654 로그인", (await samonim.json("/api/admin/login", { method: "POST", json: { username: "buja1", password: "987654" } })).status === 200);
+  const samSt = await samonim.json("/api/admin/status");
+  check("화면에 '사모님' 표시", samSt.body?.admin?.displayName === "사모님", JSON.stringify(samSt.body?.admin));
+  const deskSam = await new Client().json("/api/desk/login", { method: "POST", json: { username: "buja1", pin: "987654", deviceName: "CI" } });
+  check("알림센터에서도 '사모님'으로 로그인", deskSam.status === 200 && deskSam.body?.staff?.displayName === "사모님", JSON.stringify(deskSam.body?.staff ?? deskSam.body));
+
+  // 본인이 비밀번호 변경
+  const badSelf = await samonim.json("/api/admin/staff", { method: "POST", json: { action: "my-password", currentPassword: "000000", password: "samonim-new" } });
+  check("내 비밀번호 변경: 지금 비밀번호 틀리면 거절", badSelf.status === 400, JSON.stringify(badSelf.body));
+  const self = await samonim.json("/api/admin/staff", { method: "POST", json: { action: "my-password", currentPassword: "987654", password: "samonim-new" } });
+  check("내 비밀번호 변경 성공", self.status === 200, JSON.stringify(self.body));
+  check("변경 후 지금 화면은 유지", (await samonim.req("/api/admin/customers")).status === 200);
+  check("변경 후 예전 비밀번호 거절", (await new Client().json("/api/admin/login", { method: "POST", json: { username: "buja1", password: "987654" } })).status === 401);
+  check("변경 후 새 비밀번호 로그인", (await new Client().json("/api/admin/login", { method: "POST", json: { username: "buja1", password: "samonim-new" } })).status === 200);
+  const deskOld = await fetch(`${BASE}/api/desk/pulse`, { headers: { authorization: `Bearer ${deskSam.body?.token}` } });
+  check("변경 후 알림센터 기존 로그인 해제", deskOld.status === 401, `${deskOld.status}`);
+
+  // admin 도 본인 비밀번호 변경 가능 (원래대로 되돌려 다른 테스트 영향 없게)
+  const adminSelf = await admin.json("/api/admin/staff", { method: "POST", json: { action: "my-password", currentPassword: "ci-admin-password", password: "ci-admin-temp" } });
+  check("admin 내 비밀번호 변경", adminSelf.status === 200, JSON.stringify(adminSelf.body));
+  check("admin 새 비밀번호 로그인", (await new Client().json("/api/admin/login", { method: "POST", json: { username: "admin", password: "ci-admin-temp" } })).status === 200);
+  await admin.json("/api/admin/staff", { method: "POST", json: { action: "my-password", currentPassword: "ci-admin-temp", password: "ci-admin-password" } });
+
+  // 호칭 변경
+  const rename = await admin.json("/api/admin/staff", { method: "POST", json: { action: "admin-rename", id: seeded.buja3?.id, displayName: "주임님" } });
+  check("호칭 변경", rename.status === 200);
+
+  const created = await admin.json("/api/admin/staff", { method: "POST", json: { action: "admin-create", username: "cibuja", displayName: "cibuja", password: "ci-first-pass" } });
   check("관리자 계정 추가", created.status === 200, JSON.stringify(created.body));
   const id = created.body?.id;
 

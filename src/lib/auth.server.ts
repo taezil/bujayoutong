@@ -179,6 +179,30 @@ export async function verifyAnyAdminPassword(username: string, password: string)
   return { id: String(user.id), username: String(user.username), displayName: String(user.display_name || user.username) };
 }
 
+export const ADMIN_PASSWORD_MIN = 6;
+
+/** 로그인한 관리자가 자기 비밀번호를 바꿈 (admin 포함). 현재 비밀번호 확인 후, 다른 기기 로그인은 해제 */
+export async function changeOwnAdminPassword(request: Request, currentPassword: string, nextPassword: string) {
+  const me = await getAdminIdentity(request);
+  if (!me) throw new Error("관리자 로그인이 필요합니다.");
+  const next = String(nextPassword ?? "");
+  if (next.length < ADMIN_PASSWORD_MIN || next.length > 64) throw new Error(`새 비밀번호는 ${ADMIN_PASSWORD_MIN}자 이상으로 정해 주세요.`);
+  if (!(await verifyAnyAdminPassword(me.username, String(currentPassword ?? "")))) throw new Error("지금 비밀번호가 맞지 않습니다.");
+  const token = parseCookie(request, ADMIN_COOKIE_NAME);
+  const currentHash = await sha256(token);
+  const salt = randomHexValue(16);
+  const hash = await derivePassword(next, salt);
+  const sessionOwner = me.id === "admin" ? "" : me.id;
+  await db().batch([
+    me.id === "admin"
+      ? db().prepare("UPDATE admin_credentials SET salt=?, hash=? WHERE id=1").bind(salt, hash)
+      : db().prepare("UPDATE admin_users SET auth_salt=?,auth_hash=?,updated_at=datetime('now') WHERE id=?").bind(salt, hash, me.id),
+    db().prepare("DELETE FROM admin_sessions WHERE admin_user_id=? AND token_hash<>?").bind(sessionOwner, currentHash),
+    db().prepare("DELETE FROM desk_sessions WHERE staff_id=?").bind(me.id === "admin" ? "S-DESK-ADMIN" : `S-ADMINUSER-${me.id}`),
+  ]);
+  return me;
+}
+
 async function createAdminSession(adminUserId = "") {
   const token = randomHexValue(32);
   const hash = await sha256(token);
