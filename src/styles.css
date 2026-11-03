@@ -4563,3 +4563,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .adm-unit-row.simple .adm-unit-del { grid-column: auto; justify-self: stretch; }
   .adm-unit-row.detail { grid-template-columns: 56px minmax(0,1fr) minmax(0,1fr); }
 }
+.adm-price-b .adm-suffix { border-color: #8fd1ae; background: #f3fbf6; }
+.adm-price-b .adm-suffix input { background: transparent; }
