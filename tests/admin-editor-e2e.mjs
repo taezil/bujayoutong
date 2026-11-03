@@ -45,7 +45,17 @@ async function main() {
     await editor.locator(".adm-units").screenshot({ path: "desk-shot-editor-2-units.png" });
 
     await editor.getByRole("button", { name: /B그룹 가격 따로 정하기/ }).click();
-    await editor.getByRole("button", { name: /B그룹 가격 닫기/ }).click();
+    const closeBtn = editor.getByRole("button", { name: /B그룹 가격 닫기/ });
+    const dbg = async () => closeBtn.evaluate((el) => {
+      el.scrollIntoView({ block: "center" });
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      const body = el.closest(".adm-editor-body");
+      const chain = []; for (let n = el; n; n = n.parentElement) { const cs = getComputedStyle(n); if (cs.transform !== "none" || cs.contain !== "none" || cs.position === "fixed" || cs.overflowY !== "visible") chain.push(`${n.className || n.tagName}[${cs.position} ${cs.transform !== "none" ? "T" : ""} ${cs.contain} ${cs.overflowY}]`); }
+      return JSON.stringify({ r: [r.x, r.y, r.width, r.height].map(Math.round), hit: hit ? `${hit.tagName}.${hit.className}` : null, scrollY: window.scrollY, ih: innerHeight, vv: [visualViewport.offsetTop, visualViewport.height, visualViewport.scale], bodyTop: body?.scrollTop, bodyH: body?.clientHeight, docH: document.documentElement.scrollHeight, chain });
+    });
+    console.log("DEBUG1", await dbg());
+    await closeBtn.click({ timeout: 8000 }).catch(async (e) => { throw new Error(`${await dbg()} :: ${String(e.message).slice(0, 200)}`); });
     check("빈 B그룹 가격 칸은 닫기 버튼으로 바로 닫힘", (await editor.locator(".adm-price-b").count()) === 0);
     await editor.getByRole("button", { name: /B그룹 가격 따로 정하기/ }).click();
     const bInput = editor.locator(".adm-price-b input").first();
