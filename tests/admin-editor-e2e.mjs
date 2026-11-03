@@ -88,9 +88,11 @@ async function main() {
     await page.getByRole("button", { name: "저장하기" }).click();
     await editor.waitFor({ state: "detached", timeout: 20000 });
     const saveMs = Date.now() - t0;
-    const mainUploads = photoRequests.filter((n) => n > 0).sort((a, b) => b - a).slice(0, 3).map((n) => Math.round(n / 1024));
+    const savedNow = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === product.id);
+    const newUrls = (savedNow.photos ?? []).slice(-3);
+    const mainUploads = await Promise.all(newUrls.map(async (u) => Math.round((await (await fetch(`${BASE}${u}`, { headers: { cookie } })).arrayBuffer()).byteLength / 1024)));
     check("사진 고르자마자 올라감 → 저장 2초 이내", saveMs < 2000, `${saveMs}ms`);
-    check("큰 사진은 줄여서 올림", mainUploads.every((kb, i) => kb < sizes[0] / 2), `원본 ${sizes.join("/")}KB → 올린 크기 ${mainUploads.join("/")}KB`);
+    check("큰 사진은 줄여서 올림", mainUploads.length === 3 && mainUploads.every((kb) => kb > 0 && kb < sizes[0] / 2), `원본 ${sizes.join("/")}KB → 올린 크기 ${mainUploads.join("/")}KB`);
     const withPhotos = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === product.id);
     check("사진 3장 추가 저장(대표 사진 유지)", (withPhotos.photos ?? []).length === (product.photos?.length || (product.photo ? 1 : 0)) + 3, JSON.stringify(withPhotos.photos?.length));
     await page.locator(".c-name button", { hasText: product.name }).first().click();
