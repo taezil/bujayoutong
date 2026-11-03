@@ -105,7 +105,7 @@ async function main() {
     const cleared = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === product.id);
     check("닫고 저장하면 B그룹 가격 없음(기본 가격과 동일)", cleared.packOptions[0].priceB == null, JSON.stringify(cleared.packOptions[0]));
   } catch (error) {
-    check("관리자 상품 수정 화면 진행", false, String(error.message || error).slice(0, 300));
+    check("관리자 상품 수정 화면 진행", false, String(error.message || error).slice(0, 1500));
     await page.screenshot({ path: "desk-shot-editor-fail.png", fullPage: true }).catch(() => {});
   } finally {
     await browser.close();
