@@ -3443,7 +3443,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .adm-editor-foot .adm-btn-del { min-height: 44px; }
 .adm-editor-error { flex-basis: 100%; margin: 0; padding: 8px 12px; border-radius: 8px; background: #fdecec; color: #b42318; font-weight: 700; }
 @media (max-width: 900px) {
-  .adm-layout { grid-template-columns: 1fr; }
+  .adm-layout { grid-template-columns: minmax(0, 1fr); }
+  .adm-side, .adm-side nav { min-width: 0; max-width: 100%; }
   .adm-side { position: sticky; z-index: 50; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; }
   .adm-side-brand img { height: 26px; }
   .adm-side nav { display: flex; order: 3; width: 100%; overflow-x: auto; }

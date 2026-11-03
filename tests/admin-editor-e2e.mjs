@@ -25,6 +25,8 @@ async function main() {
   const page = await context.newPage();
   try {
     await page.goto("/admin");
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    check("휴대폰에서 관리자 화면 가로로 넘치지 않음", overflow <= 1, `${overflow}px`);
     await page.locator('input[type="search"]').first().fill(product.name);
     await page.locator(".c-name button", { hasText: product.name }).first().click();
     const editor = page.locator(".adm-editor");
@@ -54,7 +56,6 @@ async function main() {
       const chain = []; for (let n = el; n; n = n.parentElement) { const cs = getComputedStyle(n); if (cs.transform !== "none" || cs.contain !== "none" || cs.position === "fixed" || cs.overflowY !== "visible") chain.push(`${n.className || n.tagName}[${cs.position} ${cs.transform !== "none" ? "T" : ""} ${cs.contain} ${cs.overflowY}]`); }
       return JSON.stringify({ r: [r.x, r.y, r.width, r.height].map(Math.round), hit: hit ? `${hit.tagName}.${hit.className}` : null, scrollY: window.scrollY, ih: innerHeight, vv: [visualViewport.offsetTop, visualViewport.height, visualViewport.scale], bodyTop: body?.scrollTop, bodyH: body?.clientHeight, docH: document.documentElement.scrollHeight, chain });
     });
-    console.log("DEBUG1", await dbg());
     await closeBtn.click({ timeout: 8000 }).catch(async (e) => { throw new Error(`${await dbg()} :: ${String(e.message).slice(0, 200)}`); });
     check("빈 B그룹 가격 칸은 닫기 버튼으로 바로 닫힘", (await editor.locator(".adm-price-b").count()) === 0);
     await editor.getByRole("button", { name: /B그룹 가격 따로 정하기/ }).click();
