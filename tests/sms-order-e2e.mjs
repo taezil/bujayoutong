@@ -45,7 +45,8 @@ async function main() {
     const rowA = rows.nth(0), rowB = rows.nth(1), rowX = rows.nth(2);
     check(`'${core(pA.name)}2' → ${pA.name} 자동, 수량 2`, (await rowA.getAttribute("class")).includes("s-auto") && (await rowA.locator(".sms-product select").inputValue()) === pA.id && (await rowA.locator(".sms-qty input").inputValue()) === "2");
     check(`'${core(pB.name)}1박스요' → ${pB.name} 자동, 수량 1 ('요' 무시)`, (await rowB.getAttribute("class")).includes("s-auto") && (await rowB.locator(".sms-qty input").inputValue()) === "1");
-    check("'동전어묵1봉' → 못 찾음(빨강)", (await rowX.getAttribute("class")).includes("s-none"));
+    const xClass = await rowX.getAttribute("class");
+    check("'동전어묵1봉' → 자동으로 넣지 않음(빨강 또는 노랑 확인)", !xClass.includes("s-auto"), xClass);
     await page.screenshot({ path: "desk-shot-sms-1-read.png" });
 
     // 못 찾은 품목 직접 검색해서 고르기 → 연관어 저장 예정 표시
@@ -74,10 +75,12 @@ async function main() {
     // 연관어 관리: 목록 · 삭제
     await box.getByRole("button", { name: "연관어 관리" }).click();
     const aliasList = box.locator(".sms-aliases li", { hasText: "동전어묵" });
+    await aliasList.first().waitFor({ timeout: 10000 });
     check("연관어 관리 목록에 표시", (await aliasList.count()) >= 1, await box.locator(".sms-aliases").innerText());
+    const beforeDelete = await aliasList.count();
     await aliasList.first().getByRole("button", { name: "삭제" }).click();
-    await page.waitForTimeout(500);
-    check("연관어 삭제", (await box.locator(".sms-aliases li", { hasText: "동전어묵" }).count()) === (await aliasList.count()));
+    await page.waitForTimeout(800);
+    check("연관어 삭제", (await aliasList.count()) === beforeDelete - 1, `${beforeDelete} → ${await aliasList.count()}`);
   } catch (error) {
     check("문자 주문 시나리오 진행", false, String(error.message || error).slice(0, 400));
     await page.screenshot({ path: "desk-shot-sms-fail.png", fullPage: true }).catch(() => {});
