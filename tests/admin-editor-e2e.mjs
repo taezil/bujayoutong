@@ -138,6 +138,7 @@ async function main() {
       await editor.waitFor({ state: "detached", timeout: 20000 });
       const kept = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === product.id);
       check("상품 수정 저장해도 행사 유지", kept.promo === true);
+      await page.locator(".adm-promo-bar").getByRole("button", { name: "전체 보기" }).click();
       await page.locator(".adm-table tr", { hasText: product.name }).first().locator(".adm-promo-toggle.on").click();
       await page.locator(".adm-table tr", { hasText: product.name }).first().locator(".adm-promo-toggle:not(.on)").waitFor({ timeout: 10000 });
       const off = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === product.id);
