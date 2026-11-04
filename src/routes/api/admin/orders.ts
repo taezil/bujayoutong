@@ -72,7 +72,7 @@ export const Route = createFileRoute("/api/admin/orders")({
             const prev=(await db().prepare(`
               SELECT o.id,o.source,datetime(o.created_at,'+9 hours') AS created_at,o.created_by_staff_name,o.order_period,
                      (SELECT GROUP_CONCAT(product_id, char(31)) FROM order_items WHERE order_id=o.id) AS pids,
-                     (SELECT GROUP_CONCAT(product_name||' '||quantity||option_label, ', ') FROM order_items WHERE order_id=o.id) AS summary
+                     (SELECT GROUP_CONCAT(product_name||' '||(CASE WHEN quantity=CAST(quantity AS INTEGER) THEN CAST(quantity AS INTEGER) ELSE quantity END)||option_label, ', ') FROM order_items WHERE order_id=o.id) AS summary
               FROM orders o WHERE o.customer_id=? AND o.delivery_date=? AND o.status!='cancelled'
               ORDER BY o.created_at DESC LIMIT 5`).bind(customer.id,day).all<Record<string,unknown>>()).results;
             const duplicates=prev.map(r=>{

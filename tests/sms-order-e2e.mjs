@@ -90,7 +90,7 @@ async function main() {
     // 다시 붙여넣으면 연관어로 자동
     await box.locator("textarea").fill("120-13\n동전어묵 3봉");
     await box.getByRole("button", { name: "문자 읽기" }).click();
-    await box.locator(".sms-row").first().waitFor();
+    await box.locator(".sms-row code", { hasText: "동전어묵 3봉" }).waitFor();
     const again = box.locator(".sms-row").first();
     check("다음부터 '동전어묵' 자동으로 찾음(연관어)", (await again.getAttribute("class")).includes("s-auto") && (await again.locator(".sms-product select").inputValue()) === pTarget.id && (await again.locator(".sms-qty input").inputValue()) === "3");
     await page.screenshot({ path: "desk-shot-sms-2-alias.png" });
