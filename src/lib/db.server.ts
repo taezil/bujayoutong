@@ -141,6 +141,8 @@ export type Product = {
   hidden?: boolean;
   /** 행사가격 (대표 가격, 원). 없으면 null */
   promoPrice?: number | null;
+  /** 행사 상품 (상품마다 켜고 끔. 행사 카테고리에 든 상품도 행사로 봄) */
+  promo?: boolean;
   /** 상품 사진 전체 (첫 장 = 대표 사진 photo). 상세 화면에서 넘겨 봄 */
   photos?: string[];
   /** 마지막 수정 시각 (관리자 데이터에만 포함) */
@@ -505,6 +507,8 @@ async function ensureDatabaseFull(database: D1Database) {
   await ensureColumn(database, "products", "price_display_mode", "TEXT NOT NULL DEFAULT 'fixed'");
   await ensureColumn(database, "products", "hidden", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(database, "products", "promo_price", "INTEGER");
+  // 행사 표시: 카테고리를 옮기지 않고 상품마다 켜고 끔
+  await ensureColumn(database, "products", "is_promo", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(database, "categories", "image", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn(database, "pack_options", "price_a", "INTEGER");
   await ensureColumn(database, "pack_options", "price_b", "INTEGER");
@@ -680,7 +684,7 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
   const [categoryRows, subRows, productRows, optionRows, settingsRows] = await Promise.all([
     database.prepare("SELECT name, sort_order, is_promo, image, storage FROM categories ORDER BY sort_order, name").all(),
     database.prepare("SELECT category_name, name, sort_order FROM subcategories ORDER BY category_name, sort_order, name").all(),
-    database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone, description, servings_per_unit, box_contents, servings_per_box, storage_method, price_list_visible, price_display_mode, hidden, promo_price, photos, updated_at FROM products ORDER BY sort_order, name").all(),
+    database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone, description, servings_per_unit, box_contents, servings_per_box, storage_method, price_list_visible, price_display_mode, hidden, promo_price, is_promo, photos, updated_at FROM products ORDER BY sort_order, name").all(),
     database.prepare("SELECT product_id, label, spec, price, price_a, price_b, step, sort_order FROM pack_options ORDER BY product_id, sort_order, id").all(),
     database.prepare("SELECT key, value FROM app_settings").all(),
   ]);
@@ -742,6 +746,7 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
     priceDisplayMode: String(row.price_display_mode ?? "fixed") === "market" ? "market" : String(row.price_display_mode ?? "fixed") === "inquiry" ? "inquiry" : "fixed",
     hidden: Number(row.hidden ?? 0) === 1,
     promoPrice: row.promo_price == null ? null : Number(row.promo_price),
+    promo: Number(row.is_promo ?? 0) === 1,
     photos: productPhotos(String(row.photo ?? ""), row.photos),
     ...(options.includeHidden ? { updatedAt: String(row.updated_at ?? "") } : {}),
     packOptions: optionsByProduct.get(String(row.id)) ?? [],

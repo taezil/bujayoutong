@@ -249,7 +249,7 @@ async function loadOrders(where: string, params: unknown[], orderBy: string, lim
     if (!ids.length) continue;
     const items = await db().prepare(`
       SELECT oi.id,oi.order_id,oi.product_id,oi.product_name,oi.unit,oi.option_label,oi.quantity,oi.unit_price,oi.list_price,
-             p.category AS category,
+             p.category AS category, COALESCE(p.is_promo,0) AS is_promo,
              COALESCE((SELECT po.spec FROM pack_options po WHERE po.product_id=oi.product_id AND po.label=oi.option_label ORDER BY po.sort_order,po.id LIMIT 1),'') AS option_spec,
              COALESCE(cat.sort_order, 9999) AS cat_order, COALESCE(sc.sort_order, 9999) AS sub_order,
              COALESCE(p.sort_order, 999999) AS product_order,
@@ -317,7 +317,7 @@ function toDeskOrder(r: OrderRow, items: OrderRow[], promoCategory = "") {
     total: Number(r.total_amount ?? 0),
     // 주문 당시 가격그룹. B 면 알림센터에 '가격 변동그룹 주문' 표시 (예전 주문은 '')
     priceGroup: String(r.price_group ?? "") === "B" ? "B" : String(r.price_group ?? "") === "A" ? "A" : "",
-    hasPromo: Boolean(promoCategory) && items.some((i) => String(i.category ?? "") === promoCategory),
+    hasPromo: items.some((i) => Number(i.is_promo ?? 0) === 1 || (Boolean(promoCategory) && String(i.category ?? "") === promoCategory)),
     items: items.map((i) => ({
       id: Number(i.id),
       productId: String(i.product_id),
@@ -330,7 +330,7 @@ function toDeskOrder(r: OrderRow, items: OrderRow[], promoCategory = "") {
       category: String(i.category ?? ""),
       // 정렬 키 (합친 발주에서 품목을 같은 순서로 다시 정렬할 때 사용)
       sortKey: [Number(i.cat_order ?? 9999), Number(i.sub_order ?? 9999), Number(i.product_order ?? 999999), Number(i.option_order ?? 99)],
-      isPromo: Boolean(promoCategory) && String(i.category ?? "") === promoCategory,
+      isPromo: Number(i.is_promo ?? 0) === 1 || (Boolean(promoCategory) && String(i.category ?? "") === promoCategory),
     })),
     desk: {
       state: deskState,

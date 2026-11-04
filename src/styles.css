@@ -4645,3 +4645,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .adm-backup-list li a { margin-left: auto; font-weight: 800; color: #2563eb; }
 .sms-flag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 12px; font-style: normal; font-weight: 800; background: #fee2e2; color: #b91c1c; }
 .sms-flag.q { background: #fef3c7; color: #92400e; }
+/* 상품 목록: 행사 등록/해제 */
+.adm-promo-toggle { min-height: 34px; padding: 0 12px; margin-right: 6px; border-radius: 8px; border: 1.5px dashed #f59e0b; background: #fff; color: #b45309; font-size: 13px; font-weight: 800; cursor: pointer; }
+.adm-promo-toggle.on { border: 1.5px solid #ea580c; background: #ea580c; color: #fff; }
+.adm-promo-toggle:disabled { opacity: .7; cursor: default; }
+.adm-promo-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-size: 14px; }
+.adm-promo-bar-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.adm-promo-bar-actions button { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid #fdba74; background: #fff; color: #c2410c; font-weight: 800; cursor: pointer; }
+.adm-promo-bar-actions button.on { background: #ea580c; border-color: #ea580c; color: #fff; }
+@media (max-width: 900px) {
+  .adm-table tr { grid-template-areas: "photo name state" "photo actions actions"; }
+  .adm-table td.c-actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .adm-table td.c-actions > button { margin: 0; min-height: 40px; }
+  .adm-table td.c-actions .adm-promo-toggle { flex: 1; max-width: 140px; }
+}

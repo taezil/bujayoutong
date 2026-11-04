@@ -415,7 +415,7 @@ function ProductsView({
   const needle = normalizeAdminQuery(query);
   const filtered = store.products.filter((p) => {
     if (category !== "전체" && p.category !== category) return false;
-    if (statusFilter === "promo" && p.category !== store.promoCategory) return false;
+    if (statusFilter === "promo" && !(p.promo || p.category === store.promoCategory)) return false;
     if (statusFilter === "selling" && productStatus(p) !== "selling") return false;
     if (statusFilter === "soldout" && productStatus(p) !== "soldout") return false;
     if (statusFilter === "hidden" && productStatus(p) !== "hidden") return false;
@@ -446,6 +446,35 @@ function ProductsView({
       onNotice(`‘${product.name}’ ${next === "selling" ? "판매중" : next === "soldout" ? "품절" : "숨김"}으로 변경했습니다.`);
     } catch (reason) {
       onError(reason instanceof Error ? reason.message : "상태 변경에 실패했습니다.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function togglePromo(product: Product, on: boolean) {
+    setBusyId(product.id);
+    onError("");
+    try {
+      await jsonPost("/api/admin/products", { action: "promo", id: product.id, promo: on });
+      await onReload();
+      onNotice(`‘${product.name}’ 행사 ${on ? "등록" : "해제"}했습니다.`);
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "행사 변경에 실패했습니다.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function clearAllPromo() {
+    const ids = store.products.filter((p) => p.promo).map((p) => p.id);
+    if (!ids.length || !window.confirm(`행사 상품 ${ids.length}개를 모두 해제할까요?`)) return;
+    setBusyId("__all__");
+    try {
+      await jsonPost("/api/admin/products", { action: "promo", ids, promo: false });
+      await onReload();
+      onNotice(`행사 ${ids.length}개를 모두 해제했습니다.`);
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : "행사 해제에 실패했습니다.");
     } finally {
       setBusyId("");
     }
@@ -488,6 +517,13 @@ function ProductsView({
           <option value="promo">행사</option>
         </select>
       </div>
+      <div className="adm-promo-bar">
+        <span>🔥 행사 상품 <b>{store.products.filter((p) => p.promo || p.category === store.promoCategory).length}개</b> · 상품 옆 <b>＋ 행사</b>를 누르면 등록, <b>🔥 행사중</b>을 누르면 해제됩니다.</span>
+        <span className="adm-promo-bar-actions">
+          <button type="button" className={statusFilter === "promo" ? "on" : ""} onClick={() => { setStatusFilter(statusFilter === "promo" ? "all" : "promo"); setPage(1); }}>{statusFilter === "promo" ? "전체 보기" : "행사만 보기"}</button>
+          {store.products.some((p) => p.promo) && <button type="button" disabled={busyId === "__all__"} onClick={() => void clearAllPromo()}>행사 모두 해제</button>}
+        </span>
+      </div>
 
       <div className="adm-table-wrap">
         <table className="adm-table">
@@ -497,7 +533,8 @@ function ProductsView({
           <tbody>
             {rows.map((product) => {
               const state = productStatus(product);
-              const isPromo = product.category === store.promoCategory;
+              const promoByCategory = product.category === store.promoCategory;
+              const isPromo = Boolean(product.promo) || promoByCategory;
               const minPrice = product.packOptions.map((o) => o.price).filter((v): v is number => v !== null);
               return (
                 <tr key={product.id} className={state !== "selling" ? `is-${state}` : ""}>
@@ -527,6 +564,10 @@ function ProductsView({
                     </select>
                   </td>
                   <td className="c-actions">
+                    <button type="button" className={`adm-promo-toggle${isPromo ? " on" : ""}`}
+                      disabled={busyId === product.id || promoByCategory}
+                      title={promoByCategory ? `'${store.promoCategory}' 카테고리 상품이라 항상 행사입니다` : isPromo ? "누르면 행사 해제" : "누르면 행사 등록"}
+                      onClick={() => void togglePromo(product, !isPromo)}>{isPromo ? "🔥 행사중" : "＋ 행사"}</button>
                     <button type="button" className="adm-btn-edit" onClick={() => onEdit(product)}>수정</button>
                     <button type="button" className="adm-btn-del" disabled={busyId === product.id} onClick={() => void remove(product)}>삭제</button>
                   </td>

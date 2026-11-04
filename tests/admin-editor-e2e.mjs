@@ -119,6 +119,30 @@ async function main() {
     await editor.waitFor({ state: "detached", timeout: 20000 });
     const cleared = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === product.id);
     check("닫고 저장하면 B그룹 가격 없음(기본 가격과 동일)", cleared.packOptions[0].priceB == null, JSON.stringify(cleared.packOptions[0]));
+
+    // 행사 등록/해제: 목록에서 한 번 누르기 (카테고리는 그대로)
+    const promoRow = page.locator(".adm-table tr", { hasText: product.name }).first();
+    const toggle = promoRow.locator(".adm-promo-toggle");
+    if (product.category !== store.promoCategory) {
+      await toggle.click();
+      await promoRow.locator(".adm-promo-toggle.on").waitFor({ timeout: 10000 });
+      const promoted = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === product.id);
+      check("목록에서 '＋ 행사' 한 번 → 행사 등록, 카테고리 그대로", promoted.promo === true && promoted.category === product.category, `${promoted.promo} ${promoted.category}`);
+      await page.screenshot({ path: "desk-shot-promo-list.png" });
+      await page.locator(".adm-promo-bar").getByRole("button", { name: "행사만 보기" }).click();
+      check("'행사만 보기'에 표시", (await page.locator(".adm-table tr", { hasText: product.name }).count()) >= 1);
+      // 상품 수정·저장해도 행사 유지
+      await page.locator(".c-name button", { hasText: product.name }).first().click();
+      await editor.waitFor();
+      await page.getByRole("button", { name: "저장하기" }).click();
+      await editor.waitFor({ state: "detached", timeout: 20000 });
+      const kept = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === product.id);
+      check("상품 수정 저장해도 행사 유지", kept.promo === true);
+      await page.locator(".adm-table tr", { hasText: product.name }).first().locator(".adm-promo-toggle.on").click();
+      await page.locator(".adm-table tr", { hasText: product.name }).first().locator(".adm-promo-toggle:not(.on)").waitFor({ timeout: 10000 });
+      const off = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === product.id);
+      check("'🔥 행사중' 한 번 → 행사 해제", off.promo === false);
+    }
   } catch (error) {
     check("관리자 상품 수정 화면 진행", false, String(error.message || error).slice(0, 1500));
     await page.screenshot({ path: "desk-shot-editor-fail.png", fullPage: true }).catch(() => {});

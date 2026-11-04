@@ -79,6 +79,7 @@ type PreparedItem = {
   /** 주문 당시 정가 (B그룹 가격과 비교 표시용) */
   listPrice: number;
   category: string;
+  promo?: boolean;
 };
 
 export type OrderQuantityWarning = {
@@ -110,7 +111,7 @@ async function prepareItems(customer: CustomerSummary, items: OrderRequestItem[]
   const productIds = Array.from(new Set(normalized.map((item) => item.productId)));
   const optionRows = await db().prepare(`
     SELECT p.id,p.name,p.unit,p.soldout,p.tax_type,p.warehouse_zone,
-           p.category,po.label,po.price,po.price_b,po.step
+           p.category,COALESCE(p.is_promo,0) AS is_promo,po.label,po.price,po.price_b,po.step
     FROM products p JOIN pack_options po ON po.product_id=p.id
     WHERE p.id IN (${productIds.map(() => "?").join(",")})
     ORDER BY po.sort_order, po.id
@@ -136,6 +137,7 @@ async function prepareItems(customer: CustomerSummary, items: OrderRequestItem[]
       productId: String(row.id), productName: String(row.name), unit: String(row.unit ?? ""), optionLabel: String(row.label),
       quantity: item.quantity, unitPrice: groupPrice == null ? base : groupPrice, listPrice: base, taxType: String(row.tax_type ?? "taxable"), warehouseZone: String(row.warehouse_zone ?? ""),
       category: String(row.category ?? ""),
+      promo: Number(row.is_promo ?? 0) === 1,
     });
   }
   return prepared;
@@ -224,7 +226,7 @@ export async function createCustomerOrder(
   if (source === "app") {
     // 행사품목이 하나라도 있으면 오늘·내일 배송만 가능 (거래처 화면 달력과 같은 규칙)
     const promo = await promoCategoryName();
-    if (promo && prepared.some((item) => item.category === promo) && deliveryDate > kstDate(1)) {
+    if (prepared.some((item) => item.promo || (promo && item.category === promo)) && deliveryDate > kstDate(1)) {
       throw new Error("행사품목이 있어 오늘·내일 배송만 선택할 수 있습니다. 배송일을 다시 골라 주세요.");
     }
   }

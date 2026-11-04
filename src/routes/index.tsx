@@ -564,6 +564,7 @@ function OrderApp({ store }: { store: StoreData }) {
   const [cartKey, setCartKey] = useState(CART_STORAGE_KEY);
 
   const promo = store.promoCategory && store.promoCategory in store.categories ? store.promoCategory : "";
+  const isPromoProduct = (product: Product | undefined) => Boolean(product && (product.promo || (promo && product.category === promo)));
 
   function applyDeliveryRule(rule: DeliveryRule | null | undefined, serverNow?: number) {
     if (rule && Array.isArray(rule.pmRuns) && rule.pmRuns.length) setDeliveryRule({ ...DEFAULT_RULE, ...rule });
@@ -572,7 +573,7 @@ function OrderApp({ store }: { store: StoreData }) {
   const recipient = (store.sms || "").replace(/[^0-9+]/g, "");
   const productById = useMemo(() => new Map(store.products.map((product) => [product.id, product])), [store.products]);
   // 행사품목이 하나라도 담겨 있으면 오늘·내일 배송만 가능 (서버도 같은 규칙으로 확인)
-  const promoInCart = Boolean(promo) && cart.some((line) => productById.get(line.productId)?.category === promo);
+  const promoInCart = cart.some((line) => isPromoProduct(productById.get(line.productId)));
   const maxDeliveryDate = promoInCart ? kstDateClient(1) : kstDateClient(60);
   // 마감 계산 (30초마다 다시 계산 → 화면을 켜 둔 채 마감 시각이 지나도 바로 반영)
   // clockTick 이 바뀌면 다시 그려지면서 현재 시각으로 다시 계산됨
@@ -840,7 +841,7 @@ function OrderApp({ store }: { store: StoreData }) {
 
   // 판매 중 먼저, 품절은 맨 아래 (같은 그룹 안 순서는 관리자 정렬 그대로)
   function sortForDisplay(list: Product[], promoFirst: boolean) {
-    const rank = (product: Product) => (product.soldout ? 2 : 0) + (promoFirst && promo && product.category !== promo ? 1 : 0);
+    const rank = (product: Product) => (product.soldout ? 2 : 0) + (promoFirst && !isPromoProduct(product) ? 1 : 0);
     return list
       .map((product, index) => ({ product, index }))
       .sort((a, b) => rank(a.product) - rank(b.product) || a.index - b.index)
@@ -872,7 +873,7 @@ function OrderApp({ store }: { store: StoreData }) {
   }, [query, store.products, searchIndex, promo]);
 
   const promoProducts = useMemo(
-    () => (promo ? sortForDisplay(store.products.filter((product) => product.category === promo), false) : []),
+    () => sortForDisplay(store.products.filter((product) => isPromoProduct(product)), false),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [store.products, promo],
   );
@@ -1598,7 +1599,7 @@ function productPhotoList(product: Product) {
 
 /** 상품 카드: 사진 · 이름 · 단위별 가격 · 수량만. 입수·인분·설명은 사진을 누르면 나오는 상세 화면에 */
 function ProductCard({ product, promo, quantityFor, onQuantity, onOpen }: CardProps & { product: Product }) {
-  const isPromo = !!promo && product.category === promo;
+  const isPromo = Boolean(product.promo) || (!!promo && product.category === promo);
   const photoCount = productPhotoList(product).length;
   return (
     <article className={`od-card od-card-v2 ${product.soldout ? "soldout" : ""}`}>
@@ -1678,7 +1679,7 @@ function ProductInfo({ product }: { product: Product }) {
 }
 
 function ProductTags({ product, promo }: { product: Product; promo: string }) {
-  const isPromo = !!promo && product.category === promo;
+  const isPromo = Boolean(product.promo) || (!!promo && product.category === promo);
   return (
     <div className="od-tags">
       {isPromo && <span className="t-promo">행사</span>}

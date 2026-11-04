@@ -4,7 +4,7 @@ import { bumpVersion, db, ensureDatabase } from "../../../lib/db.server";
 import { cleanOptions, cleanPrice, cleanText } from "../../../lib/admin-validation.server";
 import { writeAudit, staffActor } from "../../../lib/audit.server";
 
-type ProductBody = { action?: "create" | "update" | "delete"; product?: Record<string, unknown>; id?: string };
+type ProductBody = { action?: "create" | "update" | "delete" | "promo"; product?: Record<string, unknown>; id?: string; ids?: unknown; promo?: boolean };
 
 export const Route = createFileRoute("/api/admin/products")({
   server: { handlers: { POST: async ({ request }) => {
@@ -15,6 +15,19 @@ export const Route = createFileRoute("/api/admin/products")({
       const database = db();
       const staff = await getStaff(request);
       const actor = staff ? staffActor(staff) : await adminActorFor(request);
+      // 행사 등록/해제 (여러 개 한 번에 가능)
+      if (body.action === "promo") {
+        const ids = (Array.isArray(body.ids) ? body.ids : [body.id]).map((v) => cleanText(v, 80)).filter(Boolean).slice(0, 500);
+        if (!ids.length) throw new Error("상품을 골라 주세요.");
+        const on = body.promo === true;
+        for (let i = 0; i < ids.length; i += 90) {
+          const part = ids.slice(i, i + 90);
+          await database.prepare(`UPDATE products SET is_promo=?, updated_at=datetime('now') WHERE id IN (${part.map(() => "?").join(",")})`).bind(on ? 1 : 0, ...part).run();
+        }
+        await bumpVersion(database);
+        await writeAudit({ actor, action: "product_promo", entityType: "product", entityId: ids.slice(0, 5).join(","), summary: `행사 ${on ? "등록" : "해제"} ${ids.length}개` });
+        return Response.json({ ok: true, count: ids.length });
+      }
       if (body.action === "delete") {
         const id = cleanText(body.id, 80);
         if (!id) throw new Error("상품 ID가 없습니다.");
