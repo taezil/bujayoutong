@@ -23,6 +23,7 @@ import { Route as ApiPhotoRouteImport } from './routes/api/photo'
 import { Route as ApiStoreRouteImport } from './routes/api/store'
 import { Route as ApiAdminAlertsRouteImport } from './routes/api/admin/alerts'
 import { Route as ApiAdminAuditRouteImport } from './routes/api/admin/audit'
+import { Route as ApiAdminBackupRouteImport } from './routes/api/admin/backup'
 import { Route as ApiAdminCategoriesRouteImport } from './routes/api/admin/categories'
 import { Route as ApiAdminCustomerUsersRouteImport } from './routes/api/admin/customer-users'
 import { Route as ApiAdminCustomersRouteImport } from './routes/api/admin/customers'
@@ -129,6 +130,11 @@ const ApiAdminAlertsRoute = ApiAdminAlertsRouteImport.update({
 const ApiAdminAuditRoute = ApiAdminAuditRouteImport.update({
   id: '/api/admin/audit',
   path: '/api/admin/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminBackupRoute = ApiAdminBackupRouteImport.update({
+  id: '/api/admin/backup',
+  path: '/api/admin/backup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminCategoriesRoute = ApiAdminCategoriesRouteImport.update({
@@ -332,6 +338,7 @@ export interface FileRoutesByFullPath {
   '/api/store': typeof ApiStoreRoute
   '/api/admin/alerts': typeof ApiAdminAlertsRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
+  '/api/admin/backup': typeof ApiAdminBackupRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
   '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
   '/api/admin/customers': typeof ApiAdminCustomersRoute
@@ -385,6 +392,7 @@ export interface FileRoutesByTo {
   '/api/store': typeof ApiStoreRoute
   '/api/admin/alerts': typeof ApiAdminAlertsRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
+  '/api/admin/backup': typeof ApiAdminBackupRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
   '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
   '/api/admin/customers': typeof ApiAdminCustomersRoute
@@ -439,6 +447,7 @@ export interface FileRoutesById {
   '/api/store': typeof ApiStoreRoute
   '/api/admin/alerts': typeof ApiAdminAlertsRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
+  '/api/admin/backup': typeof ApiAdminBackupRoute
   '/api/admin/categories': typeof ApiAdminCategoriesRoute
   '/api/admin/customer-users': typeof ApiAdminCustomerUsersRoute
   '/api/admin/customers': typeof ApiAdminCustomersRoute
@@ -494,6 +503,7 @@ export interface FileRouteTypes {
     | '/api/store'
     | '/api/admin/alerts'
     | '/api/admin/audit'
+    | '/api/admin/backup'
     | '/api/admin/categories'
     | '/api/admin/customer-users'
     | '/api/admin/customers'
@@ -547,6 +557,7 @@ export interface FileRouteTypes {
     | '/api/store'
     | '/api/admin/alerts'
     | '/api/admin/audit'
+    | '/api/admin/backup'
     | '/api/admin/categories'
     | '/api/admin/customer-users'
     | '/api/admin/customers'
@@ -600,6 +611,7 @@ export interface FileRouteTypes {
     | '/api/store'
     | '/api/admin/alerts'
     | '/api/admin/audit'
+    | '/api/admin/backup'
     | '/api/admin/categories'
     | '/api/admin/customer-users'
     | '/api/admin/customers'
@@ -654,6 +666,7 @@ export interface RootRouteChildren {
   ApiStoreRoute: typeof ApiStoreRoute
   ApiAdminAlertsRoute: typeof ApiAdminAlertsRoute
   ApiAdminAuditRoute: typeof ApiAdminAuditRoute
+  ApiAdminBackupRoute: typeof ApiAdminBackupRoute
   ApiAdminCategoriesRoute: typeof ApiAdminCategoriesRoute
   ApiAdminCustomerUsersRoute: typeof ApiAdminCustomerUsersRoute
   ApiAdminCustomersRoute: typeof ApiAdminCustomersRoute
@@ -791,6 +804,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/audit'
       fullPath: '/api/admin/audit'
       preLoaderRoute: typeof ApiAdminAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/backup': {
+      id: '/api/admin/backup'
+      path: '/api/admin/backup'
+      fullPath: '/api/admin/backup'
+      preLoaderRoute: typeof ApiAdminBackupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/categories': {
@@ -1070,6 +1090,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStoreRoute: ApiStoreRoute,
   ApiAdminAlertsRoute: ApiAdminAlertsRoute,
   ApiAdminAuditRoute: ApiAdminAuditRoute,
+  ApiAdminBackupRoute: ApiAdminBackupRoute,
   ApiAdminCategoriesRoute: ApiAdminCategoriesRoute,
   ApiAdminCustomerUsersRoute: ApiAdminCustomerUsersRoute,
   ApiAdminCustomersRoute: ApiAdminCustomersRoute,
