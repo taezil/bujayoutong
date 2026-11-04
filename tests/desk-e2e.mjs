@@ -463,6 +463,10 @@ async function main() {
     check("배송기사 발주: 배송 시간 없으면 거절", noSlot.status === 400, j(noSlot.body));
     const rid = randomUUID();
     const dPayload = { customerId: target.id, deliveryDate: kstDate(1), deliverySlot: "PM", requestId: rid, items: [items[0]], note: "기사 테스트", confirmAnomaly: true };
+    // 같은 날 같은 품목 주문이 이미 있으면 먼저 중복 확인(409), 확인하면 접수
+    const d0 = await driver.json("/api/driver/order", { method: "POST", json: { ...dPayload, requestId: randomUUID() } });
+    check("배송기사 발주: 같은 날 같은 품목이면 중복 확인 요청", d0.status === 409 ? d0.body?.duplicate === true : d0.status === 200, j({ status: d0.status, dup: d0.body?.duplicate }));
+    dPayload.confirmDuplicate = true;
     const d1 = await driver.json("/api/driver/order", { method: "POST", json: dPayload });
     const d2 = await driver.json("/api/driver/order", { method: "POST", json: dPayload });
     check("배송기사 발주 접수 + 재전송 중복 없음", d1.status === 200 && d2.body?.order?.id === d1.body?.order?.id, j({ d1: d1.body?.order?.id, d2: d2.body?.order?.id }));
