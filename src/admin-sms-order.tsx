@@ -155,7 +155,7 @@ export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd,
   const customerName = (id: string) => customers.find((c) => c.id === id)?.name ?? "";
 
   return (
-    <div className="sms-paste">
+    <div className="sms-paste" data-customers={customers.length}>
       <div className="sms-paste-head">
         <b>📩 문자 붙여넣기</b>
         <span>식당 문자를 그대로 붙여넣으면 거래처·품목·수량을 찾아 드립니다.</span>
@@ -164,7 +164,7 @@ export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd,
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3}
         placeholder={"예)\n130-14\n숙성지2.칼집비엔나6봉.코다리1.동전어묵1봉.모듬해물2개.부탄까스1박스요"} />
       <div className="sms-paste-actions">
-        <button type="button" className="admin-primary" disabled={busy || !text.trim()} onClick={() => void read()}>{busy ? "읽는 중…" : "문자 읽기"}</button>
+        <button type="button" className="admin-primary" disabled={busy || !text.trim() || !customers.length} onClick={() => void read()}>{busy ? "읽는 중…" : !customers.length ? "거래처 불러오는 중…" : "문자 읽기"}</button>
         {note && <span className="sms-note">{note}</span>}
       </div>
 

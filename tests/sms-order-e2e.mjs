@@ -34,6 +34,8 @@ async function main() {
     const box = page.locator(".sms-paste");
     await box.waitFor({ timeout: 20000 });
     check("관리자 메뉴에 '주문 입력' + 문자 붙여넣기", true);
+    const labelHits = await page.evaluate(async () => { const r = await fetch("/api/admin/customers", { cache: "no-store" }); const j = await r.json(); const list = j.customers ?? j; return (Array.isArray(list) ? list : []).filter((c) => String(c.name).includes("120-13")).map((c) => `${c.id}:${c.name}:${c.active}`); });
+    console.log("120-13 customers", labelHits, "in box:", await box.getAttribute("data-customers"));
 
     await box.locator("textarea").fill(sms);
     await box.getByRole("button", { name: "문자 읽기" }).click();
