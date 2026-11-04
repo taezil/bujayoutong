@@ -4638,3 +4638,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .sms-alias-picked { display: flex; align-items: center; gap: 6px; min-height: 36px; flex-wrap: wrap; }
 .sms-alias-picked button { border: 1px solid #cbd5cf; border-radius: 6px; background: #fff; cursor: pointer; }
 @media (max-width: 760px) { .sms-alias-add { grid-template-columns: 1fr; } }
+.adm-backup-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.adm-backup-list { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.adm-backup-list li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--adm-line, #e5e8ee); font-size: 14px; }
+.adm-backup-list li small { color: #667085; }
+.adm-backup-list li a { margin-left: auto; font-weight: 800; color: #2563eb; }
+.sms-flag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 12px; font-style: normal; font-weight: 800; background: #fee2e2; color: #b91c1c; }
+.sms-flag.q { background: #fef3c7; color: #92400e; }

@@ -26,7 +26,8 @@ async function main() {
   const context = await browser.newContext({ baseURL: BASE, viewport: { width: 1280, height: 1000 } });
   await context.addCookies([{ name: cookie.split("=")[0], value: cookie.slice(cookie.indexOf("=") + 1), url: BASE }]);
   const page = await context.newPage();
-  page.on("dialog", (d) => void d.accept());
+  const dialogs = [];
+  page.on("dialog", (d) => { dialogs.push(d.message()); void d.accept(); });
   try {
     await page.goto("/admin");
     await page.getByRole("button", { name: /주문 입력/ }).first().click();
@@ -67,6 +68,25 @@ async function main() {
     const names = (order?.items ?? []).map((i) => `${i.productName}×${i.quantity}`);
     check("실제 주문 저장(거래처·품목·수량)", Boolean(order) && names.includes(`${pA.name}×2`) && names.includes(`${pB.name}×1`) && names.includes(`${pTarget.name}×1`), names.join(", "));
 
+    // 같은 문자를 또 넣으면 중복 주문 경고
+    dialogs.length = 0;
+    await box.locator("textarea").fill(sms);
+    await box.getByRole("button", { name: "문자 읽기" }).click();
+    await box.locator(".sms-row").nth(2).waitFor();
+    await box.getByRole("button", { name: /주문 목록에 담기/ }).click();
+    await page.getByRole("button", { name: "이 주문 접수" }).click();
+    await page.waitForTimeout(1500);
+    check("같은 날 같은 품목 다시 접수 → 중복 경고", dialogs.some((m) => m.includes("이미 있습니다") && m.includes("겹치는 품목 3개")), dialogs.join(" / ").slice(0, 300));
+    const dupApi = await fetch(`${BASE}/api/admin/orders`, { method: "POST", headers: { cookie, "content-type": "application/json", origin: BASE }, body: JSON.stringify({ action: "create-order", customerId: "C-ERP-00124", items: [{ productId: pA.id, optionLabel: pA.packOptions[0].label, quantity: 1 }] }) });
+    check("API도 확인 없이는 중복 주문 막음(409)", dupApi.status === 409 && (await dupApi.json()).duplicate === true, String(dupApi.status));
+
+    // 수량 없는 품목은 확인 표시
+    await box.locator("textarea").fill(`120-13\n${core(pA.name)}`);
+    await box.getByRole("button", { name: "문자 읽기" }).click();
+    await page.waitForTimeout(800);
+    const noQty = box.locator(".sms-row").first();
+    check("수량 없는 품목 → 노랑 + '수량 확인' 표시", (await noQty.getAttribute("class")).includes("s-pick") && (await noQty.locator(".sms-flag.q").count()) === 1);
+
     // 다시 붙여넣으면 연관어로 자동
     await box.locator("textarea").fill("120-13\n동전어묵 3봉");
     await box.getByRole("button", { name: "문자 읽기" }).click();
@@ -96,6 +116,24 @@ async function main() {
     await aliasList.first().getByRole("button", { name: "삭제" }).click();
     await page.waitForTimeout(800);
     check("연관어 삭제", (await aliasList.count()) === beforeDelete - 1, `${beforeDelete} → ${await aliasList.count()}`);
+
+    // 데이터 백업: 지금 백업 → 목록 → 내려받기(세션 토큰은 빠짐)
+    const made = await fetch(`${BASE}/api/admin/backup`, { method: "POST", headers: { cookie, "content-type": "application/json", origin: BASE }, body: "{}" });
+    const madeBody = await made.json();
+    check("지금 백업 만들기", made.ok && madeBody.counts?.products > 0 && madeBody.counts?.orders > 0, JSON.stringify(madeBody).slice(0, 200));
+    const list = await (await fetch(`${BASE}/api/admin/backup`, { headers: { cookie } })).json();
+    check("백업 목록에 표시", list.backups.some((b) => b.key === madeBody.key), String(list.backups.length));
+    const dl = await fetch(`${BASE}/api/admin/backup?key=${encodeURIComponent(madeBody.key)}`, { headers: { cookie } });
+    const { gunzipSync } = await import("node:zlib");
+    const dump = JSON.parse(gunzipSync(Buffer.from(await dl.arrayBuffer())).toString("utf8"));
+    check("백업 파일 내용(상품·주문 있음, 로그인 세션 없음)", dump.tables.products.rows.length > 0 && dump.tables.order_items.rows.length > 0 && !Object.keys(dump.tables).some((t) => /session/i.test(t)), Object.keys(dump.tables).length + " tables");
+    const anon = await fetch(`${BASE}/api/admin/backup?key=${encodeURIComponent(madeBody.key)}`);
+    const viaPhoto = await fetch(`${BASE}/api/photo?id=${encodeURIComponent(madeBody.key)}`, { headers: { cookie } });
+    check("로그인 없이/사진 주소로는 백업 못 받음", anon.status === 403 && viaPhoto.status === 404, `${anon.status}/${viaPhoto.status}`);
+    await page.getByRole("button", { name: /설정/ }).first().click();
+    await page.locator(".adm-backup-list li").first().waitFor({ timeout: 10000 });
+    check("설정 화면에 데이터 백업 카드", (await page.locator(".adm-backup").innerText()).includes("마지막 백업"));
+    await page.locator(".adm-backup").screenshot({ path: "desk-shot-backup.png" });
   } catch (error) {
     check("문자 주문 시나리오 진행", false, String(error.message || error).slice(0, 400));
     await page.screenshot({ path: "desk-shot-sms-fail.png", fullPage: true }).catch(() => {});

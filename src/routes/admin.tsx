@@ -669,6 +669,46 @@ function CategoryView({ store, onSaved, onError, onNotice }: { store: StoreData;
   );
 }
 
+// 데이터 백업: 매일 새벽 3시 자동(30일 보관) + 지금 백업 + 내려받기
+function BackupCard({ onError, onNotice }: { onError: (value: string) => void; onNotice: (value: string) => void }) {
+  const [backups, setBackups] = useState<Array<{ key: string; day: string; size: number; uploaded: string }>>([]);
+  const [busy, setBusy] = useState(false);
+  async function load() {
+    const response = await fetch("/api/admin/backup", { cache: "no-store" });
+    if (response.ok) setBackups(((await response.json()) as { backups: typeof backups }).backups);
+  }
+  useEffect(() => { void load(); }, []);
+  async function backupNow() {
+    setBusy(true);
+    try {
+      onError("");
+      const result = await jsonPost("/api/admin/backup", {}) as { size: number };
+      onNotice(`백업을 만들었습니다 (${Math.max(1, Math.round(Number(result.size) / 1024))}KB)`);
+      await load();
+    } catch (reason) { onError(reason instanceof Error ? reason.message : "백업에 실패했습니다."); }
+    finally { setBusy(false); }
+  }
+  const latest = backups[0];
+  const when = (iso: string) => new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return (
+    <div className="adm-form-card adm-backup">
+      <h3>데이터 백업</h3>
+      <p className="adm-help">매일 새벽 3시에 상품·거래처·주문·미수 등 전체 데이터를 자동으로 백업하고 30일 동안 보관합니다. 큰 작업(엑셀 일괄수정 등) 전에는 '지금 백업'을 눌러 두세요.</p>
+      <div className="adm-backup-head">
+        <span>{latest ? <>마지막 백업 <b>{when(latest.uploaded)}</b> · {backups.length}개 보관 중</> : "아직 백업이 없습니다."}</span>
+        <button type="button" className="adm-primary" disabled={busy} onClick={() => void backupNow()}>{busy ? "백업 중…" : "지금 백업"}</button>
+      </div>
+      {backups.length > 0 && <ul className="adm-backup-list">
+        {backups.slice(0, 10).map((b) => <li key={b.key}>
+          <span>{when(b.uploaded)} {b.key.includes("manual") ? "· 직접" : "· 자동"}</span>
+          <small>{Math.max(1, Math.round(b.size / 1024))}KB</small>
+          <a href={`/api/admin/backup?key=${encodeURIComponent(b.key)}`}>내려받기</a>
+        </li>)}
+      </ul>}
+    </div>
+  );
+}
+
 function SimpleSettingsView({ store, onSaved, onError, onNotice }: { store: StoreData; onSaved: () => Promise<void>; onError: (value: string) => void; onNotice: (value: string) => void }) {
   const [sms, setSms] = useState(store.sms);
   const [promoCategory, setPromoCategory] = useState(store.promoCategory);
@@ -772,6 +812,7 @@ function SimpleSettingsView({ store, onSaved, onError, onNotice }: { store: Stor
         </label>
         <div className="adm-form-actions"><button type="button" className="adm-primary" disabled={busy || uploading} onClick={save}>{busy ? "저장 중" : "설정 저장"}</button></div>
       </div>
+      <BackupCard onError={onError} onNotice={onNotice} />
     </section>
   );
 }
@@ -1381,14 +1422,20 @@ function OrderOpsPanel({ store, onError, entryOnly = false }: { store: StoreData
     setManualItems((current) => [...current, { productId: product.id, productName: product.name, optionLabel, quantity: Math.max(1, Math.round(qty)) }]);
   }
 
-  async function createManualOrder(confirmAnomaly = false) {
+  async function createManualOrder(confirmAnomaly = false, confirmDuplicate = false) {
     if (!customerId || !manualItems.length) return;
     onError("");
-    const response = await fetch("/api/admin/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create-order", customerId, deliveryDate, orderPeriod: orderPeriodValue, confirmAnomaly, items: manualItems.map((i) => ({ productId: i.productId, optionLabel: i.optionLabel, quantity: i.quantity })) }) });
-    const data = await response.json() as { error?: string; warning?: boolean; warnings?: Array<{ message: string }> };
+    const response = await fetch("/api/admin/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create-order", customerId, deliveryDate, orderPeriod: orderPeriodValue, confirmAnomaly, confirmDuplicate, items: manualItems.map((i) => ({ productId: i.productId, optionLabel: i.optionLabel, quantity: i.quantity })) }) });
+    const data = await response.json() as { error?: string; warning?: boolean; warnings?: Array<{ message: string }>; duplicate?: boolean; duplicates?: Array<{ source: string; createdAt: string; by: string; orderPeriod: string; summary: string; overlap: number }> };
+    if (response.status === 409 && data.duplicate) {
+      const sourceName = (s: string) => s === "app" ? "거래처 앱 주문" : s === "admin" ? "직원 입력" : s === "field" ? "현장 발주" : s;
+      const details = (data.duplicates ?? []).map((d) => `• ${sourceName(d.source)}${d.by ? `(${d.by})` : ""} ${d.createdAt.slice(11, 16)} 접수 — 겹치는 품목 ${d.overlap}개\n   ${d.summary}`).join("\n");
+      if (window.confirm(`⚠ 이 거래처는 ${deliveryDate} 배송으로 같은 품목이 든 주문이 이미 있습니다.\n\n${details}\n\n중복이 아니라 추가 주문이면 [확인]을 눌러 접수하세요.`)) await createManualOrder(confirmAnomaly, true);
+      return;
+    }
     if (response.status === 409 && data.warning) {
       const details = (data.warnings ?? []).map((row) => `• ${row.message}`).join("\n");
-      if (window.confirm(`⚠ 평소 주문량보다 많은 품목이 있습니다.\n\n${details}\n\n그래도 접수할까요?`)) await createManualOrder(true);
+      if (window.confirm(`⚠ 평소 주문량보다 많은 품목이 있습니다.\n\n${details}\n\n그래도 접수할까요?`)) await createManualOrder(true, confirmDuplicate);
       return;
     }
     if (!response.ok) { onError(data.error || "주문 접수에 실패했습니다."); return; }

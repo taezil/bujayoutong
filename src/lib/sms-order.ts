@@ -151,10 +151,12 @@ export function matchItem(raw: string, ctx: MatchContext): SmsLine {
   // 1) 연관어 (이 거래처 것 먼저, 다음 공통)
   const alias = ctx.aliases.find((a) => a.alias === query && a.customerId === ctx.customerId)
     ?? ctx.aliases.find((a) => a.alias === query && !a.customerId);
-  if (alias && byId.has(alias.productId)) {
-    const product = byId.get(alias.productId)!;
-    const optionLabel = parsed.unitWord ? pickOption(product, parsed.unitWord) : (product.packOptions.some((o) => o.label === alias.optionLabel) ? alias.optionLabel : pickOption(product, ""));
-    return { ...base, status: "auto", candidates: [{ product, score: 100, why: "연관어" }], productId: product.id, optionLabel };
+  const aliasProduct = alias ? byId.get(alias.productId) : undefined;
+  const aliasOption = aliasProduct && alias
+    ? (parsed.unitWord ? pickOption(aliasProduct, parsed.unitWord) : (aliasProduct.packOptions.some((o) => o.label === alias.optionLabel) ? alias.optionLabel : pickOption(aliasProduct, "")))
+    : "";
+  if (aliasProduct && !aliasProduct.soldout) {
+    return { ...base, status: parsed.quantityGiven ? "auto" : "pick", candidates: [{ product: aliasProduct, score: 100, why: "연관어" }], productId: aliasProduct.id, optionLabel: aliasOption };
   }
   if (query.length < 1) return { ...base, status: "none", candidates: [], productId: "", optionLabel: "" };
 
@@ -178,18 +180,25 @@ export function matchItem(raw: string, ctx: MatchContext): SmsLine {
     if (!score) continue;
     const ordered = ctx.history.get(product.id) ?? 0;
     if (ordered) { score += Math.min(15, 5 + ordered * 2); why += " · 전에 주문"; }
-    if (product.soldout) score -= 5;
+    // 품절은 후보 아래로 (비슷한 판매중 상품이 먼저 보이게)
+    if (product.soldout) score -= 20;
     scored.push({ product, score, why });
   }
   scored.sort((a, b) => b.score - a.score || a.product.name.length - b.product.name.length);
-  const candidates = scored.slice(0, 6);
+  let candidates = scored.slice(0, 6);
+  // 연관어 상품이 품절: 그 상품을 골라 두되(품절 표시), 비슷한 판매중 상품을 같이 보여줌
+  if (aliasProduct) {
+    candidates = [{ product: aliasProduct, score: 100, why: "연관어 · 품절" }, ...candidates.filter((c) => c.product.id !== aliasProduct.id).slice(0, 5)];
+    return { ...base, status: "pick", candidates, productId: aliasProduct.id, optionLabel: aliasOption };
+  }
   if (!candidates.length) return { ...base, status: "none", candidates: [], productId: "", optionLabel: "" };
 
   const [top, second] = candidates;
   // 확실할 때만 자동: 이름이 같거나(1개), 이름에 포함된 상품이 하나뿐이거나, 2등과 차이가 클 때
   const strong = top.score >= 70;
   const clear = !second || top.score - second.score >= 15 || (top.score >= 95 && second.score < 95);
-  const status: SmsLine["status"] = strong && clear ? "auto" : "pick";
+  // 품절 상품이거나 문자에 수량이 없으면 자동으로 넣지 않고 확인(노랑)
+  const status: SmsLine["status"] = strong && clear && !top.product.soldout && parsed.quantityGiven ? "auto" : "pick";
   return { ...base, status, candidates, productId: top.product.id, optionLabel: pickOption(top.product, parsed.unitWord) };
 }
 

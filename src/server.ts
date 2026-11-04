@@ -16,11 +16,16 @@ async function getEntry(): Promise<ServerEntry> {
 }
 
 export default {
-  /** 1분마다: 오래 방치된 발주를 사장님 휴대폰으로 다시 알림 (wrangler.jsonc triggers.crons) */
-  async scheduled(_event: unknown, _env: unknown, ctx: { waitUntil?: (promise: Promise<unknown>) => void }) {
-    const task = import("./lib/alerts.server")
+  /** 1분마다: 오래 방치된 발주를 사장님 휴대폰으로 다시 알림 + 새벽 자동 백업 (wrangler.jsonc triggers.crons) */
+  async scheduled(event: { scheduledTime?: number } | undefined, _env: unknown, ctx: { waitUntil?: (promise: Promise<unknown>) => void }) {
+    const escalation = import("./lib/alerts.server")
       .then((m) => m.runEscalation())
       .catch((error) => console.error("escalation failed", error));
+    // 매일 새벽 3시(한국시간) 데이터 자동 백업
+    const backup = import("./lib/backup.server")
+      .then((m) => m.runDailyBackup(event?.scheduledTime ?? Date.now()))
+      .catch((error) => console.error("backup failed", error));
+    const task = Promise.all([escalation, backup]);
     if (ctx?.waitUntil) ctx.waitUntil(task);
     else await task;
   },

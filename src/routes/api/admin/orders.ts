@@ -65,6 +65,23 @@ export const Route = createFileRoute("/api/admin/orders")({
           if(!customer||!customer.active) throw new Error("거래처를 확인해 주세요.");
           const items=Array.isArray(body.items)?body.items as Array<{productId:string;optionLabel:string;quantity:number}>:[];
           const source="admin";
+          // 같은 거래처·같은 배송일에 같은 품목이 든 주문이 이미 있으면 먼저 확인 (문자 두 번 붙여넣기, 앱+문자 중복 방지)
+          if(body.confirmDuplicate!==true){
+            const day=cleanText(body.deliveryDate,10)||kstDate();
+            const wanted=new Set(items.map(i=>String(i.productId)));
+            const prev=(await db().prepare(`
+              SELECT o.id,o.source,datetime(o.created_at,'+9 hours') AS created_at,o.created_by_staff_name,o.order_period,
+                     (SELECT GROUP_CONCAT(product_id, char(31)) FROM order_items WHERE order_id=o.id) AS pids,
+                     (SELECT GROUP_CONCAT(product_name||' '||quantity||option_label, ', ') FROM order_items WHERE order_id=o.id) AS summary
+              FROM orders o WHERE o.customer_id=? AND o.delivery_date=? AND o.status!='cancelled'
+              ORDER BY o.created_at DESC LIMIT 5`).bind(customer.id,day).all<Record<string,unknown>>()).results;
+            const duplicates=prev.map(r=>{
+              const pids=String(r.pids??"").split(String.fromCharCode(31)).filter(Boolean);
+              return {id:String(r.id),source:String(r.source),createdAt:String(r.created_at),by:String(r.created_by_staff_name||""),orderPeriod:String(r.order_period)==="PM"?"PM":"AM",
+                summary:String(r.summary??"").slice(0,200),overlap:pids.filter(p=>wanted.has(p)).length};
+            }).filter(d=>d.overlap>0);
+            if(duplicates.length) return Response.json({error:"같은 날 같은 품목 주문이 이미 있습니다.",duplicate:true,duplicates},{status:409});
+          }
           const order=await createCustomerOrder(customer,items,cleanText(body.note,500),source,{deliveryDate:cleanText(body.deliveryDate,10)||kstDate(),orderPeriod:cleanText(body.orderPeriod,2),confirmAnomaly:body.confirmAnomaly===true});
           await writeAudit({actor,action:"admin_order",entityType:"order",entityId:order.id,summary:`${customer.code} ${customer.name} 주문발주 입력 · ${order.orderPeriod==="PM"?"오후발주":"오전발주"} · ${order.deliveryDate}`});
           return Response.json({ok:true,order});

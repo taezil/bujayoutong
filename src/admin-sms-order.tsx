@@ -171,7 +171,9 @@ export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd,
             const product = byId.get(row.productId);
             return (
               <div className={`sms-row s-${row.productId ? row.status : "none"}`} key={row.key}>
-                <div className="sms-raw"><span className="sms-badge">{!row.productId ? "🔴" : row.status === "auto" ? "✅" : "🟡"}</span><code>{row.raw}</code></div>
+                <div className="sms-raw"><span className="sms-badge">{!row.productId ? "🔴" : row.status === "auto" ? "✅" : "🟡"}</span><code>{row.raw}</code>
+                  {product?.soldout && <em className="sms-flag">품절 상품</em>}
+                  {!row.quantityGiven && <em className="sms-flag q">수량 확인 (문자에 수량 없음)</em>}</div>
                 <div className="sms-product">
                   {row.candidates.length > 0 && (
                     <select value={row.productId} onChange={(e) => { const p = byId.get(e.target.value); if (p) void choose(row, p); else update(row.key, { productId: "", optionLabel: "" }); }}>
@@ -184,7 +186,7 @@ export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd,
                   {row.picked && <small className={`sms-learn${row.saved === "fail" ? " fail" : ""}`}>'{normalizeAlias(row.query)}' → {product?.name} {row.saved === "ok" ? "연관어 저장됨 ✓ (다음부터 자동)" : row.saved === "fail" ? "연관어 저장 실패 — 다시 골라 주세요" : "연관어 저장 중…"}</small>}
                 </div>
                 <div className="sms-qty">
-                  <input type="number" min="0" step="any" value={row.quantity} onChange={(e) => update(row.key, { quantity: Math.max(0, Number(e.target.value || 0)) })} />
+                  <input type="number" min="0" step="any" value={row.quantity} onChange={(e) => update(row.key, { quantity: Math.max(0, Number(e.target.value || 0)), quantityGiven: true })} />
                   <select value={row.optionLabel} disabled={!product} onChange={(e) => update(row.key, { optionLabel: e.target.value })}>
                     {(product?.packOptions ?? []).map((o) => <option key={o.label}>{o.label}</option>)}
                   </select>
@@ -196,6 +198,7 @@ export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd,
           <div className="sms-paste-actions">
             <button type="button" className="admin-primary" onClick={() => void addAll()}>주문 목록에 담기 ({rows.filter((r) => r.productId && r.quantity > 0).length}개)</button>
             {counts.none > 0 && <span className="sms-note warn">🔴 상품을 안 고른 줄은 빠집니다</span>}
+            {rows.some((r) => byId.get(r.productId)?.soldout) && <span className="sms-note warn">품절 상품이 들어 있습니다. 다른 상품으로 바꾸거나 × 로 빼세요.</span>}
           </div>
         </div>
       )}
