@@ -144,6 +144,21 @@ async function main() {
       const off = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === product.id);
       check("'🔥 행사중' 한 번 → 행사 해제", off.promo === false);
     }
+
+    // 행사 카테고리에 든 상품도 버튼으로 해제/다시 등록 (카테고리는 그대로)
+    const catPromo = store.products.find((p) => p.category === store.promoCategory && !p.hidden);
+    if (catPromo) {
+      await page.locator(".adm-toolbar input[type=search]").fill(catPromo.name);
+      const catRow = page.locator(".adm-table tr", { hasText: catPromo.name }).first();
+      await catRow.locator(".adm-promo-toggle.on").click();
+      await catRow.locator(".adm-promo-toggle:not(.on)").waitFor({ timeout: 10000 });
+      const catOff = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === catPromo.id);
+      check("행사 카테고리 상품도 '🔥 행사중' 누르면 해제(카테고리 그대로)", catOff.promo === false && catOff.category === catPromo.category, `${catOff.promo} ${catOff.category}`);
+      await catRow.locator(".adm-promo-toggle").click();
+      await catRow.locator(".adm-promo-toggle.on").waitFor({ timeout: 10000 });
+      const catOn = (await (await fetch(`${BASE}/api/store?all=1`, { headers: { cookie } })).json()).products.find((p) => p.id === catPromo.id);
+      check("다시 누르면 행사 등록", catOn.promo === true);
+    } else check("행사 카테고리 상품 있음(테스트 데이터)", false, store.promoCategory);
   } catch (error) {
     check("관리자 상품 수정 화면 진행", false, String(error.message || error).slice(0, 1500));
     await page.screenshot({ path: "desk-shot-editor-fail.png", fullPage: true }).catch(() => {});

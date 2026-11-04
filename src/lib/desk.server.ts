@@ -278,6 +278,11 @@ function utcIso(value: unknown) {
   return /Z$|[+-]\d{2}:?\d{2}$/.test(text) ? text : `${text.replace(" ", "T")}Z`;
 }
 
+function isPromoItem(i: OrderRow, promoCategory: string) {
+  const flag = Number(i.is_promo ?? 0);
+  return flag === 1 || (flag !== -1 && Boolean(promoCategory) && String(i.category ?? "") === promoCategory);
+}
+
 function toDeskOrder(r: OrderRow, items: OrderRow[], promoCategory = "") {
   const status = String(r.status ?? "received");
   const additionalBySystem = Number(r.is_additional ?? 0) === 1;
@@ -317,7 +322,7 @@ function toDeskOrder(r: OrderRow, items: OrderRow[], promoCategory = "") {
     total: Number(r.total_amount ?? 0),
     // 주문 당시 가격그룹. B 면 알림센터에 '가격 변동그룹 주문' 표시 (예전 주문은 '')
     priceGroup: String(r.price_group ?? "") === "B" ? "B" : String(r.price_group ?? "") === "A" ? "A" : "",
-    hasPromo: items.some((i) => Number(i.is_promo ?? 0) === 1 || (Boolean(promoCategory) && String(i.category ?? "") === promoCategory)),
+    hasPromo: items.some((i) => isPromoItem(i, promoCategory)),
     items: items.map((i) => ({
       id: Number(i.id),
       productId: String(i.product_id),
@@ -330,7 +335,7 @@ function toDeskOrder(r: OrderRow, items: OrderRow[], promoCategory = "") {
       category: String(i.category ?? ""),
       // 정렬 키 (합친 발주에서 품목을 같은 순서로 다시 정렬할 때 사용)
       sortKey: [Number(i.cat_order ?? 9999), Number(i.sub_order ?? 9999), Number(i.product_order ?? 999999), Number(i.option_order ?? 99)],
-      isPromo: Number(i.is_promo ?? 0) === 1 || (Boolean(promoCategory) && String(i.category ?? "") === promoCategory),
+      isPromo: isPromoItem(i, promoCategory),
     })),
     desk: {
       state: deskState,

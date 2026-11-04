@@ -79,7 +79,7 @@ type PreparedItem = {
   /** 주문 당시 정가 (B그룹 가격과 비교 표시용) */
   listPrice: number;
   category: string;
-  promo?: boolean;
+  promoFlag?: number;
 };
 
 export type OrderQuantityWarning = {
@@ -137,7 +137,7 @@ async function prepareItems(customer: CustomerSummary, items: OrderRequestItem[]
       productId: String(row.id), productName: String(row.name), unit: String(row.unit ?? ""), optionLabel: String(row.label),
       quantity: item.quantity, unitPrice: groupPrice == null ? base : groupPrice, listPrice: base, taxType: String(row.tax_type ?? "taxable"), warehouseZone: String(row.warehouse_zone ?? ""),
       category: String(row.category ?? ""),
-      promo: Number(row.is_promo ?? 0) === 1,
+      promoFlag: Number(row.is_promo ?? 0),
     });
   }
   return prepared;
@@ -226,7 +226,7 @@ export async function createCustomerOrder(
   if (source === "app") {
     // 행사품목이 하나라도 있으면 오늘·내일 배송만 가능 (거래처 화면 달력과 같은 규칙)
     const promo = await promoCategoryName();
-    if (prepared.some((item) => item.promo || (promo && item.category === promo)) && deliveryDate > kstDate(1)) {
+    if (prepared.some((item) => item.promoFlag === 1 || (item.promoFlag !== -1 && promo && item.category === promo)) && deliveryDate > kstDate(1)) {
       throw new Error("행사품목이 있어 오늘·내일 배송만 선택할 수 있습니다. 배송일을 다시 골라 주세요.");
     }
   }

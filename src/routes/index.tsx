@@ -564,7 +564,7 @@ function OrderApp({ store }: { store: StoreData }) {
   const [cartKey, setCartKey] = useState(CART_STORAGE_KEY);
 
   const promo = store.promoCategory && store.promoCategory in store.categories ? store.promoCategory : "";
-  const isPromoProduct = (product: Product | undefined) => Boolean(product && (product.promo || (promo && product.category === promo)));
+  const isPromoProduct = (product: Product | undefined) => Boolean(product?.promo);
 
   function applyDeliveryRule(rule: DeliveryRule | null | undefined, serverNow?: number) {
     if (rule && Array.isArray(rule.pmRuns) && rule.pmRuns.length) setDeliveryRule({ ...DEFAULT_RULE, ...rule });
@@ -1599,7 +1599,7 @@ function productPhotoList(product: Product) {
 
 /** 상품 카드: 사진 · 이름 · 단위별 가격 · 수량만. 입수·인분·설명은 사진을 누르면 나오는 상세 화면에 */
 function ProductCard({ product, promo, quantityFor, onQuantity, onOpen }: CardProps & { product: Product }) {
-  const isPromo = Boolean(product.promo) || (!!promo && product.category === promo);
+  const isPromo = Boolean(product.promo);
   const photoCount = productPhotoList(product).length;
   return (
     <article className={`od-card od-card-v2 ${product.soldout ? "soldout" : ""}`}>
@@ -1679,7 +1679,7 @@ function ProductInfo({ product }: { product: Product }) {
 }
 
 function ProductTags({ product, promo }: { product: Product; promo: string }) {
-  const isPromo = Boolean(product.promo) || (!!promo && product.category === promo);
+  const isPromo = Boolean(product.promo);
   return (
     <div className="od-tags">
       {isPromo && <span className="t-promo">행사</span>}

@@ -22,7 +22,10 @@ export const Route = createFileRoute("/api/admin/products")({
         const on = body.promo === true;
         for (let i = 0; i < ids.length; i += 90) {
           const part = ids.slice(i, i + 90);
-          await database.prepare(`UPDATE products SET is_promo=?, updated_at=datetime('now') WHERE id IN (${part.map(() => "?").join(",")})`).bind(on ? 1 : 0, ...part).run();
+          // 끄기: 행사 카테고리 상품은 -1(카테고리여도 행사 아님), 나머지는 0
+          await database.prepare(`UPDATE products SET is_promo=CASE WHEN ?=1 THEN 1
+              WHEN category=COALESCE((SELECT value FROM app_settings WHERE key='promoCategory' AND value<>''),(SELECT name FROM categories WHERE is_promo=1 ORDER BY sort_order LIMIT 1),'') THEN -1 ELSE 0 END,
+              updated_at=datetime('now') WHERE id IN (${part.map(() => "?").join(",")})`).bind(on ? 1 : 0, ...part).run();
         }
         await bumpVersion(database);
         await writeAudit({ actor, action: "product_promo", entityType: "product", entityId: ids.slice(0, 5).join(","), summary: `행사 ${on ? "등록" : "해제"} ${ids.length}개` });

@@ -141,7 +141,7 @@ export type Product = {
   hidden?: boolean;
   /** 행사가격 (대표 가격, 원). 없으면 null */
   promoPrice?: number | null;
-  /** 행사 상품 (상품마다 켜고 끔. 행사 카테고리에 든 상품도 행사로 봄) */
+  /** 행사 상품 (상품마다 켜고 끔. 행사 카테고리 상품은 끄지 않았으면 행사) — 서버에서 계산해 내려줌 */
   promo?: boolean;
   /** 상품 사진 전체 (첫 장 = 대표 사진 photo). 상세 화면에서 넘겨 봄 */
   photos?: string[];
@@ -746,7 +746,7 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
     priceDisplayMode: String(row.price_display_mode ?? "fixed") === "market" ? "market" : String(row.price_display_mode ?? "fixed") === "inquiry" ? "inquiry" : "fixed",
     hidden: Number(row.hidden ?? 0) === 1,
     promoPrice: row.promo_price == null ? null : Number(row.promo_price),
-    promo: Number(row.is_promo ?? 0) === 1,
+    promoFlag: Number(row.is_promo ?? 0),
     photos: productPhotos(String(row.photo ?? ""), row.photos),
     ...(options.includeHidden ? { updatedAt: String(row.updated_at ?? "") } : {}),
     packOptions: optionsByProduct.get(String(row.id)) ?? [],
@@ -755,13 +755,20 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
   const promoFromTable = (categoryRows.results as Array<Record<string, unknown>>).find(
     (row) => Number(row.is_promo ?? 0) === 1,
   );
+  const promoCategoryName = settings.promoCategory || String(promoFromTable?.name ?? "");
+  // 행사 여부: 상품에서 켬(1) / 껐음(-1, 행사 카테고리여도 행사 아님) / 따로 안 정함(0, 행사 카테고리면 행사)
+  for (const product of products as Array<Product & { promoFlag?: number }>) {
+    const flag = product.promoFlag ?? 0;
+    product.promo = flag === 1 || (flag !== -1 && Boolean(promoCategoryName) && product.category === promoCategoryName);
+    delete product.promoFlag;
+  }
 
   return {
     products,
     categories,
     categoryImages,
     categoryStorage,
-    promoCategory: settings.promoCategory || String(promoFromTable?.name ?? ""),
+    promoCategory: promoCategoryName,
     sms: settings.sms || "",
     heroImage: settings.heroImage || "",
     heroKicker: settings.heroKicker || "프리미엄 식자재몰",
