@@ -341,7 +341,6 @@ function AdminPage() {
           <span>{staffName}</span>
           <button type="button" className="adm-side-link" onClick={() => void changeMyAdminPassword()}>내 비밀번호 변경</button>
           <a href="/admin/accounts" title="거래처 계정 · 가격 그룹(A/B) · 직원 PIN">거래처 계정 관리</a>
-          <small className="adm-side-hint">가격 그룹(A/B) · 직원 PIN도 여기서</small>
           <button type="button" onClick={logout}>로그아웃</button>
         </div>
       </aside>
@@ -501,8 +500,12 @@ function ProductsView({
         <div><h1>상품 관리</h1><p>전체 {counts.all}개 · 판매중 {counts.selling} · 품절 {counts.soldout} · 숨김 {counts.hidden}</p></div>
         <button type="button" className="adm-primary" onClick={onCreate}>＋ 상품 추가</button>
       </div>
-      <ThumbnailTool store={store} />
-      <ExcelTool store={store} onReload={onReload} onNotice={onNotice} />
+      {/* 자주 안 쓰는 도구는 접어 둠 */}
+      <details className="adm-tools">
+        <summary>📑 엑셀 일괄수정 · 사진 썸네일</summary>
+        <ExcelTool store={store} onReload={onReload} onNotice={onNotice} />
+        <ThumbnailTool store={store} />
+      </details>
       <div className="adm-toolbar">
         <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="상품명, 코드 검색" />
         <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="카테고리">

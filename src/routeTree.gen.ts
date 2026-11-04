@@ -56,6 +56,7 @@ import { Route as ApiDeskOrdersRouteImport } from './routes/api/desk/orders'
 import { Route as ApiDeskPulseRouteImport } from './routes/api/desk/pulse'
 import { Route as ApiDriverDataRouteImport } from './routes/api/driver/data'
 import { Route as ApiDriverOrderRouteImport } from './routes/api/driver/order'
+import { Route as ApiDriverSmsRouteImport } from './routes/api/driver/sms'
 import { Route as ApiPushSubscribeRouteImport } from './routes/api/push/subscribe'
 import { Route as ApiPushSummaryRouteImport } from './routes/api/push/summary'
 import { Route as ApiStaffLoginRouteImport } from './routes/api/staff/login'
@@ -297,6 +298,11 @@ const ApiDriverOrderRoute = ApiDriverOrderRouteImport.update({
   path: '/api/driver/order',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDriverSmsRoute = ApiDriverSmsRouteImport.update({
+  id: '/api/driver/sms',
+  path: '/api/driver/sms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPushSubscribeRoute = ApiPushSubscribeRouteImport.update({
   id: '/api/push/subscribe',
   path: '/api/push/subscribe',
@@ -371,6 +377,7 @@ export interface FileRoutesByFullPath {
   '/api/desk/pulse': typeof ApiDeskPulseRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
+  '/api/driver/sms': typeof ApiDriverSmsRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/push/summary': typeof ApiPushSummaryRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
@@ -425,6 +432,7 @@ export interface FileRoutesByTo {
   '/api/desk/pulse': typeof ApiDeskPulseRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
+  '/api/driver/sms': typeof ApiDriverSmsRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/push/summary': typeof ApiPushSummaryRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
@@ -480,6 +488,7 @@ export interface FileRoutesById {
   '/api/desk/pulse': typeof ApiDeskPulseRoute
   '/api/driver/data': typeof ApiDriverDataRoute
   '/api/driver/order': typeof ApiDriverOrderRoute
+  '/api/driver/sms': typeof ApiDriverSmsRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/push/summary': typeof ApiPushSummaryRoute
   '/api/staff/login': typeof ApiStaffLoginRoute
@@ -536,6 +545,7 @@ export interface FileRouteTypes {
     | '/api/desk/pulse'
     | '/api/driver/data'
     | '/api/driver/order'
+    | '/api/driver/sms'
     | '/api/push/subscribe'
     | '/api/push/summary'
     | '/api/staff/login'
@@ -590,6 +600,7 @@ export interface FileRouteTypes {
     | '/api/desk/pulse'
     | '/api/driver/data'
     | '/api/driver/order'
+    | '/api/driver/sms'
     | '/api/push/subscribe'
     | '/api/push/summary'
     | '/api/staff/login'
@@ -644,6 +655,7 @@ export interface FileRouteTypes {
     | '/api/desk/pulse'
     | '/api/driver/data'
     | '/api/driver/order'
+    | '/api/driver/sms'
     | '/api/push/subscribe'
     | '/api/push/summary'
     | '/api/staff/login'
@@ -699,6 +711,7 @@ export interface RootRouteChildren {
   ApiDeskPulseRoute: typeof ApiDeskPulseRoute
   ApiDriverDataRoute: typeof ApiDriverDataRoute
   ApiDriverOrderRoute: typeof ApiDriverOrderRoute
+  ApiDriverSmsRoute: typeof ApiDriverSmsRoute
   ApiPushSubscribeRoute: typeof ApiPushSubscribeRoute
   ApiPushSummaryRoute: typeof ApiPushSummaryRoute
   ApiStaffLoginRoute: typeof ApiStaffLoginRoute
@@ -1037,6 +1050,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDriverOrderRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/driver/sms': {
+      id: '/api/driver/sms'
+      path: '/api/driver/sms'
+      fullPath: '/api/driver/sms'
+      preLoaderRoute: typeof ApiDriverSmsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/push/subscribe': {
       id: '/api/push/subscribe'
       path: '/api/push/subscribe'
@@ -1123,6 +1143,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDeskPulseRoute: ApiDeskPulseRoute,
   ApiDriverDataRoute: ApiDriverDataRoute,
   ApiDriverOrderRoute: ApiDriverOrderRoute,
+  ApiDriverSmsRoute: ApiDriverSmsRoute,
   ApiPushSubscribeRoute: ApiPushSubscribeRoute,
   ApiPushSummaryRoute: ApiPushSummaryRoute,
   ApiStaffLoginRoute: ApiStaffLoginRoute,

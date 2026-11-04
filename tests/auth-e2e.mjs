@@ -387,6 +387,7 @@ async function main() {
     const adminPage = await adminContext.newPage();
     try {
       await adminPage.goto("/admin");
+      await adminPage.locator(".adm-tools > summary").click();
       const button = adminPage.getByRole("button", { name: "목록용 썸네일 만들기" });
       await button.waitFor({ timeout: 60000 });
       await button.click();

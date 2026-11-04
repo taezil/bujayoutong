@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import type { Product } from "../lib/db.server";
 import { BUJA_LOGO_DATA } from "../brand-assets";
+import { SmsOrderPaste, type SmsItem } from "../admin-sms-order";
 
 export const Route=createFileRoute("/driver")({
   head:()=>({meta:[{title:"부자유통 배송"},{name:"robots",content:"noindex,nofollow"}]}),
@@ -84,21 +85,33 @@ function DriverPage(){
     setCart(cur=>{const i=cur.findIndex(x=>x.productId===product.id&&x.optionLabel===optionLabel);if(i<0)return[...cur,{productId:product.id,productName:product.name,optionLabel,quantity:Math.max(1,Math.round(qty)),unitPrice:price,step:1}];const n=[...cur];n[i]={...n[i],quantity:Math.max(1,Math.round(n[i].quantity+qty))};return n;});
     setProduct(null);setProductQuery("");setQty(1);
   }
-  async function submit(confirmAnomaly=false){
+  // 문자 붙여넣기 → 거래처 선택 + 장바구니에 담기
+  function smsCustomer(id:string){const c=data?.customers.find(x=>x.id===id);if(c&&c.id!==customer?.id){setCustomer(c);setCustomerQuery(`${c.code} · ${c.name}`);setCustomerOpen(false);setCart([]);}}
+  function smsAdd(items:SmsItem[]){
+    if(!customer){setMessage("거래처를 먼저 골라 주세요.");return;}
+    setCart(cur=>{const next=[...cur];for(const it of items){const p=data?.products.find(x=>x.id===it.productId);const option=p?.packOptions.find(o=>o.label===it.optionLabel)??p?.packOptions[0];if(!p||!option)continue;
+      const i=next.findIndex(x=>x.productId===p.id&&x.optionLabel===option.label);const quantity=Math.max(1,Math.round(it.quantity));
+      if(i<0)next.push({productId:p.id,productName:p.name,optionLabel:option.label,quantity,unitPrice:groupPrice(option,customer.priceGroup),step:1});else next[i]={...next[i],quantity:next[i].quantity+quantity};}
+      return next;});
+  }
+  async function submit(confirmAnomaly=false,confirmDuplicate=false){
     if(!customer||!cart.length||submitting)return;
     if(!deliverySlot){setMessage("배송 시간(오전 배송/오후 배송)을 선택해 주세요.");return;}
     setSubmitting(true);
     let r:Response;
     try{
-      r=await fetch("/api/driver/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customerId:customer.id,deliveryDate:date,orderPeriod:orderPeriodValue,deliverySlot,requestId,items:cart.map(x=>({productId:x.productId,optionLabel:x.optionLabel,quantity:x.quantity})),note,confirmAnomaly})});
+      r=await fetch("/api/driver/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customerId:customer.id,deliveryDate:date,orderPeriod:orderPeriodValue,deliverySlot,requestId,items:cart.map(x=>({productId:x.productId,optionLabel:x.optionLabel,quantity:x.quantity})),note,confirmAnomaly,confirmDuplicate})});
     }catch{
       setSubmitting(false);
       setMessage("❗ 인터넷 연결이 불안정해 접수 결과를 확인하지 못했습니다. [발주 등록]을 다시 눌러 주세요. 같은 발주는 두 번 접수되지 않습니다.");
       return;
     }
-    const j=await r.json().catch(()=>({})) as {error?:string;warning?:boolean;warnings?:Array<{message:string}>;order?:{id:string;isAdditional:boolean;duplicate?:boolean}};
+    const j=await r.json().catch(()=>({})) as {error?:string;warning?:boolean;warnings?:Array<{message:string}>;duplicate?:boolean;duplicates?:Array<{source:string;createdAt:string;by:string;summary:string;overlap:number}>;order?:{id:string;isAdditional:boolean;duplicate?:boolean}};
     setSubmitting(false);
-    if(r.status===409&&j.warning){const text=(j.warnings??[]).map(x=>`• ${x.message}`).join("\n");if(window.confirm(`⚠ 평소 주문량보다 많습니다.\n\n${text}\n\n그래도 발주할까요?`))return submit(true);return;}
+    if(r.status===409&&j.duplicate){const src=(s:string)=>s==="app"?"거래처 앱 주문":s==="admin"?"사무실 입력":s==="driver"?"현장발주":s;
+      const text=(j.duplicates??[]).map(d=>`• ${src(d.source)}${d.by?`(${d.by})`:""} ${d.createdAt.slice(11,16)} — 겹치는 품목 ${d.overlap}개\n   ${d.summary}`).join("\n");
+      if(window.confirm(`⚠ 이 거래처는 ${date} 배송으로 같은 품목 주문이 이미 있습니다.\n\n${text}\n\n중복이 아니라 추가 주문이면 [확인]을 눌러 접수하세요.`))return submit(confirmAnomaly,true);return;}
+    if(r.status===409&&j.warning){const text=(j.warnings??[]).map(x=>`• ${x.message}`).join("\n");if(window.confirm(`⚠ 평소 주문량보다 많습니다.\n\n${text}\n\n그래도 발주할까요?`))return submit(true,confirmDuplicate);return;}
     if(r.status===401){setMessage("로그인이 풀렸습니다. 다시 로그인해 주세요.");setStaff(null);return;}
     if(!r.ok||!j.order){setMessage(`❗ 접수되지 않았습니다: ${j.error||"현장발주 접수에 실패했습니다."}`);return;}
     setMessage(`✅ ${j.order.isAdditional?"🚨 추가발주":"발주"} 접수 완료 · ${customer.code} ${customer.name} → 사무실 알림센터로 전송됨`);
@@ -124,6 +137,7 @@ function DriverPage(){
             <button type="button" className={orderPeriodValue==="PM"?"selected":""} onClick={()=>setOrderPeriodValue("PM")}>오후발주</button>
           </div>
         </div>
+        {data&&<div className="driver-sms"><SmsOrderPaste api="/api/driver/sms" store={{products:data.products}} customers={data.customers} customerId={customer?.id??""} onCustomer={smsCustomer} onAdd={smsAdd} onError={(m)=>setMessage(m?`❗ ${m}`:"")}/></div>}
         <div className="driver-search-block"><label>거래처 (검색하거나 목록에서 선택)<input value={customerQuery} onFocus={()=>setCustomerOpen(true)} onChange={e=>{setCustomerQuery(e.target.value);setCustomerOpen(true);if(customer)setCustomer(null);}} placeholder="거래처번호·상호·지역 입력, 또는 눌러서 전체 목록"/></label>
           {customerOpen&&<div className="driver-suggestions driver-customer-list">{customers.map(c=><button type="button" key={c.id} onClick={()=>{setCustomer(c);setCustomerQuery(`${c.code} · ${c.name}`);setCustomerOpen(false);setCart([]);}}><strong>{c.code} · {c.name}</strong><span>{c.region||"지역 미지정"} · {c.address}</span></button>)}{!customers.length&&<p className="driver-empty">검색되는 거래처가 없습니다.</p>}</div>}</div>
         {customer&&<div className="driver-customer-summary"><b>{customer.code} · {customer.name}</b><span>☎ {customer.storePhone||customer.phone||"전화번호 없음"}</span><span>{customer.address}</span><span className={customer.receivable>0?"warn":""}>미수 {won(customer.receivable)}원</span></div>}

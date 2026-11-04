@@ -28,6 +28,7 @@ async function main() {
   const page = await context.newPage();
   try {
     await page.goto("/admin");
+    await page.locator(".adm-tools > summary").click();
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /엑셀 내려받기/ }).click()]);
     check("엑셀 파일 이름", /^부자유통_상품목록_\d{8}\.xlsx$/.test(download.suggestedFilename()), download.suggestedFilename());
     await download.saveAs("excel-download.xlsx");

@@ -7,8 +7,9 @@ import { normalizeAlias, normalizeName, pickOption, readSms, type SmsAlias, type
 type Row = SmsLine & { key: string; picked: boolean; saved?: "saving" | "ok" | "fail" };
 export type SmsItem = { productId: string; productName: string; optionLabel: string; quantity: number };
 
+let apiPath = "/api/admin/orders";
 async function post<T>(body: Record<string, unknown>): Promise<T> {
-  const response = await fetch("/api/admin/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const response = await fetch(apiPath, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const data = await response.json() as T & { error?: string };
   if (!response.ok) throw new Error(data.error || "요청을 처리하지 못했습니다.");
   return data;
@@ -35,14 +36,17 @@ function ProductSearch({ products, onPick, placeholder }: { products: Product[];
   );
 }
 
-export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd, onError }: {
-  store: StoreData;
+export function SmsOrderPaste({ store, customers, customerId, onCustomer, onAdd, onError, api = "/api/admin/orders" }: {
+  store: Pick<StoreData, "products">;
+  /** 관리자: /api/admin/orders, 배송기사: /api/driver/sms */
+  api?: string;
   customers: SmsCustomer[];
   customerId: string;
   onCustomer: (id: string) => void;
   onAdd: (items: SmsItem[]) => void;
   onError: (message: string) => void;
 }) {
+  apiPath = api;
   const [text, setText] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [note, setNote] = useState("");

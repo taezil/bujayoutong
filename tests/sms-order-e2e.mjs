@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { pbkdf2Sync } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { chromium } from "playwright";
+import { chromium, devices } from "playwright";
 
 const BASE = (process.argv[2] || "http://localhost:4173").replace(/\/$/, "");
 const results = [];
@@ -116,6 +116,35 @@ async function main() {
     await aliasList.first().getByRole("button", { name: "삭제" }).click();
     await page.waitForTimeout(800);
     check("연관어 삭제", (await aliasList.count()) === beforeDelete - 1, `${beforeDelete} → ${await aliasList.count()}`);
+
+    // 배송기사 화면: 같은 문자 붙여넣기 → 거래처·품목 자동 → 접수 시 중복 경고
+    const pinSet = await fetch(`${BASE}/api/admin/staff`, { method: "POST", headers: { cookie, "content-type": "application/json", origin: BASE }, body: JSON.stringify({ action: "reset-pin", id: "S-MINSU", pin: "246813" }) });
+    check("(준비) 기사 PIN 설정", pinSet.ok, String(pinSet.status));
+    const driverCtx = await browser.newContext({ ...devices["Pixel 7"], baseURL: BASE });
+    const dpage = await driverCtx.newPage();
+    const ddialogs = [];
+    dpage.on("dialog", (d) => { ddialogs.push(d.message()); void d.accept(); });
+    await dpage.goto("/driver");
+    await dpage.locator('input[autocomplete="username"]').fill("minsu");
+    await dpage.locator('input[autocomplete="current-password"]').fill("246813");
+    await dpage.getByRole("button", { name: "로그인" }).click();
+    const dbox = dpage.locator(".driver-sms .sms-paste");
+    await dbox.waitFor({ timeout: 20000 });
+    await dbox.locator("textarea").fill("120-13\n동전어묵 2봉." + core(pB.name) + "1.박스");
+    await dbox.getByRole("button", { name: "문자 읽기" }).click();
+    await dbox.locator(".sms-row").nth(1).waitFor({ timeout: 10000 });
+    check("[기사] 문자 첫 줄로 거래처 자동 선택", /태승|120/.test(await dpage.locator(".driver-customer-summary").innerText()), await dpage.locator(".driver-customer-summary").innerText().catch(() => "없음"));
+    check("[기사] 연관어로 '동전어묵' 자동", (await dbox.locator(".sms-row").first().getAttribute("class")).includes("s-auto"));
+    await dbox.getByRole("button", { name: /주문 목록에 담기/ }).click();
+    const cartRows = dpage.locator(".driver-cart > div");
+    await cartRows.first().waitFor();
+    check("[기사] 장바구니에 2줄 담김(수량 그대로)", (await cartRows.count()) === 2 && (await cartRows.first().innerText()).includes("2"), (await cartRows.allInnerTexts()).join(" / "));
+    await dpage.getByRole("button", { name: /오전 배송/ }).click();
+    await dpage.locator(".driver-submit").click();
+    await dpage.locator(".driver-message", { hasText: "접수 완료" }).waitFor({ timeout: 15000 });
+    check("[기사] 같은 날 같은 품목이면 중복 경고 후 확인하면 접수", ddialogs.some((m) => m.includes("이미 있습니다")), ddialogs.join(" / ").slice(0, 200));
+    await dpage.screenshot({ path: "desk-shot-driver-sms.png", fullPage: false });
+    await driverCtx.close();
 
     // 데이터 백업: 지금 백업 → 목록 → 내려받기(세션 토큰은 빠짐)
     const made = await fetch(`${BASE}/api/admin/backup`, { method: "POST", headers: { cookie, "content-type": "application/json", origin: BASE }, body: "{}" });
