@@ -4668,3 +4668,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .adm-tools > div { margin: 0 10px 8px; }
 .driver-sms { margin: 4px 0 12px; }
 .driver-sms .sms-paste { margin-bottom: 0; }
+.driver-step { margin: 14px 0 6px; font-weight: 900; font-size: 15px; color: #0f5f3a; }
+.driver-step small { font-weight: 600; font-size: 12px; color: #6b7a70; }
+.driver-meta-date { display: flex; align-items: center; gap: 8px; font-weight: 800; margin-bottom: 8px; }
+.driver-meta-date input { flex: 1; min-height: 44px; font-size: 16px; padding: 0 10px; border: 1px solid #cfd8d3; border-radius: 10px; }

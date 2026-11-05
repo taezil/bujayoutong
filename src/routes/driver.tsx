@@ -127,17 +127,9 @@ function DriverPage(){
       <section className="driver-date-panel"><div><p>배송일</p><h1>{date}</h1></div><div className="driver-date-buttons"><input aria-label="배송일 선택" type="date" value={date} min={localDate(0)} onChange={e=>setDate(e.target.value)}/></div></section>
 
       <section className="driver-order-form"><div className="driver-section-head"><div><p>식당에서 바로 입력</p><h2>현장발주</h2></div>{customer&&<span>{customer.region} · 가격 {customer.priceGroup}그룹</span>}</div>
-        <div className="driver-order-meta">
-          <div className="order-period-toggle delivery-slot-toggle" role="radiogroup" aria-label="배송 시간">
-            <button type="button" className={deliverySlot==="AM"?"selected":""} onClick={()=>setDeliverySlot("AM")}>☀️ 오전 배송</button>
-            <button type="button" className={deliverySlot==="PM"?"selected":""} onClick={()=>setDeliverySlot("PM")}>🌇 오후 배송</button>
-          </div>
-          <div className="order-period-toggle" role="group" aria-label="발주 시간대">
-            <button type="button" className={orderPeriodValue==="AM"?"selected":""} onClick={()=>setOrderPeriodValue("AM")}>오전발주</button>
-            <button type="button" className={orderPeriodValue==="PM"?"selected":""} onClick={()=>setOrderPeriodValue("PM")}>오후발주</button>
-          </div>
-        </div>
+        <p className="driver-step">① 식당 문자 붙여넣기 <small>(문자가 없으면 건너뛰고 ②에서 직접 고르세요)</small></p>
         {data&&<div className="driver-sms"><SmsOrderPaste api="/api/driver/sms" store={{products:data.products}} customers={data.customers} customerId={customer?.id??""} onCustomer={smsCustomer} onAdd={smsAdd} onError={(m)=>setMessage(m?`❗ ${m}`:"")}/></div>}
+        <p className="driver-step">② 거래처 · 품목 확인</p>
         <div className="driver-search-block"><label>거래처 (검색하거나 목록에서 선택)<input value={customerQuery} onFocus={()=>setCustomerOpen(true)} onChange={e=>{setCustomerQuery(e.target.value);setCustomerOpen(true);if(customer)setCustomer(null);}} placeholder="거래처번호·상호·지역 입력, 또는 눌러서 전체 목록"/></label>
           {customerOpen&&<div className="driver-suggestions driver-customer-list">{customers.map(c=><button type="button" key={c.id} onClick={()=>{setCustomer(c);setCustomerQuery(`${c.code} · ${c.name}`);setCustomerOpen(false);setCart([]);}}><strong>{c.code} · {c.name}</strong><span>{c.region||"지역 미지정"} · {c.address}</span></button>)}{!customers.length&&<p className="driver-empty">검색되는 거래처가 없습니다.</p>}</div>}</div>
         {customer&&<div className="driver-customer-summary"><b>{customer.code} · {customer.name}</b><span>☎ {customer.storePhone||customer.phone||"전화번호 없음"}</span><span>{customer.address}</span><span className={customer.receivable>0?"warn":""}>미수 {won(customer.receivable)}원</span></div>}
@@ -148,6 +140,19 @@ function DriverPage(){
         </div>
         {cart.length>0&&<div className="driver-cart">{cart.map((x,i)=><div key={`${x.productId}-${x.optionLabel}`}><span><b>{x.productName}</b> {x.quantity}{x.optionLabel}</span><strong>{won(x.unitPrice*x.quantity)}원</strong><button onClick={()=>setCart(c=>c.filter((_,j)=>j!==i))}>×</button></div>)}</div>}
         <label className="driver-note">요청사항<input value={note} onChange={e=>setNote(e.target.value)} placeholder="없으면 비워두세요"/></label>
+        <p className="driver-step">③ 배송 날짜 · 시간 선택</p>
+        <div className="driver-order-meta">
+          <label className="driver-meta-date">배송일<input aria-label="현장발주 배송일" type="date" value={date} min={localDate(0)} onChange={e=>setDate(e.target.value)}/></label>
+          <div className="order-period-toggle delivery-slot-toggle" role="radiogroup" aria-label="배송 시간">
+            <button type="button" className={deliverySlot==="AM"?"selected":""} onClick={()=>setDeliverySlot("AM")}>☀️ 오전 배송</button>
+            <button type="button" className={deliverySlot==="PM"?"selected":""} onClick={()=>setDeliverySlot("PM")}>🌇 오후 배송</button>
+          </div>
+          <div className="order-period-toggle" role="group" aria-label="발주 시간대">
+            <button type="button" className={orderPeriodValue==="AM"?"selected":""} onClick={()=>setOrderPeriodValue("AM")}>오전발주</button>
+            <button type="button" className={orderPeriodValue==="PM"?"selected":""} onClick={()=>setOrderPeriodValue("PM")}>오후발주</button>
+          </div>
+        </div>
+        <p className="driver-step">④ 발주 등록</p>
         <button className="driver-submit" type="button" disabled={!customer||!cart.length||!deliverySlot||submitting} onClick={()=>void submit(false)}>{submitting?"접수 중...":`${date===localDate(0)?"오늘":date.slice(5).replace("-","/")} ${deliverySlot==="PM"?"오후 배송":deliverySlot==="AM"?"오전 배송":"(배송 시간 선택)"} · 발주 등록 → 사무실 알림`}</button>
         {message&&<p className="driver-message">{message}</p>}
       </section>
