@@ -66,6 +66,8 @@ export const Route = createFileRoute("/api/admin/staff")({
             db().prepare("INSERT INTO admin_credentials(id,salt,hash) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET salt=excluded.salt,hash=excluded.hash").bind(credential.salt,credential.hash),
             ...(me?.id==="admin"?[]:[db().prepare("DELETE FROM admin_sessions WHERE COALESCE(admin_user_id,'')=''")]),
             db().prepare("DELETE FROM desk_sessions WHERE staff_id='S-DESK-ADMIN'"),
+            // 비밀번호를 잊어 잠긴 admin 로그인 잠금도 같이 풀기
+            db().prepare("DELETE FROM auth_login_attempts WHERE attempt_key='admin' AND scope IN ('admin-id','id')"),
           ]);
           await writeAudit({actor,action:"admin_user_password",entityType:"admin_user",entityId:"admin",summary:"관리자 계정 admin 비밀번호 변경"});
           return Response.json({ok:true});
