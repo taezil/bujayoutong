@@ -172,8 +172,9 @@ function optionSpec(product: Product, option: PackOption) {
     if (numericOnly) return `${numericOnly[1]}kg`;
     return explicit;
   }
+  // 단위가 하나면 상품 규격, 여러 개면 단위별로 입력한 규격만 표시 (봉지에 박스 무게가 붙는 문제 방지)
   const options = productOptions(product);
-  if (options.length === 1 || !option.label.includes("박스")) return product.unit.trim();
+  if (options.length === 1 || options[0] === option) return product.unit.trim();
   return "";
 }
 

@@ -39,10 +39,10 @@ async function main() {
     check("1단위(봉지·팩) 기준 인분 칸 없음", !text.includes("1단위(봉지"));
     check("1박스 입수 수량·1박스 기준 인분은 유지", text.includes("1박스 입수 수량") && text.includes("1박스 기준 인분"));
     const row = editor.locator(".adm-unit-row.simple").first();
-    const priceValue = await row.locator("input").nth(1).inputValue();
+    const priceValue = await row.locator("input").nth(2).inputValue();
     check("가격에 쉼표 표시", priceValue === new Intl.NumberFormat("ko-KR").format(product.packOptions[0].price), priceValue);
     check("B그룹 가격 칸은 처음엔 접혀 있음", (await editor.locator(".adm-price-b").count()) === 0);
-    check("규격·증가 단위는 세부 설정 안에 접혀 있음", !(await editor.locator(".adm-unit-more").evaluate((el) => el.open)));
+    check("규격(kg) 칸이 단위 옆에 보임, 증가 단위는 세부 설정에 접힘", (await row.locator(".adm-unit-kg input").count()) === 1 && !(await editor.locator(".adm-unit-more").evaluate((el) => el.open)));
     await page.screenshot({ path: "desk-shot-editor-1-basic.png", fullPage: false });
     await editor.locator(".adm-units").screenshot({ path: "desk-shot-editor-2-units.png" });
 
@@ -65,7 +65,21 @@ async function main() {
     const higher = product.packOptions[0].price + 3000;
     await bInput.fill(String(higher));
     check("B가격 쉼표 표시 + 경고 사라짐", (await bInput.inputValue()) === new Intl.NumberFormat("ko-KR").format(higher) && (await editor.locator(".adm-price-b-warn").count()) === 0, await bInput.inputValue());
+    // 첫 단위(박스) 그룹 가격을 바꾸면 다른 단위도 같은 비율로 자동
+    await editor.getByRole("button", { name: /단위 추가/ }).click();
+    const second = editor.locator(".adm-unit-row.simple").nth(1);
+    await second.locator("input").nth(0).fill("봉지");
+    await second.locator("input").nth(1).fill("1");
+    await second.locator("input").nth(2).fill(String(Math.round(product.packOptions[0].price / 10)));
+    const basePrice = product.packOptions[0].price;
+    const lower = basePrice - 1000;
+    await bInput.fill(String(lower));
+    const expected = Math.round((Math.round(basePrice / 10) * lower / basePrice) / 10) * 10;
+    const secondB = await second.locator(".adm-price-b input").inputValue();
+    check("박스 B가격 → 봉지 B가격 같은 비율로 자동", secondB === new Intl.NumberFormat("ko-KR").format(expected), `${secondB} vs ${expected}`);
     await editor.locator(".adm-units").screenshot({ path: "desk-shot-editor-3-priceb.png" });
+    await second.locator(".adm-unit-del").click();
+    await bInput.fill(String(higher));
 
     await page.getByRole("button", { name: "저장하기" }).click();
     await editor.waitFor({ state: "detached", timeout: 20000 });

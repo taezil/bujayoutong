@@ -955,6 +955,8 @@ function ProductEditor({
 }) {
   const [draft, setDraft] = useState<Product>(() => structuredClone(product));
   // B그룹 가격은 평소 접어두고, 이미 B가격이 있는 상품이면 펼친 채로 엶
+  // 그룹 가격을 직접 고친 칸 (첫 단위 그룹 가격을 바꿔도 자동으로 안 바뀜)
+  const [manualGroup, setManualGroup] = useState<Set<string>>(() => new Set());
   const [showPriceB, setShowPriceB] = useState(() => product.packOptions.some((option) => option.priceB != null || option.priceC != null || option.priceD != null));
   // 사진 여러 장: 첫 장이 대표 사진(목록·장바구니에 보이는 사진). 새로 고른 파일은 고르자마자 올리기 시작
   const uploads = useRef(new Map<string, Promise<string>>());
@@ -1036,6 +1038,25 @@ function ProductEditor({
       const item = current[index];
       if (item?.file) URL.revokeObjectURL(item.preview);
       return current.filter((_, i) => i !== index);
+    });
+  }
+
+  /** 그룹 가격 입력: 첫 단위(보통 박스)를 바꾸면 나머지 단위도 같은 비율로 자동 (직접 고친 칸은 그대로) */
+  function updateGroupPrice(index: number, group: "B" | "C" | "D", value: number | null) {
+    const key = PRICE_KEY[group];
+    if (index !== 0) setManualGroup((current) => new Set(current).add(`${index}:${group}`));
+    setDraft((current) => {
+      const first = current.packOptions[0];
+      const ratio = index === 0 && value != null && first?.price ? value / first.price : null;
+      return {
+        ...current,
+        packOptions: current.packOptions.map((option, i) => {
+          if (i === index) return { ...option, [key]: value };
+          if (index !== 0 || manualGroup.has(`${i}:${group}`)) return option;
+          if (ratio == null || option.price == null) return { ...option, [key]: null };
+          return { ...option, [key]: Math.round((option.price * ratio) / 10) * 10 };
+        }),
+      };
     });
   }
 
@@ -1166,6 +1187,12 @@ function ProductEditor({
                 return (
                   <div className={`adm-unit-row simple${showPriceB ? " with-b" : ""}`} key={index}>
                     <label>단위<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} placeholder="박스" list="adm-unit-presets" /></label>
+                    <label className="adm-unit-kg">규격
+                      <span className="adm-suffix">
+                        <input inputMode="decimal" value={option.spec ?? ""} onChange={(e) => updateOption(index, { spec: sanitizeKgNumber(e.target.value) })} placeholder={index === 0 && draft.unit ? unitInputValue(draft.unit) : ""} />
+                        <b>kg</b>
+                      </span>
+                    </label>
                     <label>가격
                       <span className="adm-suffix">
                         <input inputMode="numeric" value={priceText(option.price)} placeholder="가격문의" onChange={(e) => updateOption(index, { price: parsePrice(e.target.value) })} />
@@ -1178,7 +1205,7 @@ function ProductEditor({
                         const cheaper = value != null && option.price != null && value < option.price;
                         return <label className={`adm-price-${g.toLowerCase()}`} key={g}>{g}그룹
                           <span className="adm-suffix">
-                            <input inputMode="numeric" value={priceText(value)} placeholder="비우면 기본" onChange={(e) => updateOption(index, { [PRICE_KEY[g]]: parsePrice(e.target.value) })} />
+                            <input inputMode="numeric" value={priceText(value)} placeholder="비우면 기본" onChange={(e) => updateGroupPrice(index, g, parsePrice(e.target.value))} />
                             <b>원</b>
                           </span>
                           {cheaper && <small className="adm-price-b-warn">기본 가격보다 쌉니다</small>}
@@ -1191,7 +1218,7 @@ function ProductEditor({
               })}
               {!showPriceB && <button type="button" className="adm-link-btn" onClick={() => setShowPriceB(true)}>▸ 그룹별 가격 정하기 (B · C · D그룹)</button>}
               {showPriceB && <div className="adm-priceb-foot">
-                <p className="adm-help">B·C·D그룹 거래처는 각 그룹 가격으로 보이고 계산됩니다. 비워두면 기본 가격(A그룹)과 같습니다.</p>
+                <p className="adm-help">B·C·D그룹 거래처는 각 그룹 가격으로 보이고 계산됩니다. 비워두면 기본 가격(A그룹)과 같습니다. <b>첫 단위(박스) 그룹 가격을 넣으면 아래 단위도 같은 비율로 자동 계산</b>되고, 필요하면 직접 고치면 됩니다.</p>
                 <button type="button" className="adm-link-btn" onClick={() => {
                   // 값이 있는 채로 접으면 안 보이는 가격이 적용되므로, 값이 있으면 지우고 닫음
                   const hasGroup = draft.packOptions.some((option) => option.priceB != null || option.priceC != null || option.priceD != null);
@@ -1201,12 +1228,11 @@ function ProductEditor({
                 }}>▴ 그룹별 가격 닫기</button>
               </div>}
               <details className="adm-more adm-unit-more">
-                <summary>세부 설정 (단위별 규격 · +/- 증가 단위)</summary>
-                <p className="adm-help">보통은 그대로 두면 됩니다. 규격은 숫자만(kg 자동), 증가 단위는 + 한 번에 늘어나는 수량입니다.</p>
+                <summary>세부 설정 (+/- 증가 단위)</summary>
+                <p className="adm-help">보통은 그대로 두면 됩니다. 증가 단위는 + 한 번에 늘어나는 수량입니다.</p>
                 {draft.packOptions.map((option, index) => (
                   <div className="adm-unit-row detail" key={index}>
                     <span className="adm-unit-name">{option.label || "단위"}</span>
-                    <label>규격(kg)<input inputMode="decimal" value={option.spec ?? ""} onChange={(e) => updateOption(index, { spec: sanitizeKgNumber(e.target.value) })} placeholder={draft.unit ? unitInputValue(draft.unit) : "예: 10"} /></label>
                     <label>+/- 증가 단위<input inputMode="decimal" value={option.step} onChange={(e) => { const value = sanitizeKgNumber(e.target.value); updateOption(index, { step: value ? Number(value) : 1 }); }} /></label>
                   </div>
                 ))}

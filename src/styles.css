@@ -4698,3 +4698,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .price-group-toggle button.selected.g-d { background: #6d28d9; color: #fff; }
 .price-group-toggle button { padding: 0 12px; }
 @media (max-width: 760px) { .price-group-row { flex-wrap: wrap; } }
+/* 상품 수정: 단위 · 규격(kg) · 가격 한 줄 */
+.adm-unit-row.simple, .adm-unit-row.simple.with-b { grid-template-columns: minmax(0,1fr) minmax(0,.8fr) minmax(0,1.4fr) 36px; }
+.adm-unit-row.simple.with-b .adm-unit-del { grid-row: 1; grid-column: 4; }
+.adm-unit-kg .adm-suffix input { text-align: right; font-size: 16px; }
+@media (max-width: 760px) {
+  .adm-unit-row.simple, .adm-unit-row.simple.with-b { grid-template-columns: minmax(0,1fr) minmax(0,.8fr) minmax(0,1.3fr) 36px; gap: 6px; }
+  .adm-unit-row.simple .adm-unit-del, .adm-unit-row.simple.with-b .adm-unit-del { grid-row: 1; grid-column: 4; }
+}
+/* 주문 카드: 단위·가격이 좁으면 가격을 다음 줄로 (겹침 방지) */
+.od-opt-head { flex-wrap: wrap; row-gap: 2px; }
+.od-opt-price { margin-left: auto; }
