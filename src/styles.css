@@ -4709,3 +4709,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* 주문 카드: 단위·가격이 좁으면 가격을 다음 줄로 (겹침 방지) */
 .od-opt-head { flex-wrap: wrap; row-gap: 2px; }
 .od-opt-price { margin-left: auto; }
+/* 그룹 가격 칸: 숫자가 잘리지 않게 */
+.adm-group-prices { align-items: start; }
+.adm-group-prices .adm-suffix { padding-right: 6px; }
+.adm-group-prices .adm-suffix input { font-size: 15px !important; padding: 0 4px 0 8px; min-width: 0; text-align: right; }
+.adm-group-prices .adm-suffix b { font-size: 12px; }
+.adm-group-prices .adm-price-b-warn { font-size: 11px; }
+@media (max-width: 760px) { .adm-group-prices .adm-suffix input { font-size: 14px !important; } }
