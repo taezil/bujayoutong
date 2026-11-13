@@ -883,11 +883,19 @@ function OrderApp({ store }: { store: StoreData }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [promoProducts, store.products],
   );
+  // 메인: 행사상품 아래에 일반 상품 몇 개 (사진 있는 판매중 상품 먼저)
+  const homeMoreProducts = useMemo(() => {
+    const shown = new Set(featuredProducts.map((p) => p.id));
+    const rest = store.products.filter((p) => !shown.has(p.id) && !p.soldout);
+    return [...rest.filter((p) => p.photo), ...rest.filter((p) => !p.photo)].slice(0, 8);
+  }, [featuredProducts, store.products]);
   const heroProduct = featuredProducts.find((product) => product.photo) ?? store.products.find((product) => product.photo);
   const heroImage = store.heroImage || heroProduct?.photo || "";
 
   const categoryProducts = useMemo(() => {
     const list = store.products.filter((product) => {
+      // '행사' 카테고리를 누르면 행사로 지정된 상품을 보여줌 (카테고리를 옮기지 않고 켜고 끄는 방식)
+      if (category !== ALL && promo && category === promo) return isPromoProduct(product);
       if (category !== ALL && product.category !== category) return false;
       if (category !== ALL && sub !== ALL && product.sub !== sub) return false;
       return true;
@@ -896,7 +904,7 @@ function OrderApp({ store }: { store: StoreData }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.products, category, sub, promo]);
 
-  const subNames = category !== ALL ? (store.categories[category] ?? []).filter((name) => store.products.some((p) => p.category === category && p.sub === name)) : [];
+  const subNames = category !== ALL && category !== promo ? (store.categories[category] ?? []).filter((name) => store.products.some((p) => p.category === category && p.sub === name)) : [];
 
   function quantityFor(productId: string, optionLabel: string) {
     return cart.find((line) => line.productId === productId && line.optionLabel === optionLabel)?.quantity ?? 0;
@@ -1236,6 +1244,16 @@ function OrderApp({ store }: { store: StoreData }) {
           </div>
           <ProductGrid products={featuredProducts} {...cardProps} />
         </section>
+
+        {homeMoreProducts.length > 0 && (
+          <section className="od-section od-home-more">
+            <div className="od-section-head">
+              <h2>상품 둘러보기</h2>
+              <button type="button" onClick={() => goTab("category", ALL)}>전체보기 ›</button>
+            </div>
+            <ProductGrid products={homeMoreProducts} {...cardProps} />
+          </section>
+        )}
 
         <button type="button" className="od-all-button" onClick={() => goTab("category", ALL)}>전체 상품 보기 ({store.products.length}개) ›</button>
       </>
