@@ -56,6 +56,20 @@ export const Route = createFileRoute("/api/admin/staff")({
           await writeAudit({actor,action:"admin_user_rename",entityType:"admin_user",entityId:id,summary:`관리자 계정 ${target.username} 이름 → ${displayName}`});
           return Response.json({ok:true});
         }
+        // 대표 계정(admin) 비밀번호 새로 정하기: 비밀번호를 잊었을 때 다른 관리자(buja1 등)가 다시 정해 줌
+        if(action==="main-admin-password"){
+          const password=cleanText(body.password,64);
+          if(password.length<ADMIN_PASSWORD_MIN) throw new Error(`비밀번호는 ${ADMIN_PASSWORD_MIN}자 이상으로 정해 주세요.`);
+          const credential=await makeCustomerPasswordCredential(password);
+          const me=await getAdminIdentity(request);
+          await db().batch([
+            db().prepare("INSERT INTO admin_credentials(id,salt,hash) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET salt=excluded.salt,hash=excluded.hash").bind(credential.salt,credential.hash),
+            ...(me?.id==="admin"?[]:[db().prepare("DELETE FROM admin_sessions WHERE COALESCE(admin_user_id,'')=''")]),
+            db().prepare("DELETE FROM desk_sessions WHERE staff_id='S-DESK-ADMIN'"),
+          ]);
+          await writeAudit({actor,action:"admin_user_password",entityType:"admin_user",entityId:"admin",summary:"관리자 계정 admin 비밀번호 변경"});
+          return Response.json({ok:true});
+        }
         if(action==="admin-password"||action==="admin-toggle"){
           const target=await db().prepare("SELECT id,username FROM admin_users WHERE id=?").bind(id).first<{id:string;username:string}>();
           if(!target) throw new Error("관리자 계정을 찾을 수 없습니다.");

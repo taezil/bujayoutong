@@ -94,6 +94,18 @@ async function main() {
   const rows = JSON.stringify(audit.body ?? "");
   check("변경 기록에 cibuja 이름", rows.includes("cibuja"), `${audit.status}`);
 
+  // admin 비밀번호를 잊었을 때: 다른 관리자가 admin 비밀번호를 새로 정함
+  const reset = await sub.json("/api/admin/staff", { method: "POST", json: { action: "main-admin-password", password: "admin-reset-1" } });
+  check("추가 관리자가 admin 비밀번호 새로 정함", reset.status === 200, JSON.stringify(reset.body));
+  check("admin 의 기존 로그인은 해제", (await admin.req("/api/admin/customers")).status === 403);
+  check("admin 예전 비밀번호 거절", (await new Client().json("/api/admin/login", { method: "POST", json: { username: "admin", password: "ci-admin-password" } })).status === 401);
+  check("admin 새 비밀번호 로그인", (await admin.json("/api/admin/login", { method: "POST", json: { username: "admin", password: "admin-reset-1" } })).status === 200);
+  check("admin 새 비밀번호로 알림센터 로그인", (await new Client().json("/api/desk/login", { method: "POST", json: { username: "admin", pin: "admin-reset-1", deviceName: "CI" } })).status === 200);
+  check("로그인 안 한 사람은 admin 비밀번호 못 바꿈", (await new Client().json("/api/admin/staff", { method: "POST", json: { action: "main-admin-password", password: "hacker123" } })).status === 403);
+  // 다음 테스트를 위해 원래대로
+  await admin.json("/api/admin/staff", { method: "POST", json: { action: "my-password", currentPassword: "admin-reset-1", password: "ci-admin-password" } });
+  check("(원래 비밀번호로 복구)", (await new Client().json("/api/admin/login", { method: "POST", json: { username: "admin", password: "ci-admin-password" } })).status === 200);
+
   // 사무실 알림센터(PC 프로그램) 로그인
   const desk = await new Client().json("/api/desk/login", { method: "POST", json: { username: "cibuja", pin: "ci-first-pass", deviceName: "CI" } });
   check("추가 관리자 알림센터 로그인", desk.status === 200 && desk.body?.staff?.username === "cibuja" && desk.body?.staff?.role === "ADMIN", JSON.stringify(desk.body?.staff ?? desk.body));

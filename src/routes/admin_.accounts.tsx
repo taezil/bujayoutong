@@ -292,7 +292,10 @@ function AccountsPage(){
       <section className="account-section">
         <div className="account-section-head"><div><p>ADMIN</p><h2>관리자 계정</h2><small>admin 과 똑같이 모든 관리 기능을 쓸 수 있습니다. 관리자 화면과 사무실 알림센터에 아이디·비밀번호로 로그인합니다.</small></div><span>{adminUsers.length+1}개</span></div>
         <div className="accounts-grid admin-users-grid">
-          <article className="account-card"><div><span className="role-admin">관리자</span><h3>admin</h3><p>대표 계정</p></div></article>
+          <article className="account-card"><div><span className="role-admin">관리자</span><h3>admin</h3><p>대표 계정{status?.admin?.username==="admin"?" · 지금 로그인":""}</p></div>
+            <div className="account-card-actions">
+              <button onClick={()=>{const v=prompt("admin(대표 계정) 새 비밀번호 (6자 이상)\n바꾸면 다른 기기의 admin 로그인은 해제됩니다.");if(v)void act("/api/admin/staff",{action:"main-admin-password",password:v}).then(r=>{if(r)alert(`admin 비밀번호를 바꿨습니다.\n아이디 admin / 비밀번호 ${v}`);});}}>비밀번호 변경</button>
+            </div></article>
           {adminUsers.map(row=><article className={`account-card ${!Boolean(row.active)?"disabled":""}`} key={row.id}>
             <div><span className="role-admin">관리자</span><h3>{row.display_name}</h3><p>아이디 {row.username}</p>
               <p>{!Boolean(row.has_password)?<b className="admin-nopass">비밀번호 미설정 · 로그인 불가</b>:Boolean(row.active)?"사용 중":"중지됨"}{status?.admin?.username===row.username?" · 지금 로그인":""}</p></div>
