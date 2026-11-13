@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
 import { BUJA_LOGO_DATA, BUJA_MARK_DATA } from "../brand-assets";
@@ -1625,12 +1625,22 @@ function ProductCard({ product, promo, quantityFor, onQuantity, onOpen }: CardPr
 function PhotoGallery({ product, onZoom }: { product: Product; onZoom: (src: string) => void }) {
   const photos = productPhotoList(product);
   const [index, setIndex] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+  // PC: 옆으로 넘기기 버튼 · 점 누르기 · 키보드 ← →
+  const go = (next: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const target = (next + photos.length) % photos.length;
+    el.scrollTo({ left: target * el.clientWidth, behavior: "smooth" });
+    setIndex(target);
+  };
   if (!photos.length) {
     return <div className="od-gallery empty"><span className="od-photo-empty"><img src={BUJA_MARK_DATA} alt="" />사진 준비중</span></div>;
   }
   return (
-    <div className="od-gallery">
-      <div className="od-gallery-track" onScroll={(e) => {
+    <div className="od-gallery" tabIndex={photos.length > 1 ? 0 : undefined}
+      onKeyDown={(e) => { if (e.key === "ArrowLeft") { e.preventDefault(); go(index - 1); } else if (e.key === "ArrowRight") { e.preventDefault(); go(index + 1); } }}>
+      <div className="od-gallery-track" ref={trackRef} onScroll={(e) => {
         const el = e.currentTarget;
         const next = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
         if (next !== index) setIndex(next);
@@ -1644,7 +1654,9 @@ function PhotoGallery({ product, onZoom }: { product: Product; onZoom: (src: str
       {photos.length > 1 && (
         <>
           <span className="od-gallery-count">{index + 1} / {photos.length}</span>
-          <div className="od-gallery-dots" aria-hidden="true">{photos.map((src, i) => <i key={src} className={i === index ? "on" : ""} />)}</div>
+          <button type="button" className="od-gallery-nav prev" aria-label="이전 사진" onClick={() => go(index - 1)}>‹</button>
+          <button type="button" className="od-gallery-nav next" aria-label="다음 사진" onClick={() => go(index + 1)}>›</button>
+          <div className="od-gallery-dots">{photos.map((src, i) => <button type="button" key={src} className={i === index ? "on" : ""} aria-label={`사진 ${i + 1}`} onClick={() => go(i)} />)}</div>
         </>
       )}
     </div>
