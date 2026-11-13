@@ -1205,7 +1205,7 @@ function ProductEditor({
                         const cheaper = value != null && option.price != null && value < option.price;
                         return <label className={`adm-price-${g.toLowerCase()}`} key={g}>{g}그룹
                           <span className="adm-suffix">
-                            <input inputMode="numeric" value={priceText(value)} placeholder="비우면 기본" onChange={(e) => updateGroupPrice(index, g, parsePrice(e.target.value))} />
+                            <input inputMode="numeric" value={priceText(value)} placeholder="기본가" onChange={(e) => updateGroupPrice(index, g, parsePrice(e.target.value))} />
                             <b>원</b>
                           </span>
                           {cheaper && <small className="adm-price-b-warn">기본 가격보다 쌉니다</small>}
