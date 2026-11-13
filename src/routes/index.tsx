@@ -510,8 +510,8 @@ function OrderLogin({
         <h1>거래처 전용 주문</h1>
         <span>부자유통 거래처만 이용할 수 있습니다. 전달받은 숫자 아이디와 비밀번호를 입력해 주세요.</span>
         {checking ? <div className="price-login-checking">로그인 상태를 확인하는 중입니다.</div> : <form onSubmit={submit}>
-          <label>아이디<input name="username" inputMode="numeric" pattern="[0-9-]*" enterKeyHint="next" value={identifier} onChange={(event) => setIdentifier(event.target.value.replace(/[^0-9a-zA-Z-]/g, ""))} autoComplete="username" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="예: 12013" /></label>
-          <label>비밀번호<input name="password" inputMode="numeric" enterKeyHint="go" value={password} onChange={(event) => setPassword(event.target.value.slice(0, 64))} type="password" autoComplete="current-password" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="아이디와 동일" /></label>
+          <label>아이디<input name="username" inputMode="text" enterKeyHint="next" value={identifier} onChange={(event) => setIdentifier(event.target.value.replace(/[^0-9a-zA-Z._-]/g, ""))} autoComplete="username" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="예: 12013 또는 영문 아이디" /></label>
+          <label>비밀번호<input name="password" inputMode="text" enterKeyHint="go" value={password} onChange={(event) => setPassword(event.target.value.slice(0, 64))} type="password" autoComplete="current-password" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="아이디와 동일" /></label>
           {error && <p className="price-login-error">{error}</p>}
           <button type="submit" disabled={busy || !normalizeLoginId(identifier) || password.trim().length < 2}>{busy ? "확인 중..." : "로그인"}</button>
         </form>}

@@ -119,6 +119,15 @@ async function main() {
   const selfOff = await sub2.json("/api/admin/staff", { method: "POST", json: { action: "admin-toggle", id, active: true } });
   check("중지된 계정은 스스로 다시 켤 수 없음", selfOff.status === 403);
 
+  // 거래처 영문 아이디: 만들기 → 대문자로 쳐도 로그인
+  const custList = (await admin.json("/api/admin/customers")).body?.customers ?? [];
+  const someCustomer = custList.find((c) => c.active);
+  const letterId = `buja${Date.now() % 10000}`;
+  const made = await admin.json("/api/admin/customer-users", { method: "POST", json: { action: "create", customerId: someCustomer?.id, displayName: "영문테스트", username: letterId, password: "abc123" } });
+  check("거래처 영문 아이디 계정 만들기", made.status === 200, JSON.stringify(made.body));
+  const letterLogin = await new Client().json("/api/customer/login", { method: "POST", json: { identifier: letterId.toUpperCase().toLowerCase(), password: "abc123" } });
+  check("영문 아이디로 거래처 로그인", letterLogin.status === 200, JSON.stringify(letterLogin.body));
+
   // admin 은 그대로
   check("admin 계속 정상", (await admin.req("/api/admin/customers")).status === 200);
   check("관리자 아이디 admin 으로 추가 불가", (await admin.json("/api/admin/staff", { method: "POST", json: { action: "admin-create", username: "admin", password: "whatever123" } })).status === 400);

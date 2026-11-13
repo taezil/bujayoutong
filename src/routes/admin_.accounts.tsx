@@ -360,7 +360,7 @@ function AccountsPage(){
         <div className="customer-user-create">
           <select value={customerId} onChange={e=>setCustomerId(e.target.value)}>{customers.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}</select>
           <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="직원 이름 예: 사장님 / 점장"/>
-          <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase().replace(/[\s\-–—]+/g,""))} placeholder="로그인 아이디 예: 12013"/>
+          <input value={username} autoCapitalize="off" onChange={e=>setUsername(e.target.value.toLowerCase().replace(/[\s\-–—]+/g,""))} placeholder="로그인 아이디 예: 12013 / buja (영문·숫자)"/>
           <input value={password} onChange={e=>setPassword(e.target.value.slice(0,64))} type="text" autoComplete="new-password" placeholder="비밀번호 2자 이상"/>
           <button disabled={!customerId||!displayName.trim()||!username.trim()||password.trim().length<2} onClick={()=>void createCustomerUser()}>+ 거래처 계정 추가</button>
         </div>

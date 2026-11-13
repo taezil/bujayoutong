@@ -152,7 +152,7 @@ export const Route = createFileRoute("/api/admin/customer-users")({
           const username = normalizeLoginId(cleanText(body.username, 40));
           const displayName = cleanText(body.displayName, 80);
           const password = cleanText(body.password ?? body.pin, 64);
-          if (!customerId || !displayName || !LOGIN_ID_PATTERN.test(username)) throw new Error("거래처, 이름, 로그인 아이디를 확인해 주세요.");
+          if (!customerId || !displayName || !LOGIN_ID_PATTERN.test(username)) throw new Error("거래처, 이름을 확인하고, 아이디는 영문 소문자·숫자 2~40자로 입력해 주세요.");
           await assertCustomerUsernameAvailable(username, customerId);
           const credential = await makeCustomerPasswordCredential(password);
           const id = `CU-${crypto.randomUUID()}`;
@@ -229,7 +229,7 @@ export const Route = createFileRoute("/api/admin/customer-users")({
         if (action === "update") {
           const username = normalizeLoginId(cleanText(body.username, 40));
           const displayName = cleanText(body.displayName, 80);
-          if (!displayName || !LOGIN_ID_PATTERN.test(username)) throw new Error("이름과 로그인 아이디를 확인해 주세요.");
+          if (!displayName || !LOGIN_ID_PATTERN.test(username)) throw new Error("이름을 확인하고, 아이디는 영문 소문자·숫자 2~40자로 입력해 주세요.");
           const owner = await db().prepare("SELECT customer_id FROM customer_users WHERE id=? LIMIT 1").bind(id).first<{ customer_id: string }>();
           if (!owner?.customer_id) throw new Error("거래처 계정을 찾을 수 없습니다.");
           await assertCustomerUsernameAvailable(username, owner.customer_id, id);
