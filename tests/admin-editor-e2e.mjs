@@ -46,8 +46,8 @@ async function main() {
     await page.screenshot({ path: "desk-shot-editor-1-basic.png", fullPage: false });
     await editor.locator(".adm-units").screenshot({ path: "desk-shot-editor-2-units.png" });
 
-    await editor.getByRole("button", { name: /B그룹 가격 따로 정하기/ }).click();
-    const closeBtn = editor.getByRole("button", { name: /B그룹 가격 닫기/ });
+    await editor.getByRole("button", { name: /그룹별 가격 정하기/ }).click();
+    const closeBtn = editor.getByRole("button", { name: /그룹별 가격 닫기/ });
     const dbg = async () => closeBtn.evaluate((el) => {
       el.scrollIntoView({ block: "center" });
       const r = el.getBoundingClientRect();
@@ -58,7 +58,7 @@ async function main() {
     });
     await closeBtn.click({ timeout: 8000 }).catch(async (e) => { throw new Error(`${await dbg()} :: ${String(e.message).slice(0, 200)}`); });
     check("빈 B그룹 가격 칸은 닫기 버튼으로 바로 닫힘", (await editor.locator(".adm-price-b").count()) === 0);
-    await editor.getByRole("button", { name: /B그룹 가격 따로 정하기/ }).click();
+    await editor.getByRole("button", { name: /그룹별 가격 정하기/ }).click();
     const bInput = editor.locator(".adm-price-b input").first();
     await bInput.fill(String(product.packOptions[0].price - 1000));
     check("B가격이 더 싸면 경고", (await editor.locator(".adm-price-b-warn").count()) === 1);
@@ -113,7 +113,7 @@ async function main() {
     await editor.waitFor();
     await page.evaluate(() => window.scrollTo(0, 0));
     page.once("dialog", (dialog) => void dialog.accept());
-    await editor.getByRole("button", { name: /B그룹 가격 닫기/ }).click();
+    await editor.getByRole("button", { name: /그룹별 가격 닫기/ }).click();
     check("값이 있으면 확인 후 지우고 닫힘", (await editor.locator(".adm-price-b").count()) === 0);
     await page.getByRole("button", { name: "저장하기" }).click();
     await editor.waitFor({ state: "detached", timeout: 20000 });

@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..core.model import (
-    customer_label, delivery_label, headline, is_price_group_b, kst_datetime, kst_time, period_label, quantity_text,
+    customer_label, delivery_label, headline, is_price_group_b, price_group, kst_datetime, kst_time, period_label, quantity_text,
     slot_label, state_of, won,
 )
 from .theme import COLORS, avatar_style, avatar_text, badge_style
@@ -319,7 +319,7 @@ class OrderDetailView(QWidget):
         # 품목표
         items = order.get("items") or []
         self.table.setColumnHidden(4, not bundle)
-        self.table.horizontalHeaderItem(5).setText("B그룹 단가" if group_b else "단가")
+        self.table.horizontalHeaderItem(5).setText(f"{price_group(order)}그룹 단가" if group_b else "단가")
         self.table.setRowCount(len(items))
         qty_font = QFont()
         qty_font.setBold(True)

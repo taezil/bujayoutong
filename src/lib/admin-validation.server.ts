@@ -31,6 +31,8 @@ export function cleanOptions(value: unknown): PackOption[] {
       price: cleanNullablePrice(row.price),
       // B그룹 가격: 비우면 정가와 동일 (관리자가 원하는 상품만 입력)
       priceB: cleanNullablePrice(row.priceB),
+      priceC: cleanNullablePrice(row.priceC),
+      priceD: cleanNullablePrice(row.priceD),
       step: cleanStep(row.step),
     };
   }).filter((option) => option.label.length > 0);

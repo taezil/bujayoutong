@@ -3,7 +3,7 @@ import type { PackOption, Product, StoreData } from "./db.server";
 import type { Cell, SheetSpec } from "./xlsx-lite";
 
 export const SHEET_COLUMNS = [
-  "상품코드", "상품명", "카테고리", "세부카테고리", "규격(kg)", "단위", "가격", "B그룹가격",
+  "상품코드", "상품명", "카테고리", "세부카테고리", "규격(kg)", "단위", "가격", "B그룹가격", "C그룹가격", "D그룹가격",
   "1박스 입수", "1박스 인분", "상태", "창고위치", "상품설명", "최근수정",
 ] as const;
 
@@ -45,7 +45,7 @@ export function productSheets(store: StoreData): SheetSpec[] {
     for (const option of options) {
       rows.push([
         product.id, product.name, product.category, product.sub, kgText(product.unit), option.label,
-        option.price ?? "", option.priceB ?? "",
+        option.price ?? "", option.priceB ?? "", option.priceC ?? "", option.priceD ?? "",
         product.boxContents ?? "", product.servingsPerBox ?? "",
         STATUS_LABEL[statusOf(product)], product.warehouseZone ?? "", product.description ?? "", kstStamp(product.updatedAt),
       ]);
@@ -59,13 +59,13 @@ export function productSheets(store: StoreData): SheetSpec[] {
     ["3. 회색 칸(상품코드·최근수정)은 고치지 마세요. 상품코드로 어느 상품인지 찾습니다."],
     ["4. 단위가 여러 개인 상품은 단위마다 한 줄입니다. 상품명·카테고리 등은 그 상품의 첫 줄 기준으로 반영됩니다."],
     ["5. 가격: 숫자만 (쉼표 있어도 됨). 비우면 '가격문의'."],
-    ["6. B그룹가격: 비우면 기본 가격과 같음."],
+    ["6. B·C·D그룹가격: 그 그룹 거래처에 보이는 가격. 비우면 기본 가격(A그룹)과 같음."],
     ["7. 상태: 판매중 / 품절 / 숨김 중 하나."],
     ["8. 카테고리·세부카테고리는 관리자에 이미 있는 이름만 쓸 수 있습니다."],
     ["9. 이 파일로는 새 상품 추가·상품 삭제·단위 추가는 하지 않습니다. (관리자 화면에서 해 주세요)"],
   ];
   return [
-    { name: "상품목록", rows, header: true, widths: [13, 30, 12, 14, 9, 8, 11, 11, 9, 9, 8, 12, 40, 17], lockedColumns: [COL["상품코드"], COL["최근수정"]] },
+    { name: "상품목록", rows, header: true, widths: [13, 30, 12, 14, 9, 8, 11, 11, 11, 11, 9, 9, 8, 12, 40, 17], lockedColumns: [COL["상품코드"], COL["최근수정"]] },
     { name: "사용법", rows: guide, widths: [110] },
   ];
 }
@@ -167,11 +167,14 @@ export function planProductSheet(store: StoreData, table: string[][]): SheetPlan
       const price = priceFromSheet(get(row, "가격") ?? "");
       if (price === "invalid") fail(line, `가격 '${get(row, "가격")}' 이 숫자가 아님`);
       else if (price !== option.price) { fieldChanges.push({ field: `${label} 가격`, before: won(option.price), after: won(price) }); option.price = price; }
-      const rawB = get(row, "B그룹가격");
-      if (rawB !== undefined) {
-        const priceB = priceFromSheet(rawB);
-        if (priceB === "invalid") fail(line, `B그룹가격 '${rawB}' 이 숫자가 아님`);
-        else if (priceB !== (option.priceB ?? null)) { fieldChanges.push({ field: `${label} B그룹가격`, before: won(option.priceB), after: won(priceB) }); option.priceB = priceB; }
+      for (const g of ["B", "C", "D"] as const) {
+        const column = `${g}그룹가격` as const;
+        const key = `price${g}` as const;
+        const raw = get(row, column);
+        if (raw === undefined) continue; // 예전 엑셀(열 없음)은 그대로 둠
+        const value = priceFromSheet(raw);
+        if (value === "invalid") fail(line, `${column} '${raw}' 이 숫자가 아님`);
+        else if (value !== (option[key] ?? null)) { fieldChanges.push({ field: `${label} ${column}`, before: won(option[key]), after: won(value) }); option[key] = value; }
       }
     }
     if (bad) continue;

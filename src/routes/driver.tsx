@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupPriceOf, type PriceGroup } from "../lib/price-group";
 import { useEffect, useMemo, useState } from "react";
 import type { Product } from "../lib/db.server";
 import { BUJA_LOGO_DATA } from "../brand-assets";
@@ -10,7 +11,7 @@ export const Route=createFileRoute("/driver")({
 });
 
 type Staff={id:string;username:string;displayName:string;role:"ADMIN"|"DRIVER"};
-type Customer={id:string;code:string;name:string;phone:string;storePhone:string;address:string;region:string;priceGroup:"A"|"B";receivable:number};
+type Customer={id:string;code:string;name:string;phone:string;storePhone:string;address:string;region:string;priceGroup:PriceGroup;receivable:number};
 type DriverOrder={id:string;customerId:string;customerCode:string;customerName:string;address:string;storePhone:string;region:string;status:string;total:number;note:string;createdAt:string;deliveryDate:string;isAdditional:boolean;orderPeriod:"AM"|"PM";items:Array<{productName:string;optionLabel:string;quantity:number;unitPrice:number}>};
 type DriverData={staff:Staff;date:string;customers:Customer[];products:Product[];orders:DriverOrder[]};
 type CartLine={productId:string;productName:string;optionLabel:string;quantity:number;unitPrice:number;step:number};
@@ -18,7 +19,7 @@ type CartLine={productId:string;productName:string;optionLabel:string;quantity:n
 function newRequestId(){try{if(typeof crypto!=="undefined"&&"randomUUID" in crypto)return crypto.randomUUID();}catch{}return `d${Date.now().toString(36)}${Math.random().toString(36).slice(2,12)}`;}
 function won(v:number){return new Intl.NumberFormat("ko-KR").format(Math.round(v));}
 function localDate(offset:number){const d=new Date(Date.now()+offset*86400000);return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);}
-function groupPrice(option:Product["packOptions"][number],group:"A"|"B"){return group==="B"?(option.priceB??option.price??0):(option.priceA??option.price??0);}
+function groupPrice(option:Product["packOptions"][number],group:PriceGroup){return groupPriceOf(option,group)??0;}
 function orderPeriod(value:string){
   const parsed=new Date(value.replace(" ","T")+"Z");
   if(!Number.isFinite(parsed.getTime())) return "";

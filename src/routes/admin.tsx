@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { EXTRA_PRICE_GROUPS, PRICE_GROUPS, PRICE_KEY, normalizePriceGroup, type PriceGroup } from "./../lib/price-group";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { PackOption, Product, StoreData } from "../lib/db.server";
@@ -550,7 +551,7 @@ function ProductsView({
                   <td className="c-cat">{product.category}</td>
                   <td className="c-price">
                     {minPrice.length ? wonText(Math.min(...minPrice)) : <span className="muted">-</span>}
-                    {product.packOptions.some((o) => o.priceB != null) && <small className="adm-price-b-badge">B {product.packOptions.filter((o) => o.priceB != null).map((o) => wonText(o.priceB as number)).join(" / ")}</small>}
+                    {EXTRA_PRICE_GROUPS.filter((g) => product.packOptions.some((o) => o[PRICE_KEY[g]] != null)).map((g) => <small key={g} className="adm-price-b-badge">{g} {product.packOptions.filter((o) => o[PRICE_KEY[g]] != null).map((o) => wonText(o[PRICE_KEY[g]] as number)).join(" / ")}</small>)}
                   </td>
                   <td className="c-state">
                     <select
@@ -954,7 +955,7 @@ function ProductEditor({
 }) {
   const [draft, setDraft] = useState<Product>(() => structuredClone(product));
   // B그룹 가격은 평소 접어두고, 이미 B가격이 있는 상품이면 펼친 채로 엶
-  const [showPriceB, setShowPriceB] = useState(() => product.packOptions.some((option) => option.priceB != null));
+  const [showPriceB, setShowPriceB] = useState(() => product.packOptions.some((option) => option.priceB != null || option.priceC != null || option.priceD != null));
   // 사진 여러 장: 첫 장이 대표 사진(목록·장바구니에 보이는 사진). 새로 고른 파일은 고르자마자 올리기 시작
   const uploads = useRef(new Map<string, Promise<string>>());
   const [uploadState, setUploadState] = useState<Record<string, "up" | "done" | "fail">>({});
@@ -1162,7 +1163,6 @@ function ProductEditor({
                 <button type="button" onClick={() => setDraft({ ...draft, packOptions: [...draft.packOptions, { label: "박스", spec: "", price: null, step: 1 }] })}>＋ 단위 추가</button>
               </div>
               {draft.packOptions.map((option, index) => {
-                const cheaperB = option.priceB != null && option.price != null && option.priceB < option.price;
                 return (
                   <div className={`adm-unit-row simple${showPriceB ? " with-b" : ""}`} key={index}>
                     <label>단위<input value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} placeholder="박스" list="adm-unit-presets" /></label>
@@ -1172,27 +1172,33 @@ function ProductEditor({
                         <b>원</b>
                       </span>
                     </label>
-                    {showPriceB && <label className="adm-price-b">B그룹 가격
-                      <span className="adm-suffix">
-                        <input inputMode="numeric" value={priceText(option.priceB)} placeholder="비우면 같은 가격" onChange={(e) => updateOption(index, { priceB: parsePrice(e.target.value) })} />
-                        <b>원</b>
-                      </span>
-                      {cheaperB && <small className="adm-price-b-warn">B가격이 기본 가격보다 쌉니다. 맞나요?</small>}
-                    </label>}
+                    {showPriceB && <div className="adm-group-prices">
+                      {EXTRA_PRICE_GROUPS.map((g) => {
+                        const value = option[PRICE_KEY[g]] ?? null;
+                        const cheaper = value != null && option.price != null && value < option.price;
+                        return <label className={`adm-price-${g.toLowerCase()}`} key={g}>{g}그룹
+                          <span className="adm-suffix">
+                            <input inputMode="numeric" value={priceText(value)} placeholder="비우면 기본" onChange={(e) => updateOption(index, { [PRICE_KEY[g]]: parsePrice(e.target.value) })} />
+                            <b>원</b>
+                          </span>
+                          {cheaper && <small className="adm-price-b-warn">기본 가격보다 쌉니다</small>}
+                        </label>;
+                      })}
+                    </div>}
                     <button type="button" className="adm-unit-del" aria-label="단위 삭제" onClick={() => setDraft({ ...draft, packOptions: draft.packOptions.filter((_, i) => i !== index) })}>×</button>
                   </div>
                 );
               })}
-              {!showPriceB && <button type="button" className="adm-link-btn" onClick={() => setShowPriceB(true)}>▸ B그룹 가격 따로 정하기</button>}
+              {!showPriceB && <button type="button" className="adm-link-btn" onClick={() => setShowPriceB(true)}>▸ 그룹별 가격 정하기 (B · C · D그룹)</button>}
               {showPriceB && <div className="adm-priceb-foot">
-                <p className="adm-help">B그룹 거래처는 이 가격으로 보이고 계산됩니다. 비워두면 기본 가격과 같습니다.</p>
+                <p className="adm-help">B·C·D그룹 거래처는 각 그룹 가격으로 보이고 계산됩니다. 비워두면 기본 가격(A그룹)과 같습니다.</p>
                 <button type="button" className="adm-link-btn" onClick={() => {
                   // 값이 있는 채로 접으면 안 보이는 가격이 적용되므로, 값이 있으면 지우고 닫음
-                  const hasB = draft.packOptions.some((option) => option.priceB != null);
-                  if (hasB && !window.confirm("입력한 B그룹 가격을 지우고 닫을까요?\n(저장하면 B그룹도 기본 가격으로 판매됩니다)")) return;
-                  if (hasB) setDraft({ ...draft, packOptions: draft.packOptions.map((option) => ({ ...option, priceB: null })) });
+                  const hasGroup = draft.packOptions.some((option) => option.priceB != null || option.priceC != null || option.priceD != null);
+                  if (hasGroup && !window.confirm("입력한 그룹별 가격(B·C·D)을 지우고 닫을까요?\n(저장하면 모든 그룹이 기본 가격으로 판매됩니다)")) return;
+                  if (hasGroup) setDraft({ ...draft, packOptions: draft.packOptions.map((option) => ({ ...option, priceB: null, priceC: null, priceD: null })) });
                   setShowPriceB(false);
-                }}>▴ B그룹 가격 닫기</button>
+                }}>▴ 그룹별 가격 닫기</button>
               </div>}
               <details className="adm-more adm-unit-more">
                 <summary>세부 설정 (단위별 규격 · +/- 증가 단위)</summary>
@@ -1341,7 +1347,7 @@ function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
   const [priceGroup, setPriceGroup] = useState("A");
   const [pin, setPin] = useState("");
   const [query, setQuery] = useState("");
-  const [filterGroup, setFilterGroup] = useState<"전체" | "A" | "B">("전체");
+  const [filterGroup, setFilterGroup] = useState<"전체" | PriceGroup>("전체");
 
   async function load() {
     const response = await fetch("/api/admin/customers", { cache: "no-store" });
@@ -1367,7 +1373,7 @@ function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
 
   const needle = query.trim().toLowerCase();
   const visible = customers.filter((c) => {
-    if (filterGroup !== "전체" && c.priceGroup !== filterGroup) return false;
+    if (filterGroup !== "전체" && normalizePriceGroup(c.priceGroup) !== filterGroup) return false;
     return !needle || `${c.code} ${c.name} ${c.region}`.toLowerCase().includes(needle);
   });
   const totalReceivable = customers.reduce((sum, c) => sum + c.receivable, 0);
@@ -1385,11 +1391,11 @@ function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
         <input className="customer-phone" placeholder="가게 전화번호" value={storePhone} onChange={(e) => setStorePhone(e.target.value)} />
         <input className="customer-business-number" placeholder="사업자번호" value={businessNumber} onChange={(e) => setBusinessNumber(e.target.value)} />
         <input className="customer-address" placeholder="가게 주소" value={address} onChange={(e) => setAddress(e.target.value)} />
-        <select className="customer-price-group" value={priceGroup} onChange={(e) => setPriceGroup(e.target.value)}><option value="A">가격 A그룹</option><option value="B">가격 B그룹</option></select>
+        <select className="customer-price-group" value={priceGroup} onChange={(e) => setPriceGroup(e.target.value)}>{PRICE_GROUPS.map((g) => <option key={g} value={g}>가격 {g}그룹</option>)}</select>
         <input className="customer-pin" placeholder="최초 인증번호 6자리" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} />
         <button className="admin-primary customer-add" type="button" onClick={() => void create()} disabled={!code.trim() || !name.trim() || pin.length !== 6}>+ 거래처 추가</button>
       </div>
-      <div className="customer-group-filter"><span>가격그룹 보기</span><button type="button" className={filterGroup === "전체" ? "selected" : ""} onClick={() => setFilterGroup("전체")}>전체 {customers.length}</button><button type="button" className={filterGroup === "A" ? "selected" : ""} onClick={() => setFilterGroup("A")}>A그룹 {customers.filter((c) => c.priceGroup === "A").length}</button><button type="button" className={filterGroup === "B" ? "selected" : ""} onClick={() => setFilterGroup("B")}>B그룹 {customers.filter((c) => c.priceGroup === "B").length}</button></div>
+      <div className="customer-group-filter"><span>가격그룹 보기</span><button type="button" className={filterGroup === "전체" ? "selected" : ""} onClick={() => setFilterGroup("전체")}>전체 {customers.length}</button>{PRICE_GROUPS.map((g) => <button type="button" key={g} className={filterGroup === g ? "selected" : ""} onClick={() => setFilterGroup(g)}>{g}그룹 {customers.filter((c) => normalizePriceGroup(c.priceGroup) === g).length}</button>)}</div>
       <input className="ops-search" placeholder="거래처번호·상호·지역 검색" value={query} onChange={(e) => setQuery(e.target.value)} />
       <div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>거래처</th><th>지역</th><th>그룹</th><th>미수금</th><th>관리</th></tr></thead><tbody>
         {visible.map((c) => <tr key={c.id} className={!c.active ? "row-disabled" : ""}>
@@ -1403,7 +1409,7 @@ function CustomerOpsPanel({ onError }: { onError: (value: string) => void }) {
               const storePhone = window.prompt("가게 전화번호", c.storePhone) ?? c.storePhone;
               const businessNumber = window.prompt("사업자번호", c.businessNumber) ?? c.businessNumber;
               const address = window.prompt("가게 주소", c.address) ?? c.address;
-              const priceGroup = window.prompt("가격그룹 A 또는 B", c.priceGroup) === "B" ? "B" : "A";
+              const priceGroup = normalizePriceGroup(window.prompt("가격그룹 A · B · C · D", c.priceGroup));
               void action({ action: "update", id: c.id, code: c.code, name, region, storePhone, businessNumber, address, phone: c.phone, priceGroup });
             }}>정보수정</button>
             <button type="button" onClick={() => { const next = window.prompt("새 6자리 인증번호", String(Math.floor(100000 + Math.random() * 900000))); if (next) void action({ action: "reset-pin", id: c.id, pin: next }); }}>PIN</button>

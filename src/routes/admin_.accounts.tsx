@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { PRICE_GROUPS, normalizePriceGroup, type PriceGroup } from "../lib/price-group";
 import { useEffect, useState } from "react";
 import { BUJA_LOGO_DATA } from "../brand-assets";
 import { customerShortLabel } from "../lib/customer-login-id";
@@ -86,7 +87,7 @@ function AccountsPage(){
   const[accountSearch,setAccountSearch]=useState("");
   const[accountPage,setAccountPage]=useState(1);
   const[groupSearch,setGroupSearch]=useState("");
-  const[groupFilter,setGroupFilter]=useState<"전체"|"A"|"B">("전체");
+  const[groupFilter,setGroupFilter]=useState<"전체"|PriceGroup>("전체");
   const[groupPage,setGroupPage]=useState(1);
 
   async function load(){
@@ -324,25 +325,24 @@ function AccountsPage(){
       {(()=>{
         const q=normalizeSearch(groupSearch);
         const rows=customers.filter(c=>c.active!==false)
-          .filter(c=>groupFilter==="전체"||(c.priceGroup==="B"?"B":"A")===groupFilter)
+          .filter(c=>groupFilter==="전체"||normalizePriceGroup(c.priceGroup)===groupFilter)
           .filter(c=>!q||normalizeSearch(`${c.code}${c.name}${c.region??""}`).includes(q));
         const pageSize=20;
         const pages=Math.max(1,Math.ceil(rows.length/pageSize));
         const page=Math.min(groupPage,pages);
-        const countB=customers.filter(c=>c.active!==false&&c.priceGroup==="B").length;
-        const countA=customers.filter(c=>c.active!==false).length-countB;
+        const countOf=(g:PriceGroup)=>customers.filter(c=>c.active!==false&&normalizePriceGroup(c.priceGroup)===g).length;
         return <section className="account-section price-group-section">
-          <div className="account-section-head"><div><p>PRICE GROUP</p><h2>거래처 가격 그룹</h2><small>A그룹은 정가, B그룹은 상품 관리에서 입력한 'B그룹 가격'으로 보이고 주문됩니다. B그룹 가격이 없는 상품은 B그룹도 정가입니다.</small></div><span>A {countA} · B {countB}</span></div>
+          <div className="account-section-head"><div><p>PRICE GROUP</p><h2>거래처 가격 그룹</h2><small>A그룹은 기본 가격, B·C·D그룹은 상품 관리에서 입력한 그룹별 가격으로 보이고 주문됩니다. 그룹 가격을 비워둔 상품은 기본 가격입니다.</small></div><span>{PRICE_GROUPS.map(g=>`${g} ${countOf(g)}`).join(" · ")}</span></div>
           <div className="price-group-tools">
             <input value={groupSearch} onChange={e=>{setGroupSearch(e.target.value);setGroupPage(1);}} placeholder="거래처명·코드·지역 검색"/>
-            <div className="price-group-filter" role="group" aria-label="그룹 보기">{(["전체","A","B"] as const).map(g=><button type="button" key={g} className={groupFilter===g?"selected":""} onClick={()=>{setGroupFilter(g);setGroupPage(1);}}>{g==="전체"?"전체":`${g}그룹`}</button>)}</div>
+            <div className="price-group-filter" role="group" aria-label="그룹 보기">{(["전체",...PRICE_GROUPS] as const).map(g=><button type="button" key={g} className={groupFilter===g?"selected":""} onClick={()=>{setGroupFilter(g);setGroupPage(1);}}>{g==="전체"?"전체":`${g}그룹`}</button>)}</div>
           </div>
           <div className="price-group-list">
-            {rows.slice((page-1)*pageSize,page*pageSize).map(c=>{const group=c.priceGroup==="B"?"B":"A";return <div className={`price-group-row group-${group.toLowerCase()}`} key={c.id}>
+            {rows.slice((page-1)*pageSize,page*pageSize).map(c=>{const group=normalizePriceGroup(c.priceGroup);return <div className={`price-group-row group-${group.toLowerCase()}`} key={c.id}>
               <div><b>{c.name}</b><small>{c.code}{c.region?` · ${c.region}`:""}</small></div>
               <div className="price-group-toggle" role="radiogroup" aria-label={`${c.name} 가격 그룹`}>
-                {(["A","B"] as const).map(g=><button type="button" role="radio" aria-checked={group===g} key={g} className={group===g?`selected g-${g.toLowerCase()}`:""}
-                  onClick={()=>{if(group!==g)void act("/api/admin/customers",{action:"set-price-group",id:c.id,priceGroup:g});}}>{g==="A"?"A 정가":"B 할인"}</button>)}
+                {PRICE_GROUPS.map(g=><button type="button" role="radio" aria-checked={group===g} key={g} className={group===g?`selected g-${g.toLowerCase()}`:""}
+                  onClick={()=>{if(group!==g)void act("/api/admin/customers",{action:"set-price-group",id:c.id,priceGroup:g});}}>{g==="A"?"A 기본":`${g}그룹`}</button>)}
               </div>
             </div>;})}
             {!rows.length&&<p className="accounts-empty">검색되는 거래처가 없습니다.</p>}

@@ -1,4 +1,5 @@
 import { db, ensureDatabase } from "./db.server";
+import { normalizePriceGroup } from "./price-group";
 import type { CustomerSummary } from "./db.server";
 import { normalizeLoginId } from "./customer-login-id";
 import {
@@ -482,7 +483,7 @@ function toCustomerSummary(row: Record<string, unknown>): CustomerSummary {
     address: String(row.address ?? ""),
     storePhone: String(row.store_phone ?? ""),
     region: String(row.region ?? ""),
-    priceGroup: String(row.price_group ?? "A") === "B" ? "B" : "A",
+    priceGroup: normalizePriceGroup(row.price_group),
     active: Number(row.active ?? 0) === 1,
     receivable: Number(row.receivable ?? 0),
     loginName: String(row.login_name ?? ""),

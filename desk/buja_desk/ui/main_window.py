@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from .. import APP_NAME, __version__
 from ..core.bundle import find_entry, merge_orders
 from ..core.model import (
+    price_group,
     customer_label, delivery_label, delivery_text, items_summary, kst_datetime, parse_utc, state_of, today_kst,
 )
 from .theme import COLORS, avatar_style, avatar_text, badge_style
@@ -133,8 +134,8 @@ class OrderCard(QFrame):
             badges.addWidget(_badge(f"🔗{order.get('mergedCount', 2)}건", "merged")); has_badge = True
         if order.get("isAdditional"):
             badges.addWidget(_badge("추가🚨", "additional")); has_badge = True
-        if order.get("priceGroup") == "B":
-            badges.addWidget(_badge("B그룹", "group_b")); has_badge = True
+        if price_group(order):
+            badges.addWidget(_badge(f"{price_group(order)}그룹", "group_b")); has_badge = True
         drivers = order.get("driverNames") or ([order.get("createdByStaffName")] if order.get("source") == "driver" else [])
         drivers = [d for d in drivers if d]
         if drivers or order.get("source") == "driver":
@@ -824,8 +825,8 @@ class MainWindow(QMainWindow):
             elif order.get("cancelled"):
                 state_text += " (취소된 주문)"
             kind = "추가 🚨" if order.get("isAdditional") else "신규"
-            if order.get("priceGroup") == "B":
-                kind += " · B그룹"
+            if price_group(order):
+                kind += f" · {price_group(order)}그룹"
             if order.get("source") == "driver":
                 kind += " · 🚚"
             who = desk.get("doneBy") if state == "done" else desk.get("enteringBy", "")

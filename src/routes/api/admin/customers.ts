@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { normalizePriceGroup } from "../../../lib/price-group";
 import { getStaff, isAdmin, makeCustomerPinCredential, normalizeCustomerCode, revokeCustomerSessions, validMutationOrigin, adminActorFor } from "../../../lib/auth.server";
 import { db, ensureDatabase } from "../../../lib/db.server";
 import { cleanText } from "../../../lib/admin-validation.server";
 import { writeAudit, staffActor } from "../../../lib/audit.server";
 
-function cleanPriceGroup(value: unknown) { return value === "B" ? "B" : "A"; }
+function cleanPriceGroup(value: unknown) { return normalizePriceGroup(value); }
 
 export const Route = createFileRoute("/api/admin/customers")({
   server: { handlers: {

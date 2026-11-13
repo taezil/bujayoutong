@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { normalizePriceGroup } from "../../../lib/price-group";
 import { getStaff, validMutationOrigin } from "../../../lib/auth.server";
 import { db, ensureDatabase } from "../../../lib/db.server";
 import type { CustomerSummary } from "../../../lib/db.server";
@@ -10,7 +11,7 @@ import { findDuplicateOrders } from "../../../lib/sms-alias.server";
 
 async function customerById(id:string):Promise<CustomerSummary|null>{
   const r=await db().prepare("SELECT id,code,name,phone,business_number,address,store_phone,region,price_group,active FROM customers WHERE id=? AND active=1").bind(id).first<Record<string,unknown>>(); if(!r)return null;
-  return {id:String(r.id),code:String(r.code),name:String(r.name),phone:String(r.phone??''),businessNumber:String(r.business_number??''),address:String(r.address??''),storePhone:String(r.store_phone??''),region:String(r.region??''),priceGroup:String(r.price_group)==='B'?'B':'A',active:true};
+  return {id:String(r.id),code:String(r.code),name:String(r.name),phone:String(r.phone??''),businessNumber:String(r.business_number??''),address:String(r.address??''),storePhone:String(r.store_phone??''),region:String(r.region??''),priceGroup:normalizePriceGroup(r.price_group),active:true};
 }
 
 export const Route=createFileRoute("/api/driver/order")({server:{handlers:{POST:async({request})=>{

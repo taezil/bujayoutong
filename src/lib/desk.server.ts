@@ -12,6 +12,7 @@
  * - 상태 변경은 조건부 UPDATE 한 번으로 처리해서 두 PC 가 동시에 눌러도 한 명만 성공합니다.
  */
 import { deliveryText } from "./delivery-rules";
+import { normalizePriceGroup } from "./price-group";
 import type { D1Result } from "@cloudflare/workers-types";
 import { db, ensureDatabase } from "./db.server";
 import { randomHex, sha256, verifyPassword } from "./password.server";
@@ -321,7 +322,7 @@ function toDeskOrder(r: OrderRow, items: OrderRow[], promoCategory = "") {
       : null,
     total: Number(r.total_amount ?? 0),
     // 주문 당시 가격그룹. B 면 알림센터에 '가격 변동그룹 주문' 표시 (예전 주문은 '')
-    priceGroup: String(r.price_group ?? "") === "B" ? "B" : String(r.price_group ?? "") === "A" ? "A" : "",
+    priceGroup: String(r.price_group ?? "") ? normalizePriceGroup(r.price_group) : "",
     hasPromo: items.some((i) => isPromoItem(i, promoCategory)),
     items: items.map((i) => ({
       id: Number(i.id),

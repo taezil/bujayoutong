@@ -88,7 +88,7 @@ def make_bundle(members: list[dict[str, Any]]) -> dict[str, Any]:
         "isAdditional": bool(first.get("isAdditional")),
         "mergedCount": len(members),
         "hasPromo": any(o.get("hasPromo") for o in members),
-        "priceGroup": "B" if any(o.get("priceGroup") == "B" for o in members) else first.get("priceGroup"),
+        "priceGroup": next((o.get("priceGroup") for o in members if str(o.get("priceGroup") or "").upper() in ("B", "C", "D")), first.get("priceGroup")),
         "total": sum(float(o.get("total") or 0) for o in members),
         "contentVersion": revisions,
         "sources": sorted({str(o.get("sourceLabel") or "") for o in members}),

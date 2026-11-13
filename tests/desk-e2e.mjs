@@ -373,6 +373,26 @@ async function main() {
     check("B그룹 주문 금액 = B그룹 가격, 정가도 함께 저장", Number(bItem?.unit_price) === priceB && Number(bItem?.list_price) === listPrice, j(bItem));
     const bDesk = (await pcA.json(`/api/desk/orders?id=${bId}`)).body?.order;
     check("알림센터: 가격 변동그룹(B) 주문 + 정가/단가", bDesk?.priceGroup === "B" && bDesk.items[0].unitPrice === priceB && bDesk.items[0].listPrice === listPrice, j(bDesk));
+    // C·D그룹: 그룹마다 다른 가격, 비워두면 정가
+    const priceC = listPrice + 700;
+    sql(`UPDATE pack_options SET price_c=${priceC} WHERE product_id='${target.id}' AND label='${option.label}'`);
+    sql(`UPDATE customers SET price_group='C' WHERE id='${customerRow.id}'`);
+    const cOption = (await customer.json("/api/store")).body?.products?.find((p) => p.id === target.id)?.packOptions?.find((o) => o.label === option.label);
+    check("C그룹 거래처: C그룹 가격으로 보임", cOption?.price === priceC && !("priceC" in (cOption ?? {})), j(cOption));
+    const cOrder = await customer.json("/api/orders", { method: "POST", json: {
+      items: [{ productId: target.id, optionLabel: option.label, quantity: option.step || 1 }], requestId: randomUUID(),
+      deliveryDate: kstDate(1), deliverySlot: "PM", note: "C그룹 테스트", confirmAnomaly: true } });
+    const cItem = sql(`SELECT unit_price FROM order_items WHERE order_id='${cOrder.body?.order?.id}'`)[0];
+    const cDesk = (await pcA.json(`/api/desk/orders?id=${cOrder.body?.order?.id}`)).body?.order;
+    check("C그룹 주문 금액 = C그룹 가격 + 알림센터 C그룹 표시", Number(cItem?.unit_price) === priceC && cDesk?.priceGroup === "C", j({ cItem, g: cDesk?.priceGroup }));
+    sql(`UPDATE customers SET price_group='D' WHERE id='${customerRow.id}'`);
+    const dOption = (await customer.json("/api/store")).body?.products?.find((p) => p.id === target.id)?.packOptions?.find((o) => o.label === option.label);
+    check("D그룹: D가격 비어 있으면 정가", dOption?.price === listPrice, j(dOption));
+    const adminD = new Client();
+    await adminD.json("/api/admin/login", { method: "POST", json: { username: "admin", password: "ci-admin-password" } });
+    const setD = await adminD.json("/api/admin/customers", { method: "POST", json: { action: "set-price-group", id: customerRow.id, priceGroup: "D" } });
+    check("관리자 API로 D그룹 지정", setD.status === 200 && setD.body?.priceGroup === "D", j(setD.body));
+    sql(`UPDATE pack_options SET price_c=NULL WHERE product_id='${target.id}'`);
     sql(`UPDATE customers SET price_group='${customerRow.price_group || "A"}' WHERE id='${customerRow.id}'`);
     const aDesk = (await pcA.json(`/api/desk/orders?id=${orderId}`)).body?.order;
     check("A그룹 주문은 가격 변동그룹 아님", aDesk?.priceGroup === "A", j(aDesk?.priceGroup));

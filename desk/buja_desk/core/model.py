@@ -89,9 +89,15 @@ def delivery_text(order: dict[str, Any], *, with_year: bool = False) -> str:
     return f"{text} {slot}" if slot else text
 
 
+def price_group(order: dict[str, Any]) -> str:
+    """가격 변동그룹(B·C·D) 이면 그 글자, 기본(A)이면 빈 문자열."""
+    group = str(order.get("priceGroup") or "").upper()
+    return group if group in ("B", "C", "D") else ""
+
+
 def is_price_group_b(order: dict[str, Any]) -> bool:
-    """B그룹(가격 변동그룹) 거래처 주문인지."""
-    return order.get("priceGroup") == "B"
+    """가격 변동그룹(B·C·D그룹) 거래처 주문인지. (이름은 예전 그대로)"""
+    return bool(price_group(order))
 
 
 def won(value: Any) -> str:
@@ -149,7 +155,7 @@ def order_as_text(order: dict[str, Any]) -> str:
         lines.append(f"배송처 주소: {location['address']}")
     lines.append("")
     if is_price_group_b(order):
-        lines.insert(1, "※ 가격 변동그룹 주문 (B그룹 단가)")
+        lines.insert(1, f"※ 가격 변동그룹 주문 ({price_group(order)}그룹 단가)")
     for item in order.get("items") or []:
         spec = f" ({item.get('spec')})" if item.get("spec") else ""
         lines.append(f"{item.get('productName', '')}{spec}\t{quantity_text(item.get('quantity'))}\t{item.get('unit', '')}\t{won(item.get('unitPrice'))}")

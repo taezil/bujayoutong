@@ -4679,3 +4679,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .driver-step small { font-weight: 600; font-size: 12px; color: #6b7a70; }
 .driver-meta-date { display: flex; align-items: center; gap: 8px; font-weight: 800; margin-bottom: 8px; }
 .driver-meta-date input { flex: 1; min-height: 44px; font-size: 16px; padding: 0 10px; border: 1px solid #cfd8d3; border-radius: 10px; }
+/* 그룹별 가격 B·C·D: 단위·기본 가격 아래 한 줄에 3칸 */
+.adm-unit-row.simple.with-b { grid-template-columns: minmax(0,1fr) minmax(0,1.4fr) 36px; }
+.adm-unit-row.simple.with-b .adm-unit-del { grid-row: 1; grid-column: 3; justify-self: stretch; }
+.adm-group-prices { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; }
+.adm-group-prices > label { display: grid; gap: 4px; color: #4a5568; font-size: 12px; font-weight: 800; }
+.adm-group-prices .adm-suffix { border-color: #8fd1ae; background: #f3fbf6; }
+.adm-group-prices .adm-suffix input { background: transparent; font-size: 15px; }
+.adm-price-c .adm-suffix { border-color: #93c5fd; background: #eff6ff; }
+.adm-price-d .adm-suffix { border-color: #fcd34d; background: #fffbeb; }
+@media (max-width: 760px) {
+  .adm-unit-row.simple.with-b { grid-template-columns: minmax(0,1fr) minmax(0,1.4fr) 36px; }
+  .adm-unit-row.simple.with-b .adm-unit-del { grid-row: 1; grid-column: 3; }
+}
+.price-group-row.group-c { border-color: #93c5fd; background: #f3f8ff; }
+.price-group-row.group-d { border-color: #c4b5fd; background: #f7f5ff; }
+.price-group-toggle button.selected.g-c { background: #1d4ed8; color: #fff; }
+.price-group-toggle button.selected.g-d { background: #6d28d9; color: #fff; }
+.price-group-toggle button { padding: 0 12px; }
+@media (max-width: 760px) { .price-group-row { flex-wrap: wrap; } }

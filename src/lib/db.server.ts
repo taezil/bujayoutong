@@ -1,4 +1,5 @@
 import type { D1Database } from "@cloudflare/workers-types";
+import { groupPriceOf, type PriceGroup } from "./price-group";
 import { bindings } from "./bindings.server";
 import migrationSql from "../../migrations/0001_init.sql?raw";
 import erpMigrationSql from "../../migrations/0002_erp.sql?raw";
@@ -116,6 +117,8 @@ export type PackOption = {
   price: number | null;
   priceA?: number | null;
   priceB?: number | null;
+  priceC?: number | null;
+  priceD?: number | null;
   step: number;
 };
 
@@ -159,7 +162,7 @@ export type CustomerSummary = {
   address: string;
   storePhone: string;
   region: string;
-  priceGroup: "A" | "B";
+  priceGroup: PriceGroup;
   active: boolean;
   receivable?: number;
   loginName?: string;
@@ -512,6 +515,8 @@ async function ensureDatabaseFull(database: D1Database) {
   await ensureColumn(database, "categories", "image", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn(database, "pack_options", "price_a", "INTEGER");
   await ensureColumn(database, "pack_options", "price_b", "INTEGER");
+  await ensureColumn(database, "pack_options", "price_c", "INTEGER");
+  await ensureColumn(database, "pack_options", "price_d", "INTEGER");
   await ensureColumn(database, "pack_options", "spec", "TEXT NOT NULL DEFAULT ''");
   await ensureOperationsSchema(database);
   await ensureDeskSchema(database);
@@ -678,14 +683,14 @@ function boolSetting(settings: Record<string, string>, key: string, fallback: bo
  *   다른 그룹 가격은 내려보내지 않음.
  * - priceGroup 이 없으면(관리자·직원) 정가 price + B그룹 가격 priceB 를 함께 보냄.
  */
-export async function readStore(priceGroup?: "A" | "B", options: { includeHidden?: boolean } = {}): Promise<StoreData> {
+export async function readStore(priceGroup?: PriceGroup, options: { includeHidden?: boolean } = {}): Promise<StoreData> {
   const database = db();
   await ensureDatabase(database);
   const [categoryRows, subRows, productRows, optionRows, settingsRows] = await Promise.all([
     database.prepare("SELECT name, sort_order, is_promo, image, storage FROM categories ORDER BY sort_order, name").all(),
     database.prepare("SELECT category_name, name, sort_order FROM subcategories ORDER BY category_name, sort_order, name").all(),
     database.prepare("SELECT id, name, category, sub, unit, price, soldout, photo, sort_order, tax_type, warehouse_zone, description, servings_per_unit, box_contents, servings_per_box, storage_method, price_list_visible, price_display_mode, hidden, promo_price, is_promo, photos, updated_at FROM products ORDER BY sort_order, name").all(),
-    database.prepare("SELECT product_id, label, spec, price, price_a, price_b, step, sort_order FROM pack_options ORDER BY product_id, sort_order, id").all(),
+    database.prepare("SELECT product_id, label, spec, price, price_a, price_b, price_c, price_d, step, sort_order FROM pack_options ORDER BY product_id, sort_order, id").all(),
     database.prepare("SELECT key, value FROM app_settings").all(),
   ]);
 
@@ -707,15 +712,17 @@ export async function readStore(priceGroup?: "A" | "B", options: { includeHidden
   for (const row of optionRows.results as Array<Record<string, unknown>>) {
     const id = String(row.product_id);
     const base = row.price == null ? null : Number(row.price);
-    const priceB = row.price_b == null ? null : Number(row.price_b);
+    const num = (v: unknown) => (v == null ? null : Number(v));
+    const prices = { price: base, priceB: num(row.price_b), priceC: num(row.price_c), priceD: num(row.price_d) };
     const list = optionsByProduct.get(id) ?? [];
     const option: PackOption = {
       label: String(row.label),
       spec: String(row.spec ?? ""),
-      price: priceGroup === "B" && priceB != null && base != null ? priceB : base,
+      // 거래처: 자기 그룹 가격만 / 관리자·직원: 기본 가격 + B·C·D 가격 모두
+      price: priceGroup ? groupPriceOf(prices, priceGroup) : base,
       step: Number(row.step ?? 1),
     };
-    if (!priceGroup) option.priceB = priceB;
+    if (!priceGroup) { option.priceB = prices.priceB; option.priceC = prices.priceC; option.priceD = prices.priceD; }
     list.push(option);
     optionsByProduct.set(id, list);
   }

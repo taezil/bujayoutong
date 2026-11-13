@@ -1,4 +1,5 @@
 import { db, ensureDatabase } from "./db.server";
+import { groupPriceOf, normalizePriceGroup } from "./price-group";
 import type { CustomerSummary, OrderSettings } from "./db.server";
 import type { StaffSession } from "./auth.server";
 import { staffActor } from "./audit.server";
@@ -111,7 +112,7 @@ async function prepareItems(customer: CustomerSummary, items: OrderRequestItem[]
   const productIds = Array.from(new Set(normalized.map((item) => item.productId)));
   const optionRows = await db().prepare(`
     SELECT p.id,p.name,p.unit,p.soldout,p.tax_type,p.warehouse_zone,
-           p.category,COALESCE(p.is_promo,0) AS is_promo,po.label,po.price,po.price_b,po.step
+           p.category,COALESCE(p.is_promo,0) AS is_promo,po.label,po.price,po.price_b,po.price_c,po.price_d,po.step
     FROM products p JOIN pack_options po ON po.product_id=p.id
     WHERE p.id IN (${productIds.map(() => "?").join(",")})
     ORDER BY po.sort_order, po.id
@@ -130,9 +131,10 @@ async function prepareItems(customer: CustomerSummary, items: OrderRequestItem[]
     const step = Math.max(0.001, Number(row.step ?? 1));
     const ratio = item.quantity / step;
     if (Math.abs(ratio - Math.round(ratio)) > 0.0001) throw new Error(`${String(row.name)} 수량 단위를 확인해 주세요.`);
-    // A그룹=정가(price), B그룹=B그룹 가격(price_b, 비어 있으면 정가). 거래처 화면·단가표에 보이는 가격과 같음
+    // A그룹=정가(price), B·C·D그룹=그룹 가격(비어 있으면 정가). 거래처 화면에 보이는 가격과 같음
     const base = row.price == null ? 0 : Number(row.price);
-    const groupPrice = customer.priceGroup === "B" && row.price != null && row.price_b != null ? Number(row.price_b) : null;
+    const num = (v: unknown) => (v == null ? null : Number(v));
+    const groupPrice = row.price == null ? null : groupPriceOf({ price: Number(row.price), priceB: num(row.price_b), priceC: num(row.price_c), priceD: num(row.price_d) }, customer.priceGroup);
     prepared.push({
       productId: String(row.id), productName: String(row.name), unit: String(row.unit ?? ""), optionLabel: String(row.label),
       quantity: item.quantity, unitPrice: groupPrice == null ? base : groupPrice, listPrice: base, taxType: String(row.tax_type ?? "taxable"), warehouseZone: String(row.warehouse_zone ?? ""),
@@ -247,7 +249,7 @@ export async function createCustomerOrder(
       db().prepare(`INSERT INTO orders(id,customer_id,source,status,region_snapshot,total_amount,note,delivery_date,created_by_staff_id,created_by_staff_name,is_additional,order_period,client_request_id,delivery_location_id,delivery_location_name,delivery_location_address,delivery_location_phone,delivery_slot,price_group,delivery_run)
                     VALUES(?,?,?,'received',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
         .bind(id, customer.id, source, customer.region || "미지정", total, String(note || "").slice(0, 500), deliveryDate, staff?.id ?? "", staff?.displayName ?? "", isAdditional ? 1 : 0, orderPeriod,
-          clientRequestId, location?.id ?? "", location?.name ?? "", location?.address ?? "", location?.phone ?? "", deliverySlot, customer.priceGroup === "B" ? "B" : "A", deliveryRun),
+          clientRequestId, location?.id ?? "", location?.name ?? "", location?.address ?? "", location?.phone ?? "", deliverySlot, normalizePriceGroup(customer.priceGroup), deliveryRun),
       ...prepared.map((item) => itemInsert(id, item)),
       // 사무실 발주 알림센터 '신규' 상태를 주문과 같은 트랜잭션으로 생성 (입력완료 전에는 목록에서 빠지지 않음)
       db().prepare("INSERT OR IGNORE INTO order_desk_status(order_id,state) VALUES(?,'new')").bind(id),
