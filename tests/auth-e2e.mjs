@@ -269,7 +269,7 @@ async function main() {
     check("[화면] 첫 화면에 배송기사·직원 로그인 링크", (await staffLink.count()) === 1 && (await staffLink.innerText()).includes("배송기사"));
     const idMode = await page.locator('input[name="username"]').getAttribute("inputmode");
     const pwMode = await page.locator('input[name="password"]').getAttribute("inputmode");
-    check("[화면] 아이디/비밀번호 숫자 키패드", idMode === "numeric" && pwMode === "numeric", `${idMode}/${pwMode}`);
+    check("[화면] 아이디/비밀번호 일반 키보드(영문 아이디 입력 가능)", idMode === "text" && pwMode === "text", `${idMode}/${pwMode}`);
 
     const t0 = Date.now();
     await page.reload();
